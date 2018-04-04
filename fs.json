@@ -1,0 +1,5 @@
+{
+  "mount_point": "/Users/sourabh/fs_root",
+  "cache_location": "/Users/sourabh/fs_cache",
+  "remote_paths": ["localhost:8000@/Users/sourabh/fs_remote_root"]
+}
