@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
-	"time"
 	"os"
 	"github.com/mitchellh/mapstructure"
 )
@@ -13,15 +12,9 @@ type Request struct {
 	Id              uint64
 	Op              uint8          `json:"op"`
 	RemoteNode      *RemoteNode    `json:"remote-node"`
-	ResponseChannel chan *Response `json:"-"`
+	ResponseChannel chan BaseResponse `json:"-"`
 }
 
-type Response struct {
-	Id         uint64
-	Op         uint8
-	RemoteNode *RemoteNode
-	Response   interface{}
-}
 
 type CacheRequest struct {
 	Op              uint8
@@ -33,7 +26,7 @@ type Stat struct {
 	Name    string
 	Size    int64
 	Mode    os.FileMode
-	ModTime time.Time
+	ModTime int64
 	IsDir   bool
 }
 

@@ -4,10 +4,16 @@ import (
 	"os"
 	"log"
 	"io/ioutil"
+	//"encoding/base64"
 	"encoding/base64"
 )
 
-func Attr(request *Request) *Stat {
+func Attr(request *Request) *StatResponse {
+
+	resp := &StatResponse{
+		RequestId: request.Id,
+		RNode:     request.RemoteNode,
+	}
 
 	rn := request.RemoteNode
 	path := rn.RemotePath.Path
@@ -26,20 +32,27 @@ func Attr(request *Request) *Stat {
 	s.Size = info.Size()
 	s.Mode = info.Mode()
 	// Fix ModTime
-	s.ModTime = info.ModTime()
+	s.ModTime = info.ModTime().UnixNano()
 	s.IsDir = info.IsDir()
 
 	//sys := info.Sys().(syscall.Stat_t)
 
-	return s
+	resp.Stat = s
+
+	return resp
 
 }
 
-func ReadDir(request *Request) *[]Stat {
+func ReadDir(request *Request) *ReadDirResponse {
 
 	path := request.RemoteNode.RemotePath.Path
 
-	var stats []Stat
+	resp := &ReadDirResponse{
+		RequestId: request.Id,
+		RNode:     request.RemoteNode,
+	}
+
+	var stats []*Stat
 
 	log.Printf("Processing ReadDir Request %d for %s", request.Id, path)
 
@@ -52,37 +65,44 @@ func ReadDir(request *Request) *[]Stat {
 
 	for _, file := range files {
 
-		s := Stat{}
-
-		//fmt.Println(reflect.TypeOf(file))
+		s := &Stat{}
 
 		s.Name = file.Name()
 		s.Size = file.Size()
 		s.Mode = file.Mode()
-		s.ModTime = file.ModTime()
+		s.ModTime = file.ModTime().UnixNano()
 		s.IsDir = file.IsDir()
 
 		stats = append(stats, s)
 
 	}
 
+	resp.Stats = stats
 
-	return &stats
+	return resp
 
 }
 
-func FetchFile(request *Request) string {
+func FetchFile(request *Request) BaseResponse {
 	data, err := ioutil.ReadFile(request.RemoteNode.RemotePath.Path)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if len(data) > 0 {
-		return base64.StdEncoding.EncodeToString(data)
-	} else {
-		return ""
+	resp := &FileDataResponse{
+		RequestId: request.Id,
+		RNode:     request.RemoteNode,
 	}
 
+	if len(data) > 0 {
+		resp.Data = base64.StdEncoding.EncodeToString(data)
+	} else {
+		resp.Data = ""
+	}
+
+	log.Println(resp.Data)
+
+	return resp
 }
 

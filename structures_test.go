@@ -17,7 +17,7 @@ func TestRemotePath_String(t *testing.T) {
 	got := remotePathObject.String()
 
 	if got != remotePath {
-		PrintTestError(t, "string converted RemotePath not matching", got, remotePath)
+		PrintTestError(t, "string converted RemoteRoot not matching", got, remotePath)
 	}
 }
 

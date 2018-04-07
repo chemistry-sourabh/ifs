@@ -9,20 +9,20 @@ import (
 	"os/user"
 	"strconv"
 	"os"
-	"bazil.org/fuse/fuseutil"
-	"io"
-	"bufio"
+	"time"
 )
 
-type Root struct {
+type Ifs struct {
+	Talker      *Talker
+	FileHandler *FileHandler
 	RemoteRoots map[string]*RemoteNode
 }
 
-func (root *Root) Root() (fs.Node, error) {
+func (root *Ifs) Root() (fs.Node, error) {
 	return root, nil
 }
 
-func (root *Root) Attr(ctx context.Context, attr *fuse.Attr) error {
+func (root *Ifs) Attr(ctx context.Context, attr *fuse.Attr) error {
 	log.Println("Root Attr")
 	// Check Error
 	curUser, _ := user.Current()
@@ -40,20 +40,20 @@ func (root *Root) Attr(ctx context.Context, attr *fuse.Attr) error {
 	return nil
 }
 
-func (root *Root) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+func (root *Ifs) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	log.Printf("Root ReadDirAll")
 
 	var children []fuse.Dirent
 
-	for _, rootDir := range root.RemoteRoots {
-		child := fuse.Dirent{Type: fuse.DT_Dir, Name: rootDir.RemotePath.Address()}
+	for dirName := range root.RemoteRoots {
+		child := fuse.Dirent{Type: fuse.DT_Dir, Name: dirName}
 		children = append(children, child)
 	}
 
 	return children, nil
 }
 
-func (root *Root) Lookup(ctx context.Context, name string) (fs.Node, error) {
+func (root *Ifs) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	log.Printf("Root Lookup %s", name)
 
 	val, ok := root.RemoteRoots[name]
@@ -66,31 +66,22 @@ func (root *Root) Lookup(ctx context.Context, name string) (fs.Node, error) {
 }
 
 type RemoteNode struct {
-	IsDir                bool                   `json:"is-dir"`
-	IsCached             bool                   `json:"is-cached"`
-	RemotePath           *RemotePath            `json:"remote-path"`
-	EgressRequestChannel chan *Request          `json:"-"`
-	CacheRequestChannel  chan *CacheRequest     `json:"-"`
-	RemoteNodes          map[string]*RemoteNode `json:"-"`
+	Ifs         *Ifs                   `json:"-"`
+	IsDir       bool                   `json:"is-dir"`
+	RemotePath  *RemotePath            `json:"remote-path"`
+	RemoteNodes map[string]*RemoteNode `json:"-"`
 }
 
 func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
-	// Update Cache if invalid
-
-	respChannel := make(chan *Response)
+	// Update FileHandler if invalid
 
 	log.Printf("Attr %s \n", rn.RemotePath.String())
 
-	req := &Request{
-		Op:              AttrOp,
-		RemoteNode:      rn,
-		ResponseChannel: respChannel,
-	}
+	resp := rn.Ifs.Talker.sendRequest(AttrOp, rn)
+	log.Printf("Got Response for Attr %s", rn.RemotePath.String())
+	s := resp.(*StatResponse).Stat
 
-	rn.EgressRequestChannel <- req
-	resp := <-respChannel
-
-	s := ConvertToStat(resp.Response)
+	log.Println(s)
 
 	// Check Error
 	curUser, _ := user.Current()
@@ -103,7 +94,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Gid = uint32(gid)
 	attr.Size = uint64(s.Size)
 	attr.Mode = s.Mode
-	attr.Mtime = s.ModTime
+	attr.Mtime = time.Unix(0, s.ModTime)
 
 	return nil
 }
@@ -113,65 +104,41 @@ func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	// Populate Directory Accordingly
 	log.Printf("ReadDir %s", rn.RemotePath.String())
 
-	respChannel := make(chan *Response)
-
-	req := &Request{
-		Op:              ReadDirOp,
-		RemoteNode:      rn,
-		ResponseChannel: respChannel,
-	}
-
-	rn.EgressRequestChannel <- req
-
-	resp := <-respChannel
+	resp := rn.Ifs.Talker.sendRequest(ReadDirOp, rn)
 
 	var children []fuse.Dirent
 	rn.RemoteNodes = make(map[string]*RemoteNode)
 
-	files := resp.Response.([]interface{})
+	files := resp.(*ReadDirResponse).Stats
 
 	for _, file := range files {
 
-		s := ConvertToStat(file)
+		s := file
 
+		var child fuse.Dirent
 		if s.IsDir {
-			child := fuse.Dirent{Type: fuse.DT_Dir, Name: s.Name}
-			children = append(children, child)
-
-			newRn := &RemoteNode{
-				IsDir: true,
-				RemotePath: &RemotePath{
-					Hostname: rn.RemotePath.Hostname,
-					Port:     rn.RemotePath.Port,
-					Path:     path.Join(rn.RemotePath.Path, s.Name),
-				},
-				EgressRequestChannel: rn.EgressRequestChannel,
-				CacheRequestChannel: rn.CacheRequestChannel,
-			}
-
-			rn.RemoteNodes[s.Name] = newRn
-
+			child = fuse.Dirent{Type: fuse.DT_Dir, Name: s.Name}
 		} else {
-			child := fuse.Dirent{Type: fuse.DT_File, Name: s.Name}
-			children = append(children, child)
-
-			newRn := &RemoteNode{
-				IsDir: false,
-				RemotePath: &RemotePath{
-					Hostname: rn.RemotePath.Hostname,
-					Port:     rn.RemotePath.Port,
-					Path:     path.Join(rn.RemotePath.Path, s.Name),
-				},
-				EgressRequestChannel: rn.EgressRequestChannel,
-				CacheRequestChannel: rn.CacheRequestChannel,
-			}
-
-			rn.RemoteNodes[s.Name] = newRn
+			child = fuse.Dirent{Type: fuse.DT_File, Name: s.Name}
 		}
+		children = append(children, child)
+		rn.RemoteNodes[s.Name] = rn.generateChildRemoteNode(s.Name, s.IsDir)
 
 	}
 
 	return children, nil
+}
+
+func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNode {
+	return &RemoteNode{
+		Ifs:   rn.Ifs,
+		IsDir: isDir,
+		RemotePath: &RemotePath{
+			Hostname: rn.RemotePath.Hostname,
+			Port:     rn.RemotePath.Port,
+			Path:     path.Join(rn.RemotePath.Path, name),
+		},
+	}
 }
 
 func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) {
@@ -188,60 +155,44 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 
 func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	log.Println("Open call on file", rn.RemotePath.String())
-
-	// If not cached then get file from remote
-	// Else open file from Cache
-
-	if !rn.IsCached && !rn.IsDir {
-		log.Println("Generate Cache Request")
-		creq := &CacheRequest{
-			Op: FetchFileCacheOp,
-			RemoteNode: rn,
-		}
-
-		rn.CacheRequestChannel <- creq
+	if !rn.IsDir {
+		rn.Ifs.FileHandler.OpenFile(rn)
 	}
-
 	return rn, nil
 
 }
 
 func (rn *RemoteNode) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
-	log.Println("Requested Read on File", rn.RemotePath.String())
+	log.Printf("Read %s off=%d size=%d", rn.RemotePath.String(), req.Offset, req.Size)
 
-	creq := &CacheRequest{
-		Op: GetLocalFileCacheOp,
-		RemoteNode: rn,
-		ResponseChannel: make(chan []byte),
-	}
+	b, _, err := rn.Ifs.FileHandler.ReadData(rn, req.Offset, req.Size)
 
+	resp.Data = b
 
-	rn.CacheRequestChannel <- creq
-
-	fuseutil.HandleRead(req, resp, <- creq.ResponseChannel)
-	return nil
+	return err
 }
 
-func (rn *RemoteNode) ReadAll(ctx context.Context) ([]byte, error) {
-	log.Println("Reading all of file", rn.RemotePath.Path)
+//
+//func (rn *RNode) ReadAll(ctx context.Context) ([]byte, error) {
+//	log.Println("Reading all of file", rn.RemotePath.Path)
+//
+//	creq := &CacheRequest{
+//		Op: GetLocalFileCacheOp,
+//		RNode: rn,
+//		ResponseChannel: make(chan []byte),
+//	}
+//
+//	rn.CacheRequestChannel <- creq
+//
+//	return <- creq.ResponseChannel, nil
+//}
 
-	creq := &CacheRequest{
-		Op: GetLocalFileCacheOp,
-		RemoteNode: rn,
-		ResponseChannel: make(chan []byte),
-	}
-
-	rn.CacheRequestChannel <- creq
-
-	return <- creq.ResponseChannel, nil
-}
-
-//func (rn *RemoteNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-//	log.Println("Trying to write to ", rn.RemotePath.String(), "offset", req.Offset, "dataSize:", len(req.Data), "data: ", string(req.Data))
+//func (rn *RNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+//	log.Println("Trying to write to ", rn.RemoteRoot.String(), "offset", req.Offset, "dataSize:", len(req.Data), "Data: ", string(req.Data))
 //
 //
 //	//resp.Size = len(req.Data)
-//	//f.data = req.Data
+//	//f.Data = req.Data
 //	log.Println("Wrote to file", f.name)
 //	return nil
 //}

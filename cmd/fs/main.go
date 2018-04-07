@@ -5,48 +5,29 @@ import (
 	"log"
 	"bazil.org/fuse/fs"
 	"arsyncfs"
-	"github.com/gorilla/websocket"
+	"path"
 )
 
-func generateRemotePaths(paths []string) []*arsyncfs.RemotePath {
-
-	var remotePaths []*arsyncfs.RemotePath
-	for _, path := range paths {
-		remotePath := &arsyncfs.RemotePath{}
-		remotePath.Convert(path)
-		remotePaths = append(remotePaths, remotePath)
-	}
-
-	return remotePaths
-}
-
-func generateRemoteNodes(paths []*arsyncfs.RemotePath, egressRequestChannel chan *arsyncfs.Request, cacheRequestChannel chan *arsyncfs.CacheRequest) map[string]*arsyncfs.RemoteNode {
+func generateRemoteNodes(ifs *arsyncfs.Ifs, remoteRoot *arsyncfs.RemoteRoot) map[string]*arsyncfs.RemoteNode {
 
 	remoteRoots := make(map[string]*arsyncfs.RemoteNode)
 
-	for _, path := range paths {
+	for _, joinedPath := range remoteRoot.StringArray() {
+
+		rp := &arsyncfs.RemotePath{}
+
+		rp.Convert(joinedPath)
+
 		rn := &arsyncfs.RemoteNode{
-			IsDir:                true,
-			RemotePath:           path,
-			EgressRequestChannel: egressRequestChannel,
-			CacheRequestChannel:  cacheRequestChannel,
+			Ifs:        ifs,
+			IsDir:      true,
+			RemotePath: rp,
 		}
 
-		remoteRoots[path.Address()] = rn
+		remoteRoots[path.Base(rp.Path)] = rn
 	}
 
 	return remoteRoots
-}
-
-func generateIngressChannels(paths []*arsyncfs.RemotePath) map[string]chan *arsyncfs.Request {
-
-	ingressChannels := make(map[string]chan *arsyncfs.Request)
-
-	for _, path := range paths {
-		ingressChannels[path.Address()] = make(chan *arsyncfs.Request, arsyncfs.ChannelLength)
-	}
-
-	return ingressChannels
 }
 
 func main() {
@@ -62,38 +43,33 @@ func main() {
 
 	server := fs.New(c, nil)
 
-	egressRequestChannel := make(chan *arsyncfs.Request, arsyncfs.ChannelLength)
-	cacheRequestChannel := make(chan *arsyncfs.CacheRequest, arsyncfs.ChannelLength)
+	//cache := &arsyncfs.FileHandler{
+	//	Path:                 cfg.CacheLocation,
+	//	Size:                 100,
+	//	RequestChannel:       cacheRequestChannel,
+	//	EgressRequestChannel: egressRequestChannel,
+	//	Map:                  make(map[string]uint64),
+	//}
 
-	remoteRoots := generateRemotePaths(cfg.RemotePaths)
+	fileSystem := &arsyncfs.Ifs{}
 
-	cache := &arsyncfs.Cache{
-		Path:                 cfg.CacheLocation,
-		Size:                 100,
-		RequestChannel:       cacheRequestChannel,
-		EgressRequestChannel: egressRequestChannel,
-		Map: make(map[string] uint64),
+	remoteRootNodes := generateRemoteNodes(fileSystem, &cfg.RemoteRoot)
+
+	talker := &arsyncfs.Talker{
+		Ifs: fileSystem,
 	}
 
-	fileSystem := &arsyncfs.Root{
-		RemoteRoots: generateRemoteNodes(remoteRoots, egressRequestChannel, cacheRequestChannel),
+	fileHandler := &arsyncfs.FileHandler{
+		Ifs: fileSystem,
+		Path: cfg.CacheLocation,
 	}
 
-	talker := arsyncfs.Talker{
-		EgressRequestChannel:   egressRequestChannel,
-		WebSockets:             make(map[string]*websocket.Conn),
-		IngressRequestChannels: generateIngressChannels(remoteRoots),
-	}
+	fileSystem.Talker = talker
+	fileSystem.FileHandler = fileHandler
+	fileSystem.RemoteRoots = remoteRootNodes
 
-	talker.MountRemoteRoots(remoteRoots)
-
-	go cache.ProcessRequests()
-
-	for _, path := range remoteRoots {
-		go talker.ProcessAgentMessages(path.Address())
-	}
-
-	go talker.ProcessChannel()
+	talker.Startup(cfg.RemoteRoot.Address)
+	fileHandler.StartUp()
 
 	server.Serve(fileSystem)
 
