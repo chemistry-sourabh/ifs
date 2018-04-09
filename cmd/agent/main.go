@@ -8,9 +8,9 @@ import (
 )
 
 type Agent struct {
-	Connection *websocket.Conn
-	RequestChannel chan *arsyncfs.Request
-	ResponseChannel chan arsyncfs.BaseResponse
+	Connection      *websocket.Conn
+	RequestChannel  chan *arsyncfs.Packet
+	ResponseChannel chan *arsyncfs.Packet
 }
 
 func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
@@ -23,16 +23,19 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 
 	for {
 
-		req := &arsyncfs.Request{}
+		req := &arsyncfs.Packet{}
 
-		err := conn.ReadJSON(req)
+		typ, data, err := conn.ReadMessage()
 
 		if err != nil {
 			log.Fatal(err.Error())
 			break
 		}
 
-		a.RequestChannel <- req
+		if typ == websocket.BinaryMessage {
+			req.Unmarshal(data)
+			a.RequestChannel <- req
+		}
 
 	}
 
@@ -43,21 +46,27 @@ func (a *Agent) ProcessRequests() {
 	log.Println("Starting Request Processor")
 	for req := range a.RequestChannel {
 
-		var resp arsyncfs.BaseResponse
+		resp := &arsyncfs.Packet{
+			Id: req.Id,
+		}
 
 		switch req.Op {
 
-		case arsyncfs.AttrOp:
-			resp = arsyncfs.Attr(req)
+		case arsyncfs.AttrRequest:
+			resp.Op = arsyncfs.StatResponse
+			resp.Data = arsyncfs.Attr(req)
 
-		case arsyncfs.ReadDirOp:
-			resp = arsyncfs.ReadDir(req)
+		case arsyncfs.ReadDirRequest:
+			resp.Op = arsyncfs.StatsResponse
+			resp.Data = arsyncfs.ReadDir(req)
 
-		case arsyncfs.FetchFileOp:
-			resp = arsyncfs.FetchFile(req)
+		case arsyncfs.FetchFileRequest:
+			resp.Op = arsyncfs.FileDataResponse
+			resp.Data = arsyncfs.FetchFile(req)
 
-		case arsyncfs.ReadFileOp:
-
+		case arsyncfs.ReadFileRequest:
+			resp.Op = arsyncfs.FileDataResponse
+			//resp =
 
 		}
 
@@ -66,15 +75,14 @@ func (a *Agent) ProcessRequests() {
 		log.Println("Response Sent on Channel")
 	}
 
-
 }
 
 func (a *Agent) ProcessResponses() {
 	log.Println("Starting Response Processor")
 	for resp := range a.ResponseChannel {
 		log.Println("Response Received On Channel")
-		err := a.Connection.WriteJSON(resp)
-		log.Printf("Sent Response for Op Code %d With RequestId %d", resp.Op(), resp.Id())
+		err := a.Connection.WriteMessage(websocket.BinaryMessage, resp.Marshal())
+		log.Printf("Sent Response for Op Code %d With RequestId %d", resp.Op, resp.Id)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -84,8 +92,8 @@ func (a *Agent) ProcessResponses() {
 func main() {
 
 	agent := &Agent{
-		RequestChannel: make(chan *arsyncfs.Request, arsyncfs.ChannelLength),
-		ResponseChannel: make(chan arsyncfs.BaseResponse, arsyncfs.ChannelLength),
+		RequestChannel:  make(chan *arsyncfs.Packet, arsyncfs.ChannelLength),
+		ResponseChannel: make(chan *arsyncfs.Packet, arsyncfs.ChannelLength),
 	}
 
 	log.Println("Starting Server")

@@ -4,42 +4,17 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
-	"os"
-	"github.com/mitchellh/mapstructure"
 )
 
-type Request struct {
-	Id              uint64
-	Op              uint8          `json:"op"`
-	RemoteNode      *RemoteNode    `json:"remote-node"`
-	ResponseChannel chan BaseResponse `json:"-"`
-}
-
-
-type CacheRequest struct {
-	Op              uint8
-	RemoteNode      *RemoteNode
-	ResponseChannel chan []byte
-}
-
-type Stat struct {
-	Name    string
-	Size    int64
-	Mode    os.FileMode
-	ModTime int64
-	IsDir   bool
-}
-
-func ConvertToStat(v interface{}) *Stat {
-	s := &Stat{}
-	mapstructure.Decode(v.(map[string]interface{}), s)
-	return s
+type PacketChannelTuple struct {
+	Packet  *Packet
+	Channel chan *Packet
 }
 
 type RemotePath struct {
-	Hostname string `json:"hostname"`
-	Port     uint32 `json:"port"`
-	Path     string `json:"path"`
+	Hostname string
+	Port     uint32
+	Path     string
 }
 
 func (rp *RemotePath) String() string {

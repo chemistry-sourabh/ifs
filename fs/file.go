@@ -34,9 +34,9 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 //}
 //
 //func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-//	log.Println("Trying to write to ", f.name, "offset", req.Offset, "dataSize:", len(req.Data), "data: ", string(req.Data))
-//	resp.Size = len(req.Data)
-//	f.data = req.Data
+//	log.Println("Trying to write to ", f.name, "offset", req.Offset, "dataSize:", len(req.Chunk), "data: ", string(req.Chunk))
+//	resp.Size = len(req.Chunk)
+//	f.data = req.Chunk
 //	log.Println("Wrote to file", f.name)
 //	return nil
 //}

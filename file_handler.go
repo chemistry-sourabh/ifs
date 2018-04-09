@@ -45,7 +45,7 @@ func (fh *FileHandler) DeleteCache() {
 //			respChannel := make(chan BaseResponse)
 //
 //			req := &Request{
-//				Op:              FetchFileOp,
+//				Op:              FetchFileRequest,
 //				RemoteNode:      creq.RemoteNode,
 //				ResponseChannel: respChannel,
 //			}
@@ -58,13 +58,13 @@ func (fh *FileHandler) DeleteCache() {
 //		case GetLocalFileCacheOp:
 //
 //			filename := fmt.Sprintf("%d", c.Map[creq.RemoteNode.RemotePath.String()])
-//			Data, err := ioutil.ReadFile(path.Join(c.Path, filename))
+//			Chunk, err := ioutil.ReadFile(path.Join(c.Path, filename))
 //
 //			if err != nil {
 //				log.Fatal(err)
 //			}
 //
-//			creq.ResponseChannel <- Data
+//			creq.ResponseChannel <- Chunk
 //
 //		}
 //	}
@@ -75,12 +75,12 @@ func (fh *FileHandler) DeleteCache() {
 //
 //	//resp := <-respChannel
 //	//
-//	//Data, _ := base64.StdEncoding.DecodeString(resp.(string))
+//	//Chunk, _ := base64.StdEncoding.DecodeString(resp.(string))
 //	//
 //	//RequestId := c.CacheId
 //	//c.CacheId++
 //	//
-//	//err := ioutil.WriteFile(path.Join(c.Path, fmt.Sprintf("%d", RequestId)), Data, 0666)
+//	//err := ioutil.WriteFile(path.Join(c.Path, fmt.Sprintf("%d", RequestId)), Chunk, 0666)
 //	//
 //	//if err != nil {
 //	//	log.Fatal(err)
@@ -90,25 +90,25 @@ func (fh *FileHandler) DeleteCache() {
 //
 //}
 
-func (fh *FileHandler) OpenFile(remoteNode *RemoteNode) error {
+func (fh *FileHandler) OpenFile(remotePath *RemotePath) error {
 
 	if fh.checkCacheSpace() {
-		resp := fh.Ifs.Talker.sendRequest(FetchFileOp, remoteNode).(*FileDataResponse)
+		resp := fh.Ifs.Talker.sendRequest(FetchFileRequest, remotePath).Data.(*FileChunk).Chunk
 
-		err := ioutil.WriteFile(path.Join(fh.Path, fh.convertToCacheName(remoteNode.RemotePath)), resp.ExtractData(),
+		err := ioutil.WriteFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)), resp,
 			0666)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fh.Cached[remoteNode.RemotePath.String()] = true
+		fh.Cached[remotePath.String()] = true
 
 	} else {
 		// Should Do Something on Remote only, but nothing happens here
 	}
 
-	fh.Opened[remoteNode.RemotePath.String()] = true
+	fh.Opened[remotePath.String()] = true
 
 	return nil
 }
@@ -124,11 +124,11 @@ func (fh *FileHandler) convertToCacheName(path *RemotePath) string {
 	return s
 }
 
-func (fh *FileHandler) ReadData(remoteNode *RemoteNode, offset int64, size int) ([]byte, int, error) {
+func (fh *FileHandler) ReadData(remotePath *RemotePath, offset int64, size int) ([]byte, int, error) {
 
 	// TODO  Check if File is Open
-	if _, ok := fh.Cached[remoteNode.RemotePath.String()]; ok {
-		f, err := os.OpenFile(path.Join(fh.Path, fh.convertToCacheName(remoteNode.RemotePath)), os.O_RDONLY, 0666)
+	if _, ok := fh.Cached[remotePath.String()]; ok {
+		f, err := os.OpenFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)), os.O_RDONLY, 0666)
 
 		if err != nil {
 			log.Fatal(err)

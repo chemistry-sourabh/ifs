@@ -4,19 +4,12 @@ import (
 	"os"
 	"log"
 	"io/ioutil"
-	//"encoding/base64"
-	"encoding/base64"
+
 )
 
-func Attr(request *Request) *StatResponse {
+func Attr(request *Packet) *Stat {
 
-	resp := &StatResponse{
-		RequestId: request.Id,
-		RNode:     request.RemoteNode,
-	}
-
-	rn := request.RemoteNode
-	path := rn.RemotePath.Path
+	path := request.Data.(*RemotePath).Path
 
 	log.Printf("Processing Attr Request %d for %s", request.Id, path)
 
@@ -37,20 +30,15 @@ func Attr(request *Request) *StatResponse {
 
 	//sys := info.Sys().(syscall.Stat_t)
 
-	resp.Stat = s
-
-	return resp
+	return s
 
 }
 
-func ReadDir(request *Request) *ReadDirResponse {
+func ReadDir(request *Packet) *DirInfo {
 
-	path := request.RemoteNode.RemotePath.Path
+	path := request.Data.(*RemotePath).Path
 
-	resp := &ReadDirResponse{
-		RequestId: request.Id,
-		RNode:     request.RemoteNode,
-	}
+	dirInfo := &DirInfo{}
 
 	var stats []*Stat
 
@@ -77,32 +65,27 @@ func ReadDir(request *Request) *ReadDirResponse {
 
 	}
 
-	resp.Stats = stats
+	dirInfo.Stats = stats
 
-	return resp
+	return dirInfo
 
 }
 
-func FetchFile(request *Request) BaseResponse {
-	data, err := ioutil.ReadFile(request.RemoteNode.RemotePath.Path)
+func FetchFile(request *Packet) *FileChunk  {
+
+	path := request.Data.(*RemotePath).Path
+	data, err := ioutil.ReadFile(path)
+
+	log.Printf("Processing FetchFile Request %d for %s", request.Id, path)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	resp := &FileDataResponse{
-		RequestId: request.Id,
-		RNode:     request.RemoteNode,
+	fileChunk := &FileChunk{
+		Chunk: data,
 	}
 
-	if len(data) > 0 {
-		resp.Data = base64.StdEncoding.EncodeToString(data)
-	} else {
-		resp.Data = ""
-	}
-
-	log.Println(resp.Data)
-
-	return resp
+	return fileChunk
 }
 

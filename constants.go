@@ -1,10 +1,13 @@
 package arsyncfs
 
-const AttrOp = 0
-const ReadDirOp = 1
-const FetchFileOp = 2
-const ReadFileOp = 3
-const WriteFileOp = 4
+const AttrRequest = 0
+const ReadDirRequest = 1
+const FetchFileRequest = 2
+const ReadFileRequest = 3
+const WriteFileRequest = 4
+const StatResponse = 10
+const StatsResponse = 11
+const FileDataResponse = 12
 
 const FetchFileCacheOp = 0
 const GetLocalFileCacheOp = 1

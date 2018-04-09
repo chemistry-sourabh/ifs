@@ -66,10 +66,10 @@ func (root *Ifs) Lookup(ctx context.Context, name string) (fs.Node, error) {
 }
 
 type RemoteNode struct {
-	Ifs         *Ifs                   `json:"-"`
-	IsDir       bool                   `json:"is-dir"`
-	RemotePath  *RemotePath            `json:"remote-path"`
-	RemoteNodes map[string]*RemoteNode `json:"-"`
+	Ifs         *Ifs                   `msgpack:"-"`
+	IsDir       bool
+	RemotePath  *RemotePath
+	RemoteNodes map[string]*RemoteNode `msgpack:"-"`
 }
 
 func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
@@ -77,9 +77,9 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 	log.Printf("Attr %s \n", rn.RemotePath.String())
 
-	resp := rn.Ifs.Talker.sendRequest(AttrOp, rn)
+	resp := rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
 	log.Printf("Got Response for Attr %s", rn.RemotePath.String())
-	s := resp.(*StatResponse).Stat
+	s := resp.Data.(*Stat)
 
 	log.Println(s)
 
@@ -104,12 +104,12 @@ func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	// Populate Directory Accordingly
 	log.Printf("ReadDir %s", rn.RemotePath.String())
 
-	resp := rn.Ifs.Talker.sendRequest(ReadDirOp, rn)
+	resp := rn.Ifs.Talker.sendRequest(ReadDirRequest, rn.RemotePath)
 
 	var children []fuse.Dirent
 	rn.RemoteNodes = make(map[string]*RemoteNode)
 
-	files := resp.(*ReadDirResponse).Stats
+	files := resp.Data.(*DirInfo).Stats
 
 	for _, file := range files {
 
@@ -156,7 +156,7 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	log.Println("Open call on file", rn.RemotePath.String())
 	if !rn.IsDir {
-		rn.Ifs.FileHandler.OpenFile(rn)
+		rn.Ifs.FileHandler.OpenFile(rn.RemotePath)
 	}
 	return rn, nil
 
@@ -165,7 +165,7 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 func (rn *RemoteNode) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	log.Printf("Read %s off=%d size=%d", rn.RemotePath.String(), req.Offset, req.Size)
 
-	b, _, err := rn.Ifs.FileHandler.ReadData(rn, req.Offset, req.Size)
+	b, _, err := rn.Ifs.FileHandler.ReadData(rn.RemotePath, req.Offset, req.Size)
 
 	resp.Data = b
 
@@ -188,11 +188,11 @@ func (rn *RemoteNode) Read(ctx context.Context, req *fuse.ReadRequest, resp *fus
 //}
 
 //func (rn *RNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-//	log.Println("Trying to write to ", rn.RemoteRoot.String(), "offset", req.Offset, "dataSize:", len(req.Data), "Data: ", string(req.Data))
+//	log.Println("Trying to write to ", rn.RemoteRoot.String(), "offset", req.Offset, "dataSize:", len(req.Chunk), "Chunk: ", string(req.Chunk))
 //
 //
-//	//resp.Size = len(req.Data)
-//	//f.Data = req.Data
+//	//resp.Size = len(req.Chunk)
+//	//f.Chunk = req.Chunk
 //	log.Println("Wrote to file", f.name)
 //	return nil
 //}

@@ -4,7 +4,6 @@ import (
 	"net/url"
 	"github.com/gorilla/websocket"
 	"log"
-	"github.com/mitchellh/mapstructure"
 )
 
 //type connectionPool struct {
@@ -25,14 +24,14 @@ type Talker struct {
 	Ifs                  *Ifs
 	idCounter            uint64
 	connection           *websocket.Conn
-	requestBuffer        chan *Request // One Receiver for each pool ?
-	egressRequestChannel chan *Request
+	requestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
+	egressRequestChannel chan *PacketChannelTuple
 }
 
 func (t *Talker) Startup(address string) {
 
-	t.egressRequestChannel = make(chan *Request, ChannelLength)
-	t.requestBuffer = make(chan *Request, ChannelLength)
+	t.egressRequestChannel = make(chan *PacketChannelTuple, ChannelLength)
+	t.requestBuffer = make(chan *PacketChannelTuple, ChannelLength)
 	t.mountRemoteRoot(address)
 	t.idCounter = 0
 
@@ -55,17 +54,19 @@ func (t *Talker) mountRemoteRoot(address string) {
 
 }
 
-func (t *Talker) sendRequest(opCode uint8, rn *RemoteNode) BaseResponse {
+func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 
-	respChannel := make(chan BaseResponse)
+	respChannel := make(chan *Packet)
 
-	req := &Request{
-		Op:              opCode,
-		RemoteNode:      rn,
-		ResponseChannel: respChannel,
+	req := &Packet{
+		Op:   opCode,
+		Data: payload,
 	}
 
-	t.egressRequestChannel <- req
+	t.egressRequestChannel <- &PacketChannelTuple{
+		req,
+		respChannel,
+	}
 
 	return <-respChannel
 }
@@ -75,12 +76,15 @@ func (t *Talker) processEgressChannel() {
 	log.Println("Starting Egress Channel Processor")
 
 	for req := range t.egressRequestChannel {
-		log.Printf("Sending Request With Op Code %d and Remote Path %s", req.Op, req.RemoteNode.RemotePath.String())
 
-		req.Id = t.idCounter
+		pkt, _ := req.Packet, req.Channel
+
+		log.Printf("Sending Request With Op Code %d", pkt.Op)
+
+		pkt.Id = t.idCounter
 		t.idCounter++
 
-		err := t.connection.WriteJSON(req)
+		err := t.connection.WriteMessage(websocket.BinaryMessage, pkt.Marshal())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -93,65 +97,70 @@ func (t *Talker) processEgressChannel() {
 func (t *Talker) processIncomingMessages() {
 	log.Printf("Starting Incoming Message Processor")
 
-	localRequests := make(map[uint64]*Request)
+	localRequests := make(map[uint64]chan *Packet)
 
 	for {
 
-		mp := make(map[string]interface{})
+		resp := &Packet{}
 
-		err := t.connection.ReadJSON(&mp)
+		_, data, err := t.connection.ReadMessage()
 
 		if err != nil {
 			log.Fatal(err)
 			break
 		}
 
-		requestId := uint64(mp["request_id"].(float64))
+		resp.Unmarshal(data)
 
-		log.Printf("Received Response for RequestId %d", requestId)
-		req, ok := localRequests[requestId]
+		log.Printf("Received Response for RequestId %d", resp.Id)
+		ch, ok := localRequests[resp.Id]
 
 		if !ok {
-			for req = range t.requestBuffer {
-				if req.Id == requestId {
+			for req := range t.requestBuffer {
+				pkt, channel := req.Packet, req.Channel
+
+				if pkt.Id == resp.Id {
+					ch = channel
 					break
 				} else {
-					localRequests[req.Id] = req
+					localRequests[pkt.Id] = ch
 				}
 			}
+		} else {
+			delete(localRequests, resp.Id)
 		}
 
-		resp := t.convertResponse(req.Op, mp)
-		req.ResponseChannel <- resp
-		close(req.ResponseChannel)
+		//resp := t.convertResponse(ch.Op, mp)
+		ch <- resp
+		close(ch)
 
 	}
 
 }
 
-func (t *Talker) convertResponse(opCode uint8, mp map[string]interface{}) BaseResponse {
-
-	var resp BaseResponse
-	var err error
-
-	switch opCode {
-	case AttrOp:
-		resp = &StatResponse{}
-		err = mapstructure.Decode(mp, resp)
-
-	case ReadDirOp:
-		resp = &ReadDirResponse{}
-		err = mapstructure.Decode(mp, resp)
-
-	case FetchFileOp:
-		resp = &FileDataResponse{}
-		err = mapstructure.Decode(mp, resp)
-
-	}
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return resp
-}
+//func (t *Talker) convertResponse(opCode uint8, mp map[string]interface{}) BaseResponse {
+//
+//	var resp BaseResponse
+//	var err error
+//
+//	switch opCode {
+//	case AttrRequest:
+//		resp = &StatResponse{}
+//		err = mapstructure.Decode(mp, resp)
+//
+//	case ReadDirRequest:
+//		resp = &ReadDirResponse{}
+//		err = mapstructure.Decode(mp, resp)
+//
+//	case FetchFileRequest:
+//		resp = &FileDataResponse{}
+//		err = mapstructure.Decode(mp, resp)
+//
+//	}
+//
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	return resp
+//}
