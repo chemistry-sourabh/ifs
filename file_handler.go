@@ -23,8 +23,8 @@ func (fh *FileHandler) StartUp() {
 	log.Println("Starting File Handler")
 	fh.DeleteCache()
 
-	fh.Cached = make(map[string] bool)
-	fh.Opened = make(map[string] bool)
+	fh.Cached = make(map[string]bool)
+	fh.Opened = make(map[string]bool)
 
 }
 
@@ -114,7 +114,8 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath) error {
 }
 
 func (fh *FileHandler) checkCacheSpace() bool {
-	return true
+	// TODO Implement properly
+	return fh.Size > 0
 }
 
 func (fh *FileHandler) convertToCacheName(path *RemotePath) string {
@@ -148,14 +149,35 @@ func (fh *FileHandler) ReadData(remotePath *RemotePath, offset int64, size int) 
 
 		return b, n, err
 	} else {
-	// Should Ask Agent for bytes
+		// Should Ask Agent for bytes
+		fileReadInfo := &ReadInfo{
+			RemotePath: remotePath,
+			Offset:     offset,
+			Size:       size,
+		}
+		fileChunk := fh.Ifs.Talker.sendRequest(ReadFileRequest, fileReadInfo).Data.(*FileChunk)
 
-
+		return fileChunk.Chunk, fileChunk.Size, fileChunk.Err
 
 	}
 
-
 	return nil, 0, nil
+}
+
+func (fh *FileHandler) ReadAllData(remotePath *RemotePath) ([]byte, int, error) {
+	if _, ok := fh.Cached[remotePath.String()]; ok {
+		data, err := ioutil.ReadFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)))
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return data, len(data), err
+	} else {
+		resp := fh.Ifs.Talker.sendRequest(FetchFileRequest, remotePath).Data.(*FileChunk).Chunk
+
+		return resp, len(resp), nil
+	}
 }
 
 func (fh *FileHandler) WriteData(remoteNode *RemoteNode, b []byte, offset int64) int {

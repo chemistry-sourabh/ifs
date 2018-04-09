@@ -172,27 +172,21 @@ func (rn *RemoteNode) Read(ctx context.Context, req *fuse.ReadRequest, resp *fus
 	return err
 }
 
-//
-//func (rn *RNode) ReadAll(ctx context.Context) ([]byte, error) {
-//	log.Println("Reading all of file", rn.RemotePath.Path)
-//
-//	creq := &CacheRequest{
-//		Op: GetLocalFileCacheOp,
-//		RNode: rn,
-//		ResponseChannel: make(chan []byte),
-//	}
-//
-//	rn.CacheRequestChannel <- creq
-//
-//	return <- creq.ResponseChannel, nil
-//}
+func (rn *RemoteNode) ReadAll(ctx context.Context) ([]byte, error) {
+	log.Println("Reading all of file", rn.RemotePath.Path)
 
-//func (rn *RNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-//	log.Println("Trying to write to ", rn.RemoteRoot.String(), "offset", req.Offset, "dataSize:", len(req.Chunk), "Chunk: ", string(req.Chunk))
+	data, _, err := rn.Ifs.FileHandler.ReadAllData(rn.RemotePath)
+
+	return data, err
+
+}
+
+// TODO Finish Write
+//func (rn *RemoteNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+//	log.Println("Trying to write to ", rn.RemotePath.String(), "offset", req.Offset, "dataSize:", len(req.Data))
 //
+//	rn.Ifs.
 //
-//	//resp.Size = len(req.Chunk)
-//	//f.Chunk = req.Chunk
 //	log.Println("Wrote to file", f.name)
 //	return nil
 //}

@@ -5,6 +5,7 @@ import (
 	"log"
 	"io/ioutil"
 
+	"io"
 )
 
 func Attr(request *Packet) *Stat {
@@ -84,7 +85,42 @@ func FetchFile(request *Packet) *FileChunk  {
 
 	fileChunk := &FileChunk{
 		Chunk: data,
+		Size: -1, // Invalid
+		Err: nil,
 	}
+
+	return fileChunk
+}
+
+func ReadFile(request *Packet) *FileChunk {
+	readInfo := request.Data.(*ReadInfo)
+
+	path := readInfo.RemotePath.Path
+
+	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	b := make([]byte, readInfo.Size)
+	n, err := f.ReadAt(b, readInfo.Offset)
+
+	fileChunk := &FileChunk{
+		Chunk: b,
+		Size: n,
+	}
+
+	if err != nil {
+
+		if err != io.EOF {
+			log.Fatal(err)
+		} else {
+			fileChunk.Err = err
+		}
+	}
+
+	f.Close()
 
 	return fileChunk
 }

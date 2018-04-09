@@ -28,7 +28,7 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 		typ, data, err := conn.ReadMessage()
 
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Fatal(err)
 			break
 		}
 
@@ -66,7 +66,7 @@ func (a *Agent) ProcessRequests() {
 
 		case arsyncfs.ReadFileRequest:
 			resp.Op = arsyncfs.FileDataResponse
-			//resp =
+			resp.Data = arsyncfs.ReadFile(req)
 
 		}
 

@@ -10,15 +10,15 @@ type Stat struct {
 	IsDir   bool
 }
 
-
 type DirInfo struct {
 	Stats []*Stat
 }
 
 type FileChunk struct {
 	Chunk []byte
+	Size  int
+	Err   error
 }
-
 
 //// Should Contain methods for all attributes like FileInfo
 //type BaseResponse interface {
