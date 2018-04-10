@@ -180,20 +180,18 @@ func (fh *FileHandler) ReadAllData(remotePath *RemotePath) ([]byte, int, error) 
 	}
 }
 
-func (fh *FileHandler) WriteData(remoteNode *RemoteNode, b []byte, offset int64) int {
+func (fh *FileHandler) WriteData(remotePath *RemotePath, data []byte, offset int64) int {
 
-	n := 0
+	if _, ok := fh.Cached[remotePath.String()]; ok {
+		f, err := os.OpenFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)), os.O_WRONLY, 0666)
 
-	if _, ok := fh.Cached[remoteNode.RemotePath.String()]; ok {
-		f, err := os.OpenFile(path.Join(fh.Path, fh.convertToCacheName(remoteNode.RemotePath)), os.O_RDONLY, 0666)
-
-		log.Println(path.Join(fh.Path, fh.convertToCacheName(remoteNode.RemotePath)))
+		log.Println(path.Join(fh.Path, fh.convertToCacheName(remotePath)))
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		n, err = f.WriteAt(b, offset)
+		_, err = f.WriteAt(data, offset)
 
 		if err != nil {
 			log.Fatal(err)
@@ -205,5 +203,33 @@ func (fh *FileHandler) WriteData(remoteNode *RemoteNode, b []byte, offset int64)
 
 	// Send Bytes to Agent
 
-	return n
+	writeInfo := &WriteInfo{
+		RemotePath: remotePath,
+		Offset:     offset,
+		Data:       data,
+	}
+
+	resp := fh.Ifs.Talker.sendRequest(WriteFileRequest, writeInfo).Data.(*WriteResult)
+
+	return resp.Size
+}
+
+func (fh *FileHandler) Truncate(remotePath *RemotePath, size uint64) error {
+	if _, ok := fh.Cached[remotePath.String()]; ok {
+		err := os.Truncate(path.Join(fh.Path, fh.convertToCacheName(remotePath)), int64(size))
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	}
+
+	attrInfo := &TruncInfo{
+		RemotePath: remotePath,
+		Size: size,
+	}
+
+	fh.Ifs.Talker.sendRequest(TruncateRequest, attrInfo)
+
+	return nil
 }

@@ -68,6 +68,13 @@ func (a *Agent) ProcessRequests() {
 			resp.Op = arsyncfs.FileDataResponse
 			resp.Data = arsyncfs.ReadFile(req)
 
+		case arsyncfs.WriteFileRequest:
+			resp.Op = arsyncfs.WriteResponse
+			resp.Data = arsyncfs.WriteFile(req)
+
+		case arsyncfs.TruncateRequest:
+			resp.Op = arsyncfs.EmptyResponse
+			arsyncfs.Truncate(req)
 		}
 
 		log.Println("Going to Send Response on Channel")

@@ -50,22 +50,30 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		struc = &RemotePath{}
 	case ReadFileRequest:
 		struc = &ReadInfo{}
+	case WriteFileRequest:
+		struc = &WriteInfo{}
+	case TruncateRequest:
+		struc = &TruncInfo{}
 	case StatResponse:
 		struc = &Stat{}
 	case StatsResponse:
 		struc = &DirInfo{}
 	case FileDataResponse:
 		struc = &FileChunk{}
+	case WriteResponse:
+		struc = &WriteResult{}
+	case EmptyResponse:
+		struc = nil
 	}
 
-	err := msgpack.Unmarshal(payload, struc)
+	if pkt.Op != EmptyResponse {
 
+		err := msgpack.Unmarshal(payload, struc)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-
-	if err != nil {
-		log.Fatal(err)
+		pkt.Data = struc
 	}
-
-	pkt.Data = struc
 
 }

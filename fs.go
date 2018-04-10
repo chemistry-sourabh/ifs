@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"os"
 	"time"
+	"fmt"
 )
 
 type Ifs struct {
@@ -80,8 +81,6 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	resp := rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
 	log.Printf("Got Response for Attr %s", rn.RemotePath.String())
 	s := resp.Data.(*Stat)
-
-	log.Println(s)
 
 	// Check Error
 	curUser, _ := user.Current()
@@ -182,11 +181,38 @@ func (rn *RemoteNode) ReadAll(ctx context.Context) ([]byte, error) {
 }
 
 // TODO Finish Write
-//func (rn *RemoteNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-//	log.Println("Trying to write to ", rn.RemotePath.String(), "offset", req.Offset, "dataSize:", len(req.Data))
-//
-//	rn.Ifs.
-//
-//	log.Println("Wrote to file", f.name)
-//	return nil
-//}
+func (rn *RemoteNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+	log.Println("Trying to write to ", rn.RemotePath.String(), "offset", req.Offset, "dataSize:", len(req.Data))
+	fmt.Println(req.Data)
+
+	n := rn.Ifs.FileHandler.WriteData(rn.RemotePath, req.Data, req.Offset)
+	resp.Size = n
+	log.Println("Wrote to file ", rn.RemotePath.String())
+	return nil
+}
+
+func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	log.Printf("Setattr %s %s %d",rn.RemotePath.String(),req.Valid.Size(), req.Size)
+
+	if req.Valid.Size() {
+		rn.Ifs.FileHandler.Truncate(rn.RemotePath, req.Size)
+	}
+
+	return nil
+}
+
+func (rn *RemoteNode) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	log.Println("Flushing file ", rn.RemotePath.String())
+	return nil
+}
+
+func (rn *RemoteNode) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
+	log.Println("Release requested on file", rn.RemotePath.String())
+	//rn.Ifs.FileHandler.
+	return nil
+}
+
+func (rn *RemoteNode) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	log.Println("Fsync call on file", rn.RemotePath.String())
+	return nil
+}

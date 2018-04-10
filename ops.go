@@ -125,3 +125,42 @@ func ReadFile(request *Packet) *FileChunk {
 	return fileChunk
 }
 
+func WriteFile(request *Packet) *WriteResult {
+	writeInfo := request.Data.(*WriteInfo)
+
+	path := writeInfo.RemotePath.Path
+
+	f, err := os.OpenFile(path, os.O_WRONLY, 0666)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	n, err := f.WriteAt(writeInfo.Data, writeInfo.Offset)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result := &WriteResult{
+		Size: n,
+		Err: err,
+	}
+
+	f.Close()
+
+	return result
+}
+
+func Truncate(request *Packet) {
+	truncInfo := request.Data.(*TruncInfo)
+
+	path := truncInfo.RemotePath.Path
+
+	err := os.Truncate(path, int64(truncInfo.Size))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}

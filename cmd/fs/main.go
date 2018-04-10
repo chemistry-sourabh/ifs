@@ -62,7 +62,7 @@ func main() {
 	fileHandler := &arsyncfs.FileHandler{
 		Ifs: fileSystem,
 		Path: cfg.CacheLocation,
-		Size: 0,
+		Size: 100,
 	}
 
 	fileSystem.Talker = talker

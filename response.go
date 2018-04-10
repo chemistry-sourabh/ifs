@@ -20,6 +20,12 @@ type FileChunk struct {
 	Err   error
 }
 
+// TODO Should move error to packet
+type WriteResult struct {
+	Size int
+	Err error
+}
+
 //// Should Contain methods for all attributes like FileInfo
 //type BaseResponse interface {
 //	Id() uint64
