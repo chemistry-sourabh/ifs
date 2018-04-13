@@ -11,8 +11,8 @@ type Payload interface {
 
 // TODO Add Error in the Structure
 type Packet struct {
-	Id uint64 // TODO What if this overflows ?
-	Op uint8
+	Id   uint64 // TODO What if this overflows ?
+	Op   uint8
 	Data Payload
 }
 
@@ -68,8 +68,7 @@ func (pkt *Packet) Unmarshal(data []byte) {
 	case WriteResponse:
 		struc = &WriteResult{}
 	case ErrorResponse:
-		var payloadError error
-		struc = &payloadError
+		struc = &Error{}
 	}
 
 	err := msgpack.Unmarshal(payload, struc)
@@ -77,10 +76,6 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		log.Fatal(err)
 	}
 
-	if pkt.Op != ErrorResponse {
-		pkt.Data = struc
-	} else {
-		pkt.Data = *struc.(*error)
-	}
+	pkt.Data = struc
 
 }

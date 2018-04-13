@@ -22,3 +22,7 @@ type FileChunk struct {
 type WriteResult struct {
 	Size int
 }
+
+type Error struct {
+	Err error
+}

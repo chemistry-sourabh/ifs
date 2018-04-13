@@ -5,8 +5,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/vmihailenco/msgpack"
 	"io"
-	"fmt"
-	"reflect"
 )
 
 func TestPacket_Marshal(t *testing.T) {
@@ -87,12 +85,7 @@ func TestPacket_Marshal2(t *testing.T) {
 
 }
 
-type Error struct {
-	Err error
-}
-
 func TestPacket_Marshal3(t *testing.T) {
-	t.Skip()
 	payload := &Error{
 		Err:io.EOF,
 	}
@@ -124,22 +117,14 @@ func TestPacket_Marshal3(t *testing.T) {
 	e := Error{}
 	msgpack.Unmarshal(data[9:], &e)
 
-	fmt.Println(reflect.TypeOf(e.Err))
-	fmt.Println(reflect.TypeOf(io.EOF))
-
-	if !cmp.Equal(e.Err, io.EOF) {
+	if !cmp.Equal(e.Err.Error(), io.EOF.Error()) {
 		PrintTestError(t, "errors dont match", e.Err, io.EOF)
 	}
 
-	//fmt.Println(payload)
-	//fmt.Println(json.Marshal(payload))
-	//
-	//var e interface{}
-	//
-	//msgpack.Unmarshal(data[9:], &e)
-	//
-	//fmt.Println(len(e.(map[string]interface{})))
 }
 
-// Packet is Error
-// Marshalling Fails
+// Marshalling Fails Dont know if this possible
+func TestPacket_Marshal4(t *testing.T) {
+	t.Skip()
+}
+

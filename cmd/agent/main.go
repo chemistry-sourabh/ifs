@@ -18,9 +18,10 @@ func populateResponse(resp *arsyncfs.Packet, data arsyncfs.Payload, err error) {
 	if err == nil {
 		resp.Data = data
 	} else {
-		resp.Data = err
+		resp.Data = &arsyncfs.Error{
+			Err: err,
+		}
 	}
-
 }
 
 func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +71,6 @@ func (a *Agent) ProcessRequests() {
 			resp.Op = arsyncfs.StatResponse
 			data, err = arsyncfs.Attr(req)
 
-
 		case arsyncfs.ReadDirRequest:
 			resp.Op = arsyncfs.StatsResponse
 			data, err = arsyncfs.ReadDir(req)
@@ -110,7 +110,7 @@ func (a *Agent) ProcessRequests() {
 func (a *Agent) ProcessResponses() {
 	log.Println("Starting Response Processor")
 	for resp := range a.ResponseChannel {
-		data , _ := resp.Marshal()
+		data, _ := resp.Marshal()
 		err := a.Connection.WriteMessage(websocket.BinaryMessage, data)
 		log.Printf("Sent Packet Id %d with Op %s", resp.Id, arsyncfs.ConvertOpCodeToString(resp.Op))
 		if err != nil {
