@@ -4,6 +4,9 @@ import (
 	"testing"
 	"os"
 	"path"
+	"io/ioutil"
+	"encoding/binary"
+	"crypto/rand"
 )
 
 func PrintTestError(t *testing.T, message string, got interface{}, want interface{}) {
@@ -39,4 +42,12 @@ func CreatePacket(opCode uint8, payload Payload) *Packet {
 		Op: opCode,
 		Data: payload,
 	}
+}
+
+func WriteDummyData(name string, size int) []byte{
+	fPath := path.Join("/tmp", name)
+	data := make([]byte, size)
+	binary.Read(rand.Reader, binary.LittleEndian, &data)
+	ioutil.WriteFile(fPath, data, 0666)
+	return data
 }

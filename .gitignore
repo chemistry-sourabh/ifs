@@ -110,5 +110,7 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+.idea/
+fs.json
 
 # End of https://www.gitignore.io/api/go,git,macos,intellij

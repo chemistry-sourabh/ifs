@@ -1,15 +1,21 @@
 package arsyncfs
 
-import "testing"
+import (
+	"testing"
+	"github.com/google/go-cmp/cmp"
+	"fmt"
+)
 
-func TestAttr_Success(t *testing.T) {
+// TODO Check for specific errors
+func TestAttr(t *testing.T) {
 
 	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
 
 	payload := &RemotePath{
 		Hostname: "localhost",
-		Port: 11211,
-		Path: "/tmp/file1",
+		Port:     11211,
+		Path:     "/tmp/file1",
 	}
 
 	pkt := CreatePacket(AttrRequest, payload)
@@ -24,14 +30,13 @@ func TestAttr_Success(t *testing.T) {
 		t.Error("Got Wrong Stats", s)
 	}
 
-	RemoveTempFile("file1")
 }
 
-func TestAttr_Failure(t *testing.T) {
+func TestAttr2(t *testing.T) {
 	payload := &RemotePath{
 		Hostname: "localhost",
-		Port: 11211,
-		Path: "/tmp/file1",
+		Port:     11211,
+		Path:     "/tmp/file1",
 	}
 
 	pkt := CreatePacket(AttrRequest, payload)
@@ -47,16 +52,21 @@ func TestAttr_Failure(t *testing.T) {
 	}
 }
 
-func TestReadDir_Success(t *testing.T) {
+func TestReadDir(t *testing.T) {
 
 	CreateTempDir("dir1")
+	defer RemoveTempFile("dir1")
+
 	CreateTempFile("dir1/file1")
+	defer RemoveTempFile("dir1/file1")
+
 	CreateTempFile("dir1/file2")
+	defer RemoveTempFile("dir1/file2")
 
 	payload := &RemotePath{
 		Hostname: "localhost",
-		Port: 11211,
-		Path: "/tmp/dir1",
+		Port:     11211,
+		Path:     "/tmp/dir1",
 	}
 
 	pkt := CreatePacket(ReadDirRequest, payload)
@@ -64,7 +74,7 @@ func TestReadDir_Success(t *testing.T) {
 	stats, err := ReadDir(pkt)
 
 	if err != nil {
-		t.Error("Got Error in ReadDir",err)
+		t.Error("Got Error in ReadDir", err)
 	}
 
 	arr := stats.Stats
@@ -73,7 +83,203 @@ func TestReadDir_Success(t *testing.T) {
 		t.Error("Unknown Files returned", arr)
 	}
 
-	RemoveTempFile("dir1/file1")
-	RemoveTempFile("dir1/file2")
-	RemoveTempFile("dir1")
+	// TODO Check File names
+
+}
+
+func TestReadDir2(t *testing.T) {
+	payload := &RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/dir1",
+	}
+
+	pkt := CreatePacket(ReadDirRequest, payload)
+
+	stats, err := ReadDir(pkt)
+
+	if err == nil {
+		t.Error("err is nil")
+	}
+
+	if stats != nil {
+		t.Error("stats are not nil")
+	}
+}
+
+func TestFetchFile(t *testing.T) {
+
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
+
+	data := WriteDummyData("file1", 1000)
+
+	payload := &RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/file1",
+	}
+
+	pkt := CreatePacket(FetchFileRequest, payload)
+
+	chunk, err := FetchFile(pkt)
+
+	if err != nil {
+		t.Error("Got Error in FetchFile", err)
+	}
+
+	if !cmp.Equal(chunk.Chunk, data) {
+		PrintTestError(t, "data fetched mismatch", chunk.Chunk, data)
+	}
+
+}
+
+func TestFetchFile2(t *testing.T) {
+
+	payload := &RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/file1",
+	}
+
+	pkt := CreatePacket(FetchFileRequest, payload)
+
+	chunk, err := FetchFile(pkt)
+
+	if err == nil {
+		t.Error("err is nil")
+	}
+
+	if chunk != nil {
+		t.Error("chunk are not nil")
+	}
+}
+
+func TestReadFile(t *testing.T) {
+
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
+
+	data := WriteDummyData("file1", 1000)
+
+	rp := &RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/file1",
+	}
+
+	payload := &ReadInfo{
+		RemotePath: rp,
+		Offset:     0,
+		Size:       100,
+	}
+
+	pkt := CreatePacket(ReadFileRequest, payload)
+
+	chunk, err := ReadFile(pkt)
+
+	if err != nil {
+		t.Error("Got Error in ReadFile", err)
+	}
+
+	if !cmp.Equal(chunk.Chunk, data[:100]) {
+		PrintTestError(t, "chunks dont match", chunk.Chunk, data[:100])
+	}
+
+}
+
+func TestReadFile2(t *testing.T) {
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
+
+	data := WriteDummyData("file1", 1000)
+
+	rp := &RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/file1",
+	}
+
+	payload := &ReadInfo{
+		RemotePath: rp,
+		Offset:     100,
+		Size:       100,
+	}
+
+	pkt := CreatePacket(ReadFileRequest, payload)
+
+	chunk, err := ReadFile(pkt)
+
+	if err != nil {
+		t.Error("Got Error in ReadFile", err)
+	}
+
+	if !cmp.Equal(chunk.Chunk, data[100:200]) {
+		PrintTestError(t, "chunks dont match", chunk.Chunk, data[100:200])
+	}
+}
+
+func TestReadFile3(t *testing.T) {
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
+
+	WriteDummyData("file1", 1000)
+
+	rp := &RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/file1",
+	}
+
+	payload := &ReadInfo{
+		RemotePath: rp,
+		Offset:     999,
+		Size:       100,
+	}
+
+	pkt := CreatePacket(ReadFileRequest, payload)
+
+	chunk, err := ReadFile(pkt)
+
+	// EOF Error
+	if err == nil {
+		t.Error("err is nil")
+	}
+
+	fmt.Println(err)
+
+	if chunk != nil {
+		t.Error("chunk is not nil")
+	}
+}
+
+func TestReadFile4(t *testing.T) {
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
+
+	data := WriteDummyData("file1", 1000)
+
+	rp := &RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/file1",
+	}
+
+	payload := &ReadInfo{
+		RemotePath: rp,
+		Offset:     0,
+		Size:       1000,
+	}
+
+	pkt := CreatePacket(ReadFileRequest, payload)
+
+	chunk, err := ReadFile(pkt)
+
+	if err != nil {
+		t.Error("Got Error in ReadFile", err)
+	}
+
+	if !cmp.Equal(chunk.Chunk, data) {
+		PrintTestError(t, "chunks dont match", chunk.Chunk, data)
+	}
 }
