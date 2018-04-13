@@ -9,9 +9,10 @@ import (
 type Payload interface {
 }
 
+// TODO Add Error in the Structure
 type Packet struct {
-	Id   uint64
-	Op   uint8 `json:"op"`
+	Id uint64
+	Op uint8
 	Data Payload
 }
 
@@ -35,7 +36,7 @@ func (pkt *Packet) Unmarshal(data []byte) {
 	pkt.Id = binary.BigEndian.Uint64(data)
 	pkt.Op = data[8]
 
-	log.Printf("Unmarshling Packet Id %d and Op %d", pkt.Id, pkt.Op)
+	log.Printf("Unmarshling Packet Id %d and Op %s", pkt.Id, ConvertOpCodeToString(pkt.Op))
 
 	payload := data[9:]
 
@@ -54,6 +55,10 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		struc = &WriteInfo{}
 	case TruncateRequest:
 		struc = &TruncInfo{}
+	case CreateRequest:
+		struc = &CreateInfo{}
+	case RemoveRequest:
+		struc = &RemotePath{}
 	case StatResponse:
 		struc = &Stat{}
 	case StatsResponse:
@@ -62,18 +67,20 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		struc = &FileChunk{}
 	case WriteResponse:
 		struc = &WriteResult{}
-	case EmptyResponse:
-		struc = nil
+	case ErrorResponse:
+		var payloadError error
+		struc = &payloadError
 	}
 
-	if pkt.Op != EmptyResponse {
+	err := msgpack.Unmarshal(payload, struc)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		err := msgpack.Unmarshal(payload, struc)
-		if err != nil {
-			log.Fatal(err)
-		}
-
+	if pkt.Op != ErrorResponse {
 		pkt.Data = struc
+	} else {
+		pkt.Data = *struc.(*error)
 	}
 
 }

@@ -6,32 +6,27 @@ import (
 	"encoding/json"
 	"github.com/google/go-cmp/cmp"
 	"os"
-	"fmt"
 )
 
 const configLocation = "testConfig"
 
-func PrintTestError(t *testing.T, message string, got interface{}, want interface{}) {
-	t.Errorf("%s, got: %s, want %s", message, got, want)
-}
 
-func TestLoad(t *testing.T) {
+func TestConfig_LoadSuccess(t *testing.T) {
 
+	// Setup
 	initialCfg := Config{
 		MountPoint: "/tmp",
-		RemotePaths: []string{"l1:121@/tmp", "l2:1121@/tmp/test"},
+		RemoteRoot: &RemoteRoot{
+			Address: "localhost:11211",
+			Paths: []string{"/tmp", "/tmp/test"},
+		},
 	}
 
 	data, _ := json.Marshal(initialCfg)
+	ioutil.WriteFile(configLocation, data, 0666)
 
-	err := ioutil.WriteFile(configLocation, data, 0666)
-
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
+	// Test
 	cfg := Config{}
-
 	cfg.Load(configLocation)
 
 	if !cmp.Equal(initialCfg, cfg) {
@@ -39,5 +34,33 @@ func TestLoad(t *testing.T) {
 	}
 
 
+	// Cleanup
 	os.Remove(configLocation)
+}
+
+func TestConfig_LoadFailure(t *testing.T) {
+
+	cfg := Config{}
+	err := cfg.Load(configLocation)
+
+	if err == nil {
+		t.Error("err is nil")
+	}
+}
+
+func TestRemoteRoot_StringArray(t *testing.T) {
+
+	rr := &RemoteRoot{
+		Address: "localhost:11211",
+		Paths: []string{"/tmp/hello", "/tmp/bye"},
+	}
+
+	paths := rr.StringArray()
+
+	result := []string{"localhost:11211@/tmp/hello", "localhost:11211@/tmp/bye"}
+
+	if !cmp.Equal(paths, result) {
+		PrintTestError(t, "paths not matching", paths, result)
+	}
+
 }

@@ -5,100 +5,97 @@ import (
 	"log"
 	"io/ioutil"
 
-	"io"
+	"path"
 )
 
-func Attr(request *Packet) *Stat {
+func Attr(request *Packet) (*Stat, error) {
 
-	path := request.Data.(*RemotePath).Path
+	filePath := request.Data.(*RemotePath).Path
 
-	log.Printf("Processing Attr Request %d for %s", request.Id, path)
+	log.Printf("Processing Attr Request %d for %s", request.Id, filePath)
 
-	info, err := os.Lstat(path)
+	info, err := os.Lstat(filePath)
 
-	if err != nil {
-		log.Fatal(err.Error())
+	if err == nil {
+		s := &Stat{}
+		s.Name = info.Name()
+		s.Size = info.Size()
+		s.Mode = info.Mode()
+		s.ModTime = info.ModTime().UnixNano()
+		s.IsDir = info.IsDir()
+
+		return s, nil
 	}
 
-	s := &Stat{}
-
-	s.Name = info.Name()
-	s.Size = info.Size()
-	s.Mode = info.Mode()
-	// Fix ModTime
-	s.ModTime = info.ModTime().UnixNano()
-	s.IsDir = info.IsDir()
-
-	//sys := info.Sys().(syscall.Stat_t)
-
-	return s
+	return nil, err
 
 }
 
-func ReadDir(request *Packet) *DirInfo {
+func ReadDir(request *Packet) (*DirInfo, error) {
 
-	path := request.Data.(*RemotePath).Path
+	filePath := request.Data.(*RemotePath).Path
 
 	dirInfo := &DirInfo{}
 
 	var stats []*Stat
 
-	log.Printf("Processing ReadDir Request %d for %s", request.Id, path)
+	log.Printf("Processing ReadDir Request %d for %s", request.Id, filePath)
 
-	files, err := ioutil.ReadDir(path)
+	files, err := ioutil.ReadDir(filePath)
 
-	if err != nil {
-		log.Fatal(err)
+	if err == nil {
+
+		for _, file := range files {
+
+			s := &Stat{}
+
+			s.Name = file.Name()
+			s.Size = file.Size()
+			s.Mode = file.Mode()
+			s.ModTime = file.ModTime().UnixNano()
+			s.IsDir = file.IsDir()
+
+			stats = append(stats, s)
+
+		}
+
+		dirInfo.Stats = stats
+		return dirInfo, nil
 	}
 
-
-	for _, file := range files {
-
-		s := &Stat{}
-
-		s.Name = file.Name()
-		s.Size = file.Size()
-		s.Mode = file.Mode()
-		s.ModTime = file.ModTime().UnixNano()
-		s.IsDir = file.IsDir()
-
-		stats = append(stats, s)
-
-	}
-
-	dirInfo.Stats = stats
-
-	return dirInfo
-
+	return nil, err
 }
 
-func FetchFile(request *Packet) *FileChunk  {
+func FetchFile(request *Packet) (*FileChunk, error) {
 
-	path := request.Data.(*RemotePath).Path
-	data, err := ioutil.ReadFile(path)
+	filePath := request.Data.(*RemotePath).Path
+	data, err := ioutil.ReadFile(filePath)
 
-	log.Printf("Processing FetchFile Request %d for %s", request.Id, path)
+	log.Printf("Processing FetchFile Request %d for %s", request.Id, filePath)
 
-	if err != nil {
-		log.Fatal(err)
+	if err == nil {
+
+		fileChunk := &FileChunk{
+			Chunk: data,
+			Size:  -1, // Invalid
+		}
+
+		return fileChunk, err
+
 	}
 
-	fileChunk := &FileChunk{
-		Chunk: data,
-		Size: -1, // Invalid
-		Err: nil,
-	}
-
-	return fileChunk
+	return nil, err
 }
 
-func ReadFile(request *Packet) *FileChunk {
+func ReadFile(request *Packet) (*FileChunk, error) {
 	readInfo := request.Data.(*ReadInfo)
 
-	path := readInfo.RemotePath.Path
+	filePath := readInfo.RemotePath.Path
 
-	f, err := os.OpenFile(path, os.O_RDONLY, 0666)
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0666)
+	defer f.Close()
 
+	// Should be there because the file is already opened
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,61 +103,67 @@ func ReadFile(request *Packet) *FileChunk {
 	b := make([]byte, readInfo.Size)
 	n, err := f.ReadAt(b, readInfo.Offset)
 
-	fileChunk := &FileChunk{
-		Chunk: b,
-		Size: n,
-	}
-
-	if err != nil {
-
-		if err != io.EOF {
-			log.Fatal(err)
-		} else {
-			fileChunk.Err = err
+	if err == nil {
+		fileChunk := &FileChunk{
+			Chunk: b,
+			Size:  n,
 		}
+
+		return fileChunk, nil
 	}
 
-	f.Close()
-
-	return fileChunk
+	return nil, err
 }
 
-func WriteFile(request *Packet) *WriteResult {
+func WriteFile(request *Packet) (*WriteResult, error) {
 	writeInfo := request.Data.(*WriteInfo)
 
-	path := writeInfo.RemotePath.Path
+	filePath := writeInfo.RemotePath.Path
 
-	f, err := os.OpenFile(path, os.O_WRONLY, 0666)
+	f, err := os.OpenFile(filePath, os.O_WRONLY, 0666)
+	defer f.Close()
 
+	// Should be there because the file is already opened
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	n, err := f.WriteAt(writeInfo.Data, writeInfo.Offset)
 
-	if err != nil {
-		log.Fatal(err)
+	if err == nil {
+
+		result := &WriteResult{
+			Size: n,
+		}
+
+		return result, nil
 	}
 
-	result := &WriteResult{
-		Size: n,
-		Err: err,
-	}
-
-	f.Close()
-
-	return result
+	return nil, err
 }
 
-func Truncate(request *Packet) {
+func Truncate(request *Packet) error {
 	truncInfo := request.Data.(*TruncInfo)
 
-	path := truncInfo.RemotePath.Path
+	filePath := truncInfo.RemotePath.Path
 
-	err := os.Truncate(path, int64(truncInfo.Size))
+	return os.Truncate(filePath, int64(truncInfo.Size))
+}
 
-	if err != nil {
-		log.Fatal(err)
+func CreateFile(request *Packet) error {
+	createInfo := request.Data.(*CreateInfo)
+	filePath := path.Join(createInfo.BaseDir.Path, createInfo.Name)
+
+	if !createInfo.IsDir {
+		f, err := os.Create(filePath)
+		defer f.Close()
+		return err
+	} else {
+		return os.Mkdir(filePath, 0666)
 	}
+}
 
+func RemoveFile(request *Packet) error {
+	remotePath := request.Data.(*RemotePath)
+	return os.Remove(remotePath.Path)
 }

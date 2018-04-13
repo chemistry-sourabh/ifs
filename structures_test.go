@@ -29,3 +29,12 @@ func TestRemotePath_Convert(t *testing.T) {
 		PrintTestError(t, "Convert Result not matching", rp, remotePathObject)
 	}
 }
+
+func TestRemotePath_Address(t *testing.T) {
+	got := remotePathObject.Address()
+
+	address := "localhost:1121"
+	if got != address {
+		PrintTestError(t, "addresses not matching", got, address)
+	}
+}

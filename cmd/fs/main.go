@@ -31,7 +31,7 @@ func generateRemoteNodes(ifs *arsyncfs.Ifs, remoteRoot *arsyncfs.RemoteRoot) map
 }
 
 func main() {
-
+	//log.SetOutput(ioutil.Discard)
 	cfg := arsyncfs.Config{}
 
 	cfg.Load("./fs.json")
@@ -43,17 +43,9 @@ func main() {
 
 	server := fs.New(c, nil)
 
-	//cache := &arsyncfs.FileHandler{
-	//	Path:                 cfg.CacheLocation,
-	//	Size:                 100,
-	//	RequestChannel:       cacheRequestChannel,
-	//	EgressRequestChannel: egressRequestChannel,
-	//	Map:                  make(map[string]uint64),
-	//}
-
 	fileSystem := &arsyncfs.Ifs{}
 
-	remoteRootNodes := generateRemoteNodes(fileSystem, &cfg.RemoteRoot)
+	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoot)
 
 	talker := &arsyncfs.Talker{
 		Ifs: fileSystem,

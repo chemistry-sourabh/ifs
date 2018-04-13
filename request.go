@@ -16,3 +16,9 @@ type TruncInfo struct {
 	RemotePath *RemotePath
 	Size       uint64
 }
+
+type CreateInfo struct {
+	BaseDir *RemotePath
+	Name    string
+	IsDir   bool
+}

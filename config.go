@@ -2,28 +2,24 @@ package arsyncfs
 
 import (
 	"io/ioutil"
-	"fmt"
-	"os"
 	"encoding/json"
 )
 
 type Config struct {
 	MountPoint    string     `json:"mount_point"`
 	CacheLocation string     `json:"cache_location"`
-	RemoteRoot    RemoteRoot `json:"remote_root"`
+	RemoteRoot    *RemoteRoot `json:"remote_root"`
 }
 
-func (c *Config) Load(path string) {
+func (c *Config) Load(path string) error {
 
 	data, err := ioutil.ReadFile(path)
 
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+	if err == nil {
+		json.Unmarshal(data, c)
 	}
 
-	json.Unmarshal(data, c)
-
+	return err
 }
 
 type RemoteRoot struct {

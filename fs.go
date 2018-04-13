@@ -19,6 +19,7 @@ type Ifs struct {
 	RemoteRoots map[string]*RemoteNode
 }
 
+// TODO All Errors should be resolved here
 func (root *Ifs) Root() (fs.Node, error) {
 	return root, nil
 }
@@ -80,22 +81,30 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 	resp := rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
 	log.Printf("Got Response for Attr %s", rn.RemotePath.String())
-	s := resp.Data.(*Stat)
 
-	// Check Error
-	curUser, _ := user.Current()
-	uid, _ := strconv.ParseUint(curUser.Uid, 10, 64)
+	var err error = nil
+	if respErr, ok := resp.Data.(error); !ok {
 
-	curGroup, _ := user.LookupGroup("staff")
-	gid, _ := strconv.ParseUint(curGroup.Gid, 10, 64)
+		s := resp.Data.(*Stat)
 
-	attr.Uid = uint32(uid)
-	attr.Gid = uint32(gid)
-	attr.Size = uint64(s.Size)
-	attr.Mode = s.Mode
-	attr.Mtime = time.Unix(0, s.ModTime)
+		// Check Error
+		curUser, _ := user.Current()
+		uid, _ := strconv.ParseUint(curUser.Uid, 10, 64)
 
-	return nil
+		curGroup, _ := user.LookupGroup("staff")
+		gid, _ := strconv.ParseUint(curGroup.Gid, 10, 64)
+
+		attr.Uid = uint32(uid)
+		attr.Gid = uint32(gid)
+		attr.Size = uint64(s.Size)
+		attr.Mode = s.Mode
+		attr.Mtime = time.Unix(0, s.ModTime)
+
+	} else {
+		err = respErr
+	}
+
+	return err
 }
 
 func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
@@ -108,24 +117,33 @@ func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	var children []fuse.Dirent
 	rn.RemoteNodes = make(map[string]*RemoteNode)
 
-	files := resp.Data.(*DirInfo).Stats
+	var err error
+	if respError, ok := resp.Data.(error); !ok {
 
-	for _, file := range files {
+		// TODO Cache these for future Attr Requests!!
+		files := resp.Data.(*DirInfo).Stats
 
-		s := file
+		for _, file := range files {
 
-		var child fuse.Dirent
-		if s.IsDir {
-			child = fuse.Dirent{Type: fuse.DT_Dir, Name: s.Name}
-		} else {
-			child = fuse.Dirent{Type: fuse.DT_File, Name: s.Name}
+			s := file
+
+			var child fuse.Dirent
+			if s.IsDir {
+				child = fuse.Dirent{Type: fuse.DT_Dir, Name: s.Name}
+			} else {
+				child = fuse.Dirent{Type: fuse.DT_File, Name: s.Name}
+			}
+			children = append(children, child)
+			rn.RemoteNodes[s.Name] = rn.generateChildRemoteNode(s.Name, s.IsDir)
+
 		}
-		children = append(children, child)
-		rn.RemoteNodes[s.Name] = rn.generateChildRemoteNode(s.Name, s.IsDir)
 
+		return children, nil
+
+	} else {
+		err = respError
 	}
-
-	return children, nil
+	return nil, err
 }
 
 func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNode {
@@ -152,12 +170,16 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 	}
 }
 
+// TODO Open for Dir also
 func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	log.Println("Open call on file", rn.RemotePath.String())
+
+	var err error
 	if !rn.IsDir {
-		rn.Ifs.FileHandler.OpenFile(rn.RemotePath)
+		err = rn.Ifs.FileHandler.OpenFile(rn.RemotePath)
+
 	}
-	return rn, nil
+	return rn, err
 
 }
 
@@ -185,20 +207,21 @@ func (rn *RemoteNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *f
 	log.Println("Trying to write to ", rn.RemotePath.String(), "offset", req.Offset, "dataSize:", len(req.Data))
 	fmt.Println(req.Data)
 
-	n := rn.Ifs.FileHandler.WriteData(rn.RemotePath, req.Data, req.Offset)
+	n, err := rn.Ifs.FileHandler.WriteData(rn.RemotePath, req.Data, req.Offset)
 	resp.Size = n
 	log.Println("Wrote to file ", rn.RemotePath.String())
-	return nil
+	return err
 }
 
 func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
-	log.Printf("Setattr %s %s %d",rn.RemotePath.String(),req.Valid.Size(), req.Size)
+	log.Printf("Setattr %s %t %d", rn.RemotePath.String(), req.Valid.Size(), req.Size)
 
+	var err error
 	if req.Valid.Size() {
-		rn.Ifs.FileHandler.Truncate(rn.RemotePath, req.Size)
+		err = rn.Ifs.FileHandler.Truncate(rn.RemotePath, req.Size)
 	}
 
-	return nil
+	return err
 }
 
 func (rn *RemoteNode) Flush(ctx context.Context, req *fuse.FlushRequest) error {
@@ -208,11 +231,49 @@ func (rn *RemoteNode) Flush(ctx context.Context, req *fuse.FlushRequest) error {
 
 func (rn *RemoteNode) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	log.Println("Release requested on file", rn.RemotePath.String())
-	//rn.Ifs.FileHandler.
+	rn.Ifs.FileHandler.Release(rn.RemotePath)
 	return nil
 }
 
 func (rn *RemoteNode) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 	log.Println("Fsync call on file", rn.RemotePath.String())
 	return nil
+}
+
+func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+	log.Println("Creating file ", rn.RemotePath.String(), req.Name)
+
+	// Create File Remotely
+	// Create File in Cache if Space is available
+	// File should be in open state
+	// Return Errors
+	err := rn.Ifs.FileHandler.Create(rn.RemotePath, req.Name)
+	if err == nil {
+		newRn := rn.generateChildRemoteNode(req.Name, false)
+		rn.RemoteNodes[req.Name] = newRn
+		return newRn, newRn, nil
+	}
+
+	return nil, nil, err
+}
+
+func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
+	log.Println("Making Dir ", rn.RemotePath.String(), req.Name)
+
+	err := rn.Ifs.FileHandler.Mkdir(rn.RemotePath, req.Name)
+
+	if err == nil {
+		newRn := rn.generateChildRemoteNode(req.Name, true)
+		rn.RemoteNodes[req.Name] = newRn
+		return newRn, nil
+	}
+
+	return nil, err
+}
+
+func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
+	log.Println("Removing Node", rn.RemotePath.String(), req.Name)
+
+	err := rn.Ifs.FileHandler.Remove(rn.RemotePath, req.Name)
+	return err
 }
