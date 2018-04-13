@@ -11,12 +11,12 @@ type Payload interface {
 
 // TODO Add Error in the Structure
 type Packet struct {
-	Id uint64
+	Id uint64 // TODO What if this overflows ?
 	Op uint8
 	Data Payload
 }
 
-func (pkt *Packet) Marshal() []byte {
+func (pkt *Packet) Marshal() ([]byte, error) {
 	header := make([]byte, 9)
 	binary.BigEndian.PutUint64(header, pkt.Id)
 	header[8] = pkt.Op
@@ -24,12 +24,12 @@ func (pkt *Packet) Marshal() []byte {
 	data, err := msgpack.Marshal(pkt.Data)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	data = append(header, data...) // Some Variadic Bullshit!!
 
-	return data
+	return data, nil
 }
 
 func (pkt *Packet) Unmarshal(data []byte) {

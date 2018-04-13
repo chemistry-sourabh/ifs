@@ -110,7 +110,8 @@ func (a *Agent) ProcessRequests() {
 func (a *Agent) ProcessResponses() {
 	log.Println("Starting Response Processor")
 	for resp := range a.ResponseChannel {
-		err := a.Connection.WriteMessage(websocket.BinaryMessage, resp.Marshal())
+		data , _ := resp.Marshal()
+		err := a.Connection.WriteMessage(websocket.BinaryMessage, data)
 		log.Printf("Sent Packet Id %d with Op %s", resp.Id, arsyncfs.ConvertOpCodeToString(resp.Op))
 		if err != nil {
 			log.Fatal(err)

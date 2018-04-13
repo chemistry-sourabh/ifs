@@ -84,7 +84,8 @@ func (t *Talker) processEgressChannel() {
 		pkt.Id = t.idCounter
 		t.idCounter++
 
-		err := t.connection.WriteMessage(websocket.BinaryMessage, pkt.Marshal())
+		data, _ := pkt.Marshal()
+		err := t.connection.WriteMessage(websocket.BinaryMessage, data)
 		if err != nil {
 			log.Fatal(err)
 		}
