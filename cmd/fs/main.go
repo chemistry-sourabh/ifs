@@ -4,22 +4,23 @@ import (
 	"bazil.org/fuse"
 	"log"
 	"bazil.org/fuse/fs"
-	"arsyncfs"
+	"ifs"
 	"path"
+	"fmt"
 )
 
-func generateRemoteNodes(ifs *arsyncfs.Ifs, remoteRoot *arsyncfs.RemoteRoot) map[string]*arsyncfs.RemoteNode {
+func generateRemoteNodes(fs *ifs.Ifs, remoteRoot *ifs.RemoteRoot) map[string]*ifs.RemoteNode {
 
-	remoteRoots := make(map[string]*arsyncfs.RemoteNode)
+	remoteRoots := make(map[string]*ifs.RemoteNode)
 
 	for _, joinedPath := range remoteRoot.StringArray() {
 
-		rp := &arsyncfs.RemotePath{}
+		rp := &ifs.RemotePath{}
 
 		rp.Convert(joinedPath)
 
-		rn := &arsyncfs.RemoteNode{
-			Ifs:        ifs,
+		rn := &ifs.RemoteNode{
+			Ifs:        fs,
 			IsDir:      true,
 			RemotePath: rp,
 		}
@@ -32,36 +33,46 @@ func generateRemoteNodes(ifs *arsyncfs.Ifs, remoteRoot *arsyncfs.RemoteRoot) map
 
 func main() {
 	//log.SetOutput(ioutil.Discard)
-	cfg := arsyncfs.Config{}
+	cfg := ifs.Config{}
 
 	cfg.Load("./fs.json")
 
 	c, err := fuse.Mount(cfg.MountPoint)
 	if err != nil {
+		fmt.Println("Error is Here")
 		log.Fatal(err)
 	}
 
 	server := fs.New(c, nil)
 
-	fileSystem := &arsyncfs.Ifs{}
+	fmt.Println("Starting")
+	fileSystem := &ifs.Ifs{}
 
 	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoot)
 
-	talker := &arsyncfs.Talker{
+	talker := &ifs.Talker{
 		Ifs: fileSystem,
 	}
 
-	fileHandler := &arsyncfs.FileHandler{
-		Ifs: fileSystem,
+	fileHandler := &ifs.FileHandler{
+		Ifs:  fileSystem,
+		Path: cfg.CacheLocation,
+		Size: 100,
+	}
+
+	hoarder := &ifs.Hoarder{
+		Ifs:  fileSystem,
 		Path: cfg.CacheLocation,
 		Size: 100,
 	}
 
 	fileSystem.Talker = talker
 	fileSystem.FileHandler = fileHandler
+	fileSystem.Hoarder = hoarder
 	fileSystem.RemoteRoots = remoteRootNodes
 
 	talker.Startup(cfg.RemoteRoot.Address)
+	hoarder.Startup()
 	fileHandler.StartUp()
 
 	server.Serve(fileSystem)

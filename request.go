@@ -1,4 +1,4 @@
-package arsyncfs
+package ifs
 
 type ReadInfo struct {
 	RemotePath *RemotePath

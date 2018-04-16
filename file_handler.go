@@ -1,11 +1,9 @@
-package arsyncfs
+package ifs
 
 import (
-	"io/ioutil"
 	"path"
 	"log"
 	"os"
-	"strings"
 )
 
 type FileHandler struct {
@@ -14,8 +12,6 @@ type FileHandler struct {
 	Size   uint64
 	Cached map[string]bool // TODO Come up with a hash scheme that will replace filenames along with collisions
 	Opened map[string]bool
-	//RequestChannel       chan *CacheRequest
-	//EgressRequestChannel chan *Request
 }
 
 func (fh *FileHandler) StartUp() {
@@ -36,59 +32,33 @@ func (fh *FileHandler) DeleteCache() {
 func (fh *FileHandler) OpenFile(remotePath *RemotePath) error {
 
 	var err error
-	if _, ok := fh.Cached[remotePath.String()]; !ok {
 
-		// TODO Implement some form of cache management
-
-		if fh.checkCacheSpace() {
-			resp := fh.Ifs.Talker.sendRequest(FetchFileRequest, remotePath)
-
-			if err, ok := resp.Data.(error); ok {
-				return err
-			}
-
-			err = ioutil.WriteFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)), resp.Data.(*FileChunk).Chunk,
-				0666)
-			fh.Cached[remotePath.String()] = true
-		}
-
-	}
-
+	fh.Ifs.Hoarder.SubmitRequest(CacheFileRequest, remotePath)
 	fh.Opened[remotePath.String()] = true
 
 	return err
 }
 
-func (fh *FileHandler) checkCacheSpace() bool {
-	// TODO Implement properly
-	return fh.Size > 0
-}
+//func (fh *FileHandler) checkCacheSpace() bool {
+//	// TODO Implement properly
+//	return fh.Size > 0
+//}
 
-func (fh *FileHandler) convertToCacheName(path *RemotePath) string {
-	s := strings.Replace(path.String(), "/", "_", -1)
-	s = strings.Replace(s, ":", "_", 1)
-	s = strings.Replace(s, "@", "_", 1)
-	return s
-}
+//func (fh *FileHandler) convertToCacheName(path *RemotePath) string {
+//	s := strings.Replace(path.String(), "/", "_", -1)
+//	s = strings.Replace(s, ":", "_", 1)
+//	s = strings.Replace(s, "@", "_", 1)
+//	return s
+//}
 
 // TODO Skip Cache if io op fails
-func (fh *FileHandler) ReadData(remotePath *RemotePath, offset int64, size int) ([]byte, int, error) {
+func (fh *FileHandler) ReadData(remotePath *RemotePath, offset int64, size int) ([]byte, error) {
 
 	// TODO  Check if File is Open
-	if _, ok := fh.Cached[remotePath.String()]; ok {
-		f, err := os.OpenFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)), os.O_RDONLY, 0666)
-		defer f.Close()
+	data, err := fh.Ifs.Hoarder.ReadCache(remotePath, offset, size)
 
-		// File is already opened
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		b := make([]byte, size)
-		n, err := f.ReadAt(b, offset)
-
-		return b, n, err
-	} else {
+	// If Read from Cache Failed then get from remote
+	if err != nil {
 		// Should Ask Agent for bytes
 		fileReadInfo := &ReadInfo{
 			RemotePath: remotePath,
@@ -98,50 +68,43 @@ func (fh *FileHandler) ReadData(remotePath *RemotePath, offset int64, size int) 
 
 		resp := fh.Ifs.Talker.sendRequest(ReadFileRequest, fileReadInfo)
 
-		if err, ok := resp.Data.(error); ok {
-			return nil, 0, err
+		if err, ok := resp.Data.(Error); ok {
+			return nil, err.Err
 		} else {
 			fileChunk := resp.Data.(*FileChunk)
-			return fileChunk.Chunk, fileChunk.Size, nil
+			return fileChunk.Chunk, nil
 		}
 
+	} else {
+		return data, err
 	}
 }
 
-func (fh *FileHandler) ReadAllData(remotePath *RemotePath) ([]byte, int, error) {
-	if _, ok := fh.Cached[remotePath.String()]; ok {
-		data, err := ioutil.ReadFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)))
-		return data, len(data), err
-	} else {
+func (fh *FileHandler) ReadAllData(remotePath *RemotePath) ([]byte, error) {
+
+	data, err := fh.Ifs.Hoarder.ReadAllCache(remotePath)
+
+	if err != nil {
+
 		resp := fh.Ifs.Talker.sendRequest(FetchFileRequest, remotePath)
 
-		if err, ok := resp.Data.(error); ok {
-			return nil, 0, err
+		if err, ok := resp.Data.(Error); ok {
+			return nil, err.Err
 		} else {
 			fileChunk := resp.Data.(*FileChunk)
-			return fileChunk.Chunk, len(fileChunk.Chunk), nil
+			return fileChunk.Chunk, nil
 		}
+	} else {
+		return data, err
 	}
 }
 
 // TODO Parallize Cache and Remote Writes
 func (fh *FileHandler) WriteData(remotePath *RemotePath, data []byte, offset int64) (int, error) {
 
-	var err error
-	if _, ok := fh.Cached[remotePath.String()]; ok {
-		f, err := os.OpenFile(path.Join(fh.Path, fh.convertToCacheName(remotePath)), os.O_WRONLY, 0666)
-		defer f.Close()
+	n, err := fh.Ifs.Hoarder.WriteCache(remotePath, offset, data)
 
-		// File is already opened
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		_, err = f.WriteAt(data, offset)
-
-	}
-
-	if err == nil {
+	if err != nil {
 
 		// Send Bytes to Agent
 		writeInfo := &WriteInfo{
@@ -150,8 +113,8 @@ func (fh *FileHandler) WriteData(remotePath *RemotePath, data []byte, offset int
 			Data:       data,
 		}
 		resp := fh.Ifs.Talker.sendRequest(WriteFileRequest, writeInfo)
-		if err, ok := resp.Data.(error); ok {
-			return 0, err
+		if err, ok := resp.Data.(Error); ok {
+			return 0, err.Err
 		} else {
 			writeResult := resp.Data.(*WriteResult)
 			return writeResult.Size, nil
@@ -159,39 +122,35 @@ func (fh *FileHandler) WriteData(remotePath *RemotePath, data []byte, offset int
 
 	}
 
-	return 0, err
+	return n, err
 
 }
 
 func (fh *FileHandler) Truncate(remotePath *RemotePath, size uint64) error {
 
-	var err error
-	if _, ok := fh.Cached[remotePath.String()]; ok {
-		err = os.Truncate(path.Join(fh.Path, fh.convertToCacheName(remotePath)), int64(size))
+	attrInfo := &TruncInfo{
+		RemotePath: remotePath,
+		Size:       size,
 	}
 
-	if err == nil {
+	fh.Ifs.Hoarder.SubmitRequest(CacheTruncRequest, attrInfo)
 
-		attrInfo := &TruncInfo{
-			RemotePath: remotePath,
-			Size:       size,
-		}
+	resp := fh.Ifs.Talker.sendRequest(TruncateRequest, attrInfo)
 
-		resp := fh.Ifs.Talker.sendRequest(TruncateRequest, attrInfo)
-
-		if err, ok := resp.Data.(error); ok {
-			return err
-		}
+	if err, ok := resp.Data.(Error); ok {
+		return err.Err
 	}
 
-	return err
+	return nil
 }
 
 func (fh *FileHandler) Release(remotePath *RemotePath) error {
 	if _, ok := fh.Opened[remotePath.String()]; ok {
 		delete(fh.Opened, remotePath.String())
+		return nil
 	}
-	return nil
+
+	return os.ErrNotExist
 }
 
 func (fh *FileHandler) Create(remotePath *RemotePath, name string) error {
@@ -210,23 +169,12 @@ func (fh *FileHandler) Create(remotePath *RemotePath, name string) error {
 		Path:     path.Join(remotePath.Path, name),
 	}
 
-	if fh.checkCacheSpace() {
-
-		f, err := os.Create(path.Join(fh.Path, fh.convertToCacheName(newRemotePath)))
-		defer f.Close()
-
-		// Need to ignore
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fh.Cached[newRemotePath.String()] = true
-	}
+	fh.Ifs.Hoarder.SubmitRequest(CacheCreateRequest, newRemotePath)
 
 	fh.Opened[newRemotePath.String()] = true
 
-	if err, ok := resp.Data.(error); ok {
-		return err
+	if err, ok := resp.Data.(Error); ok {
+		return err.Err
 	}
 
 	return nil
@@ -241,8 +189,8 @@ func (fh *FileHandler) Mkdir(remotePath *RemotePath, name string) error {
 
 	resp := fh.Ifs.Talker.sendRequest(CreateRequest, req)
 
-	if err, ok := resp.Data.(error); ok {
-		return err
+	if err, ok := resp.Data.(Error); ok {
+		return err.Err
 	}
 
 	return nil
@@ -258,21 +206,10 @@ func (fh *FileHandler) Remove(remotePath *RemotePath, name string) error {
 
 	resp := fh.Ifs.Talker.sendRequest(RemoveRequest, newRemotePath)
 
-	// TODO No Need to delete immediately, but can give to cache manager
-	// TODO Remove from Cached map
-	if _, ok := fh.Cached[remotePath.String()]; ok {
-		err := os.Remove(path.Join(fh.Path, fh.convertToCacheName(newRemotePath)))
+	fh.Ifs.Hoarder.SubmitRequest(CacheDeleteRequest, newRemotePath)
 
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		delete(fh.Cached, remotePath.String())
-
-	}
-
-	if err, ok := resp.Data.(error); ok {
-		return err
+	if err, ok := resp.Data.(Error); ok {
+		return err.Err
 	}
 
 	return nil

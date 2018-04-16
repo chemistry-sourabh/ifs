@@ -1,4 +1,4 @@
-package arsyncfs
+package ifs
 
 import (
 	"os"
@@ -156,10 +156,12 @@ func CreateFile(request *Packet) error {
 
 	if !createInfo.IsDir {
 		f, err := os.Create(filePath)
-		defer f.Close()
+		if err == nil {
+			defer f.Close()
+		}
 		return err
 	} else {
-		return os.Mkdir(filePath, 0666)
+		return os.Mkdir(filePath, 0755)
 	}
 }
 

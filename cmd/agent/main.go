@@ -3,22 +3,22 @@ package main
 import (
 	"github.com/gorilla/websocket"
 	"net/http"
-	"arsyncfs"
+	"ifs"
 	"log"
 )
 
 type Agent struct {
 	Connection      *websocket.Conn
-	RequestChannel  chan *arsyncfs.Packet
-	ResponseChannel chan *arsyncfs.Packet
+	RequestChannel  chan *ifs.Packet
+	ResponseChannel chan *ifs.Packet
 }
 
-func populateResponse(resp *arsyncfs.Packet, data arsyncfs.Payload, err error) {
+func populateResponse(resp *ifs.Packet, data ifs.Payload, err error) {
 
 	if err == nil {
 		resp.Data = data
 	} else {
-		resp.Data = &arsyncfs.Error{
+		resp.Data = &ifs.Error{
 			Err: err,
 		}
 	}
@@ -34,7 +34,7 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 
 	for {
 
-		req := &arsyncfs.Packet{}
+		req := &ifs.Packet{}
 
 		typ, data, err := conn.ReadMessage()
 
@@ -45,7 +45,7 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 
 		if typ == websocket.BinaryMessage {
 			req.Unmarshal(data)
-			log.Printf("Received Packet with Id %d and Op %s", req.Id, arsyncfs.ConvertOpCodeToString(req.Op))
+			log.Printf("Received Packet with Id %d and Op %s", req.Id, ifs.ConvertOpCodeToString(req.Op))
 			a.RequestChannel <- req
 		}
 
@@ -58,46 +58,46 @@ func (a *Agent) ProcessRequests() {
 	log.Println("Starting Request Processor")
 	for req := range a.RequestChannel {
 
-		resp := &arsyncfs.Packet{
+		resp := &ifs.Packet{
 			Id: req.Id,
 		}
 
-		var data arsyncfs.Payload
+		var data ifs.Payload
 		var err error
 
 		switch req.Op {
 
-		case arsyncfs.AttrRequest:
-			resp.Op = arsyncfs.StatResponse
-			data, err = arsyncfs.Attr(req)
+		case ifs.AttrRequest:
+			resp.Op = ifs.StatResponse
+			data, err = ifs.Attr(req)
 
-		case arsyncfs.ReadDirRequest:
-			resp.Op = arsyncfs.StatsResponse
-			data, err = arsyncfs.ReadDir(req)
+		case ifs.ReadDirRequest:
+			resp.Op = ifs.StatsResponse
+			data, err = ifs.ReadDir(req)
 
-		case arsyncfs.FetchFileRequest:
-			resp.Op = arsyncfs.FileDataResponse
-			data, err = arsyncfs.FetchFile(req)
+		case ifs.FetchFileRequest:
+			resp.Op = ifs.FileDataResponse
+			data, err = ifs.FetchFile(req)
 
-		case arsyncfs.ReadFileRequest:
-			resp.Op = arsyncfs.FileDataResponse
-			data, err = arsyncfs.ReadFile(req)
+		case ifs.ReadFileRequest:
+			resp.Op = ifs.FileDataResponse
+			data, err = ifs.ReadFile(req)
 
-		case arsyncfs.WriteFileRequest:
-			resp.Op = arsyncfs.WriteResponse
-			data, err = arsyncfs.WriteFile(req)
+		case ifs.WriteFileRequest:
+			resp.Op = ifs.WriteResponse
+			data, err = ifs.WriteFile(req)
 
-		case arsyncfs.TruncateRequest:
-			resp.Op = arsyncfs.ErrorResponse
-			err = arsyncfs.Truncate(req)
+		case ifs.TruncateRequest:
+			resp.Op = ifs.ErrorResponse
+			err = ifs.Truncate(req)
 
-		case arsyncfs.CreateRequest:
-			resp.Op = arsyncfs.ErrorResponse
-			err = arsyncfs.CreateFile(req)
+		case ifs.CreateRequest:
+			resp.Op = ifs.ErrorResponse
+			err = ifs.CreateFile(req)
 
-		case arsyncfs.RemoveRequest:
-			resp.Op = arsyncfs.ErrorResponse
-			err = arsyncfs.RemoveFile(req)
+		case ifs.RemoveRequest:
+			resp.Op = ifs.ErrorResponse
+			err = ifs.RemoveFile(req)
 		}
 
 		populateResponse(resp, data, err)
@@ -112,7 +112,7 @@ func (a *Agent) ProcessResponses() {
 	for resp := range a.ResponseChannel {
 		data, _ := resp.Marshal()
 		err := a.Connection.WriteMessage(websocket.BinaryMessage, data)
-		log.Printf("Sent Packet Id %d with Op %s", resp.Id, arsyncfs.ConvertOpCodeToString(resp.Op))
+		log.Printf("Sent Packet Id %d with Op %s", resp.Id, ifs.ConvertOpCodeToString(resp.Op))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -122,8 +122,8 @@ func (a *Agent) ProcessResponses() {
 func main() {
 	//log.SetOutput(ioutil.Discard)
 	agent := &Agent{
-		RequestChannel:  make(chan *arsyncfs.Packet, arsyncfs.ChannelLength),
-		ResponseChannel: make(chan *arsyncfs.Packet, arsyncfs.ChannelLength),
+		RequestChannel:  make(chan *ifs.Packet, ifs.ChannelLength),
+		ResponseChannel: make(chan *ifs.Packet, ifs.ChannelLength),
 	}
 
 	log.Println("Starting Server")
@@ -132,6 +132,10 @@ func main() {
 	go agent.ProcessResponses()
 
 	http.HandleFunc("/", agent.HandleRequests)
-	http.ListenAndServe("0.0.0.0:8000", nil)
+	err := http.ListenAndServe("0.0.0.0:8000", nil)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 }

@@ -1,4 +1,4 @@
-package arsyncfs
+package ifs
 
 func ConvertOpCodeToString(opCode uint8) string {
 

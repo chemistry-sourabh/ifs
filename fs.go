@@ -1,4 +1,4 @@
-package arsyncfs
+package ifs
 
 import (
 	"bazil.org/fuse"
@@ -16,6 +16,7 @@ import (
 type Ifs struct {
 	Talker      *Talker
 	FileHandler *FileHandler
+	Hoarder     *Hoarder
 	RemoteRoots map[string]*RemoteNode
 }
 
@@ -83,7 +84,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	log.Printf("Got Response for Attr %s", rn.RemotePath.String())
 
 	var err error = nil
-	if respErr, ok := resp.Data.(error); !ok {
+	if respErr, ok := resp.Data.(Error); !ok {
 
 		s := resp.Data.(*Stat)
 
@@ -101,7 +102,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 		attr.Mtime = time.Unix(0, s.ModTime)
 
 	} else {
-		err = respErr
+		err = respErr.Err
 	}
 
 	return err
@@ -118,7 +119,7 @@ func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	rn.RemoteNodes = make(map[string]*RemoteNode)
 
 	var err error
-	if respError, ok := resp.Data.(error); !ok {
+	if respError, ok := resp.Data.(Error); !ok {
 
 		// TODO Cache these for future Attr Requests!!
 		files := resp.Data.(*DirInfo).Stats
@@ -141,7 +142,7 @@ func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		return children, nil
 
 	} else {
-		err = respError
+		err = respError.Err
 	}
 	return nil, err
 }
@@ -186,7 +187,7 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 func (rn *RemoteNode) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	log.Printf("Read %s off=%d size=%d", rn.RemotePath.String(), req.Offset, req.Size)
 
-	b, _, err := rn.Ifs.FileHandler.ReadData(rn.RemotePath, req.Offset, req.Size)
+	b, err := rn.Ifs.FileHandler.ReadData(rn.RemotePath, req.Offset, req.Size)
 
 	resp.Data = b
 
@@ -196,7 +197,7 @@ func (rn *RemoteNode) Read(ctx context.Context, req *fuse.ReadRequest, resp *fus
 func (rn *RemoteNode) ReadAll(ctx context.Context) ([]byte, error) {
 	log.Println("Reading all of file", rn.RemotePath.Path)
 
-	data, _, err := rn.Ifs.FileHandler.ReadAllData(rn.RemotePath)
+	data, err := rn.Ifs.FileHandler.ReadAllData(rn.RemotePath)
 
 	return data, err
 
@@ -275,5 +276,8 @@ func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error
 	log.Println("Removing Node", rn.RemotePath.String(), req.Name)
 
 	err := rn.Ifs.FileHandler.Remove(rn.RemotePath, req.Name)
+	if err == nil {
+		delete(rn.RemoteNodes, req.Name)
+	}
 	return err
 }

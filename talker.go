@@ -1,9 +1,10 @@
-package arsyncfs
+package ifs
 
 import (
 	"net/url"
 	"github.com/gorilla/websocket"
 	"log"
+	"fmt"
 )
 
 //type connectionPool struct {
@@ -26,6 +27,7 @@ type Talker struct {
 	connection           *websocket.Conn
 	requestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
 	egressRequestChannel chan *PacketChannelTuple
+	stillConnected       bool
 }
 
 func (t *Talker) Startup(address string) {
@@ -44,6 +46,7 @@ func (t *Talker) mountRemoteRoot(address string) {
 
 	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
 
+	fmt.Println(address)
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 
 	if err != nil {
@@ -131,37 +134,9 @@ func (t *Talker) processIncomingMessages() {
 			delete(localRequests, resp.Id)
 		}
 
-		//resp := t.convertResponse(ch.Op, mp)
 		ch <- resp
 		close(ch)
 
 	}
 
 }
-
-//func (t *Talker) convertResponse(opCode uint8, mp map[string]interface{}) BaseResponse {
-//
-//	var resp BaseResponse
-//	var err error
-//
-//	switch opCode {
-//	case AttrRequest:
-//		resp = &StatResponse{}
-//		err = mapstructure.Decode(mp, resp)
-//
-//	case ReadDirRequest:
-//		resp = &ReadDirResponse{}
-//		err = mapstructure.Decode(mp, resp)
-//
-//	case FetchFileRequest:
-//		resp = &FileDataResponse{}
-//		err = mapstructure.Decode(mp, resp)
-//
-//	}
-//
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//
-//	return resp
-//}

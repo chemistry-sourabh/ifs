@@ -1,4 +1,4 @@
-package arsyncfs
+package ifs
 
 const AttrRequest = 0
 const ReadDirRequest = 1
@@ -9,11 +9,18 @@ const TruncateRequest = 5
 const CreateRequest = 6
 const RemoveRequest = 7
 
-const StatResponse = 10
-const StatsResponse = 11
-const FileDataResponse = 12
-const WriteResponse = 13
-const ErrorResponse = 14
+const CacheFileRequest = 8
+const CacheCreateRequest = 9
+const CacheWriteRequest = 10
+const CacheDeleteRequest = 11
+const CacheSyncRequest = 12
+const CacheTruncRequest = 13
+
+const StatResponse = 15
+const StatsResponse = 16
+const FileDataResponse = 17
+const WriteResponse = 18
+const ErrorResponse = 19
 
 const ChannelLength = 100
 

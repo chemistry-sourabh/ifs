@@ -1,4 +1,4 @@
-package arsyncfs
+package ifs
 
 import (
 	"testing"
