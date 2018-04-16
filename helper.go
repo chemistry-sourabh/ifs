@@ -1,5 +1,7 @@
 package ifs
 
+import "path"
+
 func ConvertOpCodeToString(opCode uint8) string {
 
 	switch opCode {
@@ -33,4 +35,9 @@ func ConvertOpCodeToString(opCode uint8) string {
 	}
 
 	return "Unknown Op"
+}
+
+
+func AppendFileToRemotePath(rp *RemotePath, name string) string {
+	return rp.Address()+"@"+ path.Join(rp.Path, name)
 }

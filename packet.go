@@ -2,14 +2,14 @@ package ifs
 
 import (
 	"github.com/vmihailenco/msgpack"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"encoding/binary"
+	"fmt"
 )
 
 type Payload interface {
 }
 
-// TODO Add Error in the Structure
 type Packet struct {
 	Id   uint64 // TODO What if this overflows ?
 	Op   uint8
@@ -36,7 +36,7 @@ func (pkt *Packet) Unmarshal(data []byte) {
 	pkt.Id = binary.BigEndian.Uint64(data)
 	pkt.Op = data[8]
 
-	log.Printf("Unmarshling Packet Id %d and Op %s", pkt.Id, ConvertOpCodeToString(pkt.Op))
+	log.WithFields(log.Fields{"id": pkt.Id, "op":ConvertOpCodeToString(pkt.Op)}).Debug("Unmarshling Packet")
 
 	payload := data[9:]
 
@@ -78,4 +78,8 @@ func (pkt *Packet) Unmarshal(data []byte) {
 
 	pkt.Data = struc
 
+}
+
+func (pkt *Packet) String() string {
+	return fmt.Sprintf("Id = %d Op = %s Data = %s", pkt.Id, ConvertOpCodeToString(pkt.Op), pkt.Data)
 }

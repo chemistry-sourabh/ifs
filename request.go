@@ -1,9 +1,15 @@
 package ifs
 
+import "fmt"
+
 type ReadInfo struct {
 	RemotePath *RemotePath
 	Offset     int64
 	Size       int
+}
+
+func (ri *ReadInfo) String() string {
+	return fmt.Sprintf("RemotePath = %s Offset = %d Size = %d", ri.RemotePath, ri.Offset, ri.Size)
 }
 
 type WriteInfo struct {
@@ -11,6 +17,8 @@ type WriteInfo struct {
 	Offset     int64
 	Data       []byte
 }
+
+
 
 type TruncInfo struct {
 	RemotePath *RemotePath

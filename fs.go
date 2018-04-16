@@ -4,7 +4,7 @@ import (
 	"bazil.org/fuse"
 	"golang.org/x/net/context"
 	"bazil.org/fuse/fs"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"path"
 	"os/user"
 	"strconv"
@@ -18,6 +18,7 @@ type Ifs struct {
 	FileHandler *FileHandler
 	Hoarder     *Hoarder
 	RemoteRoots map[string]*RemoteNode
+	CachedStats map[string]*Stat
 }
 
 // TODO All Errors should be resolved here
@@ -26,7 +27,7 @@ func (root *Ifs) Root() (fs.Node, error) {
 }
 
 func (root *Ifs) Attr(ctx context.Context, attr *fuse.Attr) error {
-	log.Println("Root Attr")
+	log.WithFields(log.Fields{"root":true, "op":"attr"}).Debug("Got FS Op Request")
 	// Check Error
 	curUser, _ := user.Current()
 	uid, _ := strconv.ParseUint(curUser.Uid, 10, 64)
@@ -44,7 +45,7 @@ func (root *Ifs) Attr(ctx context.Context, attr *fuse.Attr) error {
 }
 
 func (root *Ifs) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	log.Printf("Root ReadDirAll")
+	log.WithFields(log.Fields{"root":true, "op":"readdir"}).Debug("Got FS Op Request")
 
 	var children []fuse.Dirent
 
@@ -57,7 +58,7 @@ func (root *Ifs) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (root *Ifs) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	log.Printf("Root Lookup %s", name)
+	log.WithFields(log.Fields{"root":true, "op":"lookup", "name":name}).Debug("Got FS Op Request")
 
 	val, ok := root.RemoteRoots[name]
 
@@ -77,11 +78,18 @@ type RemoteNode struct {
 
 func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	// Update FileHandler if invalid
+	log.WithFields(log.Fields{"op":"attr", "address": rn.RemotePath.Address(), "path": rn.RemotePath.Path}).Debug("Got FS Op Request")
 
-	log.Printf("Attr %s \n", rn.RemotePath.String())
-
-	resp := rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
-	log.Printf("Got Response for Attr %s", rn.RemotePath.String())
+	var resp *Packet
+	//if stat, ok := rn.Ifs.CachedStats[rn.RemotePath.String()]; ok {
+	//	resp = &Packet{
+	//		Data: stat,
+	//	}
+	//	delete(rn.Ifs.CachedStats, rn.RemotePath.String())
+	//} else {
+		resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
+		log.Printf("Got Response for Attr %s", rn.RemotePath.String())
+	//}
 
 	var err error = nil
 	if respErr, ok := resp.Data.(Error); !ok {
@@ -128,6 +136,8 @@ func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 			s := file
 
+			rn.Ifs.CachedStats[AppendFileToRemotePath(rn.RemotePath, s.Name)] = s
+
 			var child fuse.Dirent
 			if s.IsDir {
 				child = fuse.Dirent{Type: fuse.DT_Dir, Name: s.Name}
@@ -156,6 +166,7 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 			Port:     rn.RemotePath.Port,
 			Path:     path.Join(rn.RemotePath.Path, name),
 		},
+		RemoteNodes: make(map[string]*RemoteNode),
 	}
 }
 

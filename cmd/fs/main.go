@@ -2,11 +2,10 @@ package main
 
 import (
 	"bazil.org/fuse"
-	"log"
 	"bazil.org/fuse/fs"
 	"ifs"
 	"path"
-	"fmt"
+	log "github.com/sirupsen/logrus"
 )
 
 func generateRemoteNodes(fs *ifs.Ifs, remoteRoot *ifs.RemoteRoot) map[string]*ifs.RemoteNode {
@@ -33,20 +32,21 @@ func generateRemoteNodes(fs *ifs.Ifs, remoteRoot *ifs.RemoteRoot) map[string]*if
 
 func main() {
 	//log.SetOutput(ioutil.Discard)
+	log.SetLevel(log.DebugLevel)
 	cfg := ifs.Config{}
 
 	cfg.Load("./fs.json")
 
 	c, err := fuse.Mount(cfg.MountPoint)
 	if err != nil {
-		fmt.Println("Error is Here")
 		log.Fatal(err)
 	}
 
 	server := fs.New(c, nil)
 
-	fmt.Println("Starting")
-	fileSystem := &ifs.Ifs{}
+	fileSystem := &ifs.Ifs{
+		CachedStats: make(map[string] *ifs.Stat),
+	}
 
 	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoot)
 
