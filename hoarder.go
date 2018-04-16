@@ -185,13 +185,15 @@ func (h *Hoarder) GetCacheFileName() string {
 }
 
 func (h *Hoarder) WriteCache(remotePath *RemotePath, offset int64, data []byte) (int, error) {
+	log.Println(h.cached)
 	if fname, ok := h.cached[remotePath.String()]; ok {
-		f, err := os.OpenFile(path.Join(h.Path, fname), os.O_RDONLY, 0666)
-		defer f.Close()
+		f, err := os.OpenFile(path.Join(h.Path, fname), os.O_WRONLY, 0666)
 
 		// Something is not right
 		if err != nil {
 			log.Panic(err)
+		} else {
+			defer f.Close()
 		}
 
 		n, err := f.WriteAt(data, offset)
