@@ -5,10 +5,17 @@ import (
 	"encoding/json"
 )
 
+type LogConfig struct {
+	Logging bool   `json:"logging"`
+	Debug   bool   `json:"debug"`
+	Path    string `json:"path"`
+}
+
 type Config struct {
-	MountPoint    string     `json:"mount_point"`
-	CacheLocation string     `json:"cache_location"`
+	MountPoint    string      `json:"mount_point"`
+	CacheLocation string      `json:"cache_location"`
 	RemoteRoot    *RemoteRoot `json:"remote_root"`
+	Log           LogConfig   `json:"log"`
 }
 
 func (c *Config) Load(path string) error {

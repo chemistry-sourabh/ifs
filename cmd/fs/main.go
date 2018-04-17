@@ -6,6 +6,9 @@ import (
 	"ifs"
 	"path"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
+	"bufio"
+	"os"
 )
 
 func generateRemoteNodes(fs *ifs.Ifs, remoteRoot *ifs.RemoteRoot) map[string]*ifs.RemoteNode {
@@ -31,11 +34,23 @@ func generateRemoteNodes(fs *ifs.Ifs, remoteRoot *ifs.RemoteRoot) map[string]*if
 }
 
 func main() {
-	//log.SetOutput(ioutil.Discard)
-	log.SetLevel(log.DebugLevel)
 	cfg := ifs.Config{}
-
 	cfg.Load("./fs.json")
+
+	if !cfg.Log.Logging {
+		log.SetOutput(ioutil.Discard)
+	} else {
+		f, _ := os.Create(cfg.Log.Path)
+		defer f.Close()
+		log.SetOutput(bufio.NewWriter(f))
+	}
+
+	if cfg.Log.Debug {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.ErrorLevel)
+	}
+
 
 	c, err := fuse.Mount(cfg.MountPoint)
 	if err != nil {
@@ -45,7 +60,7 @@ func main() {
 	server := fs.New(c, nil)
 
 	fileSystem := &ifs.Ifs{
-		CachedStats: make(map[string] *ifs.Stat),
+		CachedStats: make(map[string]*ifs.Stat),
 	}
 
 	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoot)

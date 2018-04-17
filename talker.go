@@ -3,8 +3,8 @@ package ifs
 import (
 	"net/url"
 	"github.com/gorilla/websocket"
-	"log"
-	"fmt"
+	log "github.com/sirupsen/logrus"
+	"strings"
 )
 
 //type connectionPool struct {
@@ -46,7 +46,6 @@ func (t *Talker) mountRemoteRoot(address string) {
 
 	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
 
-	fmt.Println(address)
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 
 	if err != nil {
@@ -76,16 +75,19 @@ func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 
 func (t *Talker) processEgressChannel() {
 
-	log.Println("Starting Egress Channel Processor")
+	log.Info("Starting Egress Channel Processor")
 
 	for req := range t.egressRequestChannel {
 
 		pkt, _ := req.Packet, req.Channel
 
-		log.Printf("Sending Request With Op Code %d", pkt.Op)
-
 		pkt.Id = t.idCounter
 		t.idCounter++
+
+		log.WithFields(log.Fields{
+			"op": strings.ToLower(ConvertOpCodeToString(pkt.Op)),
+			"id": pkt.Id,
+		}).Debug("Sending Packet")
 
 		data, _ := pkt.Marshal()
 		err := t.connection.WriteMessage(websocket.BinaryMessage, data)
@@ -99,7 +101,7 @@ func (t *Talker) processEgressChannel() {
 }
 
 func (t *Talker) processIncomingMessages() {
-	log.Printf("Starting Incoming Message Processor")
+	log.Info("Starting Incoming Message Processor")
 
 	localRequests := make(map[uint64]chan *Packet)
 
@@ -116,7 +118,11 @@ func (t *Talker) processIncomingMessages() {
 
 		resp.Unmarshal(data)
 
-		log.Printf("Received Response for RequestId %d", resp.Id)
+		log.WithFields(log.Fields{
+			"op": strings.ToLower(ConvertOpCodeToString(resp.Op)),
+			"id": resp.Id,
+		}).Debug("Received Request")
+
 		ch, ok := localRequests[resp.Id]
 
 		if !ok {

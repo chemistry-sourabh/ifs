@@ -2,7 +2,7 @@ package ifs
 
 import (
 	"path"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 )
 
@@ -10,23 +10,12 @@ type FileHandler struct {
 	Ifs    *Ifs
 	Path   string
 	Size   uint64
-	Cached map[string]bool // TODO Come up with a hash scheme that will replace filenames along with collisions
 	Opened map[string]bool
 }
 
 func (fh *FileHandler) StartUp() {
-	log.Println("Starting File Handler")
-	fh.DeleteCache()
-
-	fh.Cached = make(map[string]bool)
+	log.Info("Starting File Handler")
 	fh.Opened = make(map[string]bool)
-
-}
-
-func (fh *FileHandler) DeleteCache() {
-	log.Println("Deleting Cache")
-	os.RemoveAll(fh.Path)
-	os.MkdirAll(fh.Path, 0755)
 }
 
 func (fh *FileHandler) OpenFile(remotePath *RemotePath) error {

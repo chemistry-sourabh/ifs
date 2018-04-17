@@ -3,7 +3,6 @@ package ifs
 import (
 	"testing"
 	"github.com/google/go-cmp/cmp"
-	"fmt"
 )
 
 // TODO Check for specific errors
@@ -246,7 +245,6 @@ func TestReadFile3(t *testing.T) {
 		t.Error("err is nil")
 	}
 
-	fmt.Println(err)
 
 	if chunk != nil {
 		t.Error("chunk is not nil")

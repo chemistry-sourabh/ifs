@@ -5,7 +5,7 @@ import (
 	"path"
 	"fmt"
 	"os"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 type CacheRequest interface {
@@ -32,7 +32,15 @@ func (h *Hoarder) Startup() {
 	h.ingress = make(chan *Packet, ChannelLength)
 	h.fileId = 0
 
+	h.DeleteCache()
+
 	go h.ProcessCacheRequests()
+}
+
+func (h *Hoarder) DeleteCache() {
+	log.Info("Deleting Cache")
+	os.RemoveAll(h.Path)
+	os.MkdirAll(h.Path, 0755)
 }
 
 func (h *Hoarder) ProcessCacheRequests() {
