@@ -53,8 +53,8 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		struc = &ReadInfo{}
 	case WriteFileRequest:
 		struc = &WriteInfo{}
-	case TruncateRequest:
-		struc = &TruncInfo{}
+	case SetAttrRequest:
+		struc = &AttrInfo{}
 	case CreateRequest:
 		struc = &CreateInfo{}
 	case RemoveRequest:

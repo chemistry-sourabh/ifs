@@ -115,16 +115,11 @@ func (fh *FileHandler) WriteData(remotePath *RemotePath, data []byte, offset int
 
 }
 
-func (fh *FileHandler) Truncate(remotePath *RemotePath, size uint64) error {
-
-	attrInfo := &TruncInfo{
-		RemotePath: remotePath,
-		Size:       size,
-	}
+func (fh *FileHandler) Truncate(attrInfo *AttrInfo) error {
 
 	fh.Ifs.Hoarder.SubmitRequest(CacheTruncRequest, attrInfo)
 
-	resp := fh.Ifs.Talker.sendRequest(TruncateRequest, attrInfo)
+	resp := fh.Ifs.Talker.sendRequest(SetAttrRequest, attrInfo)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err

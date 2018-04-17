@@ -310,12 +310,29 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 		"path":    rn.RemotePath.Path,
 		"valid":   req.Valid.String(),
 		"size":    req.Size,
+		"mode":    req.Mode,
+		"atime":   req.Atime,
+		"mtime":   req.Mtime,
 	}
 	log.WithFields(fields).Debug("SetAttr FS Request")
 
+	attrInfo := &AttrInfo{
+		RemotePath: rn.RemotePath,
+		Valid: req.Valid,
+		Size: req.Size,
+		Mode: req.Mode,
+		ATime: req.Atime.UnixNano(),
+		MTime: req.Mtime.UnixNano(),
+	}
+
 	var err error
 	if req.Valid.Size() {
-		err = rn.Ifs.FileHandler.Truncate(rn.RemotePath, req.Size)
+		err = rn.Ifs.FileHandler.Truncate(attrInfo)
+	} else if req.Valid.Mode() {
+		resp := rn.Ifs.Talker.sendRequest(SetAttrRequest, attrInfo)
+		if respErr, ok := resp.Data.(Error); ok {
+			err = respErr.Err
+		}
 	}
 
 	if err != nil {

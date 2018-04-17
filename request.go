@@ -1,6 +1,10 @@
 package ifs
 
-import "fmt"
+import (
+	"fmt"
+	"bazil.org/fuse"
+	"os"
+)
 
 type ReadInfo struct {
 	RemotePath *RemotePath
@@ -18,11 +22,13 @@ type WriteInfo struct {
 	Data       []byte
 }
 
-
-
-type TruncInfo struct {
+type AttrInfo struct {
 	RemotePath *RemotePath
+	Valid      fuse.SetattrValid
 	Size       uint64
+	Mode	   os.FileMode
+	ATime	   int64
+	MTime	   int64
 }
 
 type CreateInfo struct {

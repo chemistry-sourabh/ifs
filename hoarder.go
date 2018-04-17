@@ -15,7 +15,7 @@ type CacheRequest interface {
 // FetchFile is RemotePath
 // Read From Cache is ReadInfo
 // Write To Cache is WriteInfo
-// Truncate To Cache is TruncInfo
+// SetAttr To Cache is AttrInfo
 // Delete is RemotePath
 
 type Hoarder struct {
@@ -55,7 +55,7 @@ func (h *Hoarder) ProcessCacheRequests() {
 			writeInfo := pkt.Data.(*WriteInfo)
 			h.SendWrite(writeInfo)
 		case CacheTruncRequest:
-			truncInfo := pkt.Data.(*TruncInfo)
+			truncInfo := pkt.Data.(*AttrInfo)
 			h.CacheTrunc(truncInfo)
 		case CacheCreateRequest:
 			rp := pkt.Data.(*RemotePath)
@@ -113,7 +113,7 @@ func (h *Hoarder) SendWrite(writeInfo *WriteInfo) error {
 	return nil
 }
 
-func (h *Hoarder) CacheTrunc(truncInfo *TruncInfo) error {
+func (h *Hoarder) CacheTrunc(truncInfo *AttrInfo) error {
 	if fname, ok := h.cached[truncInfo.RemotePath.String()]; ok {
 		err := os.Truncate(path.Join(h.Path, fname), int64(truncInfo.Size))
 		return err

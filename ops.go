@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 
 	"path"
+	"time"
 )
 
 func Attr(request *Packet) (*Stat, error) {
@@ -142,12 +143,26 @@ func WriteFile(request *Packet) (*WriteResult, error) {
 	return nil, err
 }
 
-func Truncate(request *Packet) error {
-	truncInfo := request.Data.(*TruncInfo)
+func SetAttr(request *Packet) error {
+	attrInfo := request.Data.(*AttrInfo)
 
-	filePath := truncInfo.RemotePath.Path
+	filePath := attrInfo.RemotePath.Path
 
-	return os.Truncate(filePath, int64(truncInfo.Size))
+	var err error
+	if attrInfo.Valid.Size() {
+		err = os.Truncate(filePath, int64(attrInfo.Size))
+	}
+
+	if attrInfo.Valid.Mode() {
+		err = os.Chmod(filePath, attrInfo.Mode)
+	}
+
+	// Assuming both are set at same time
+	if attrInfo.Valid.Atime() || attrInfo.Valid.Mtime() {
+		err = os.Chtimes(filePath, time.Unix(0, attrInfo.ATime), time.Unix(0,attrInfo.MTime))
+	}
+
+	return err
 }
 
 func CreateFile(request *Packet) error {

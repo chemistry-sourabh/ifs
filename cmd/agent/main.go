@@ -87,9 +87,9 @@ func (a *Agent) ProcessRequests() {
 			resp.Op = ifs.WriteResponse
 			data, err = ifs.WriteFile(req)
 
-		case ifs.TruncateRequest:
+		case ifs.SetAttrRequest:
 			resp.Op = ifs.ErrorResponse
-			err = ifs.Truncate(req)
+			err = ifs.SetAttr(req)
 
 		case ifs.CreateRequest:
 			resp.Op = ifs.ErrorResponse

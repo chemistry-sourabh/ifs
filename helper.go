@@ -15,8 +15,8 @@ func ConvertOpCodeToString(opCode uint8) string {
 		return "ReadFile Request"
 	case WriteFileRequest:
 		return "WriteFile Request"
-	case TruncateRequest:
-		return "Truncate Request"
+	case SetAttrRequest:
+		return "SetAttr Request"
 	case CreateRequest:
 		return "Create Request"
 	case RemoveRequest:

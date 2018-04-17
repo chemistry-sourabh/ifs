@@ -5,7 +5,7 @@ const ReadDirRequest = 1
 const FetchFileRequest = 2
 const ReadFileRequest = 3
 const WriteFileRequest = 4
-const TruncateRequest = 5
+const SetAttrRequest = 5
 const CreateRequest = 6
 const RemoveRequest = 7
 
