@@ -93,7 +93,6 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	//	delete(rn.Ifs.CachedStats, rn.RemotePath.String())
 	//} else {
 	resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
-	//log.Printf("Got Response for Attr %s", rn.RemotePath.String())
 	//}
 
 	var err error = nil

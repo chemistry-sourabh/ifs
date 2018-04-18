@@ -8,8 +8,6 @@ import (
 
 type FileHandler struct {
 	Ifs    *Ifs
-	Path   string
-	Size   uint64
 	Opened map[string]bool
 }
 

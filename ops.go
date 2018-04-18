@@ -2,7 +2,7 @@ package ifs
 
 import (
 	"os"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 
 	"path"
@@ -13,7 +13,11 @@ func Attr(request *Packet) (*Stat, error) {
 
 	filePath := request.Data.(*RemotePath).Path
 
-	log.Printf("Processing Attr Request %d for %s", request.Id, filePath)
+	fields := log.Fields{
+		"id":   request.Id,
+		"path": filePath,
+	}
+	log.WithFields(fields).Debug("Processing Attr Request")
 
 	info, err := os.Lstat(filePath)
 
@@ -25,7 +29,17 @@ func Attr(request *Packet) (*Stat, error) {
 		s.ModTime = info.ModTime().UnixNano()
 		s.IsDir = info.IsDir()
 
+		log.WithFields(log.Fields{
+			"id": request.Id,
+			"path": filePath,
+			"mode": s.Mode,
+			"size": s.Size,
+			"mod_time": time.Unix(0, s.ModTime),
+		}).Debug("Attr Response")
+
 		return s, nil
+	} else {
+		log.WithFields(fields).Error("Attr Error Response:", err)
 	}
 
 	return nil, err
@@ -40,7 +54,12 @@ func ReadDir(request *Packet) (*DirInfo, error) {
 
 	var stats []*Stat
 
-	log.Printf("Processing ReadDir Request %d for %s", request.Id, filePath)
+	fields := log.Fields{
+		"id": request.Id,
+		"path": filePath,
+	}
+
+	log.WithFields(fields).Debug("Processing Readdir Request")
 
 	files, err := ioutil.ReadDir(filePath)
 
@@ -61,7 +80,16 @@ func ReadDir(request *Packet) (*DirInfo, error) {
 		}
 
 		dirInfo.Stats = stats
+
+		log.WithFields(log.Fields{
+			"id":request.Id,
+			"path": filePath,
+			"size": len(stats),
+		}).Debug("Readdir Error Response")
+
 		return dirInfo, nil
+	} else {
+		log.WithFields(fields).Error("Readdir Error Response:",err)
 	}
 
 	return nil, err
@@ -159,7 +187,7 @@ func SetAttr(request *Packet) error {
 
 	// Assuming both are set at same time
 	if attrInfo.Valid.Atime() || attrInfo.Valid.Mtime() {
-		err = os.Chtimes(filePath, time.Unix(0, attrInfo.ATime), time.Unix(0,attrInfo.MTime))
+		err = os.Chtimes(filePath, time.Unix(0, attrInfo.ATime), time.Unix(0, attrInfo.MTime))
 	}
 
 	return err
