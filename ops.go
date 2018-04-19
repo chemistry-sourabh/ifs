@@ -14,6 +14,7 @@ func Attr(request *Packet) (*Stat, error) {
 	filePath := request.Data.(*RemotePath).Path
 
 	fields := log.Fields{
+		"op":   "attr",
 		"id":   request.Id,
 		"path": filePath,
 	}
@@ -30,10 +31,11 @@ func Attr(request *Packet) (*Stat, error) {
 		s.IsDir = info.IsDir()
 
 		log.WithFields(log.Fields{
-			"id": request.Id,
-			"path": filePath,
-			"mode": s.Mode,
-			"size": s.Size,
+			"op":       "attr",
+			"id":       request.Id,
+			"path":     filePath,
+			"mode":     s.Mode,
+			"size":     s.Size,
 			"mod_time": time.Unix(0, s.ModTime),
 		}).Debug("Attr Response")
 
@@ -55,7 +57,8 @@ func ReadDir(request *Packet) (*DirInfo, error) {
 	var stats []*Stat
 
 	fields := log.Fields{
-		"id": request.Id,
+		"op":   "readdir",
+		"id":   request.Id,
 		"path": filePath,
 	}
 
@@ -82,14 +85,15 @@ func ReadDir(request *Packet) (*DirInfo, error) {
 		dirInfo.Stats = stats
 
 		log.WithFields(log.Fields{
-			"id":request.Id,
+			"op":   "readdir",
+			"id":   request.Id,
 			"path": filePath,
 			"size": len(stats),
-		}).Debug("Readdir Error Response")
+		}).Debug("Readdir Response")
 
 		return dirInfo, nil
 	} else {
-		log.WithFields(fields).Error("Readdir Error Response:",err)
+		log.WithFields(fields).Error("Readdir Error Response:", err)
 	}
 
 	return nil, err
@@ -98,19 +102,34 @@ func ReadDir(request *Packet) (*DirInfo, error) {
 func FetchFile(request *Packet) (*FileChunk, error) {
 
 	filePath := request.Data.(*RemotePath).Path
-	data, err := ioutil.ReadFile(filePath)
 
-	log.Printf("Processing FetchFile Request %d for %s", request.Id, filePath)
+	fields := log.Fields{
+		"op":   "fetch",
+		"id":   request.Id,
+		"path": filePath,
+	}
+
+	log.WithFields(fields).Debug("Processing FetchFile Request")
+
+	data, err := ioutil.ReadFile(filePath)
 
 	if err == nil {
 
 		fileChunk := &FileChunk{
 			Chunk: data,
-			Size:  -1, // Invalid
+			Size:  len(data),
 		}
+
+		log.WithFields(log.Fields{
+			"id":   request.Id,
+			"path": filePath,
+			"size": len(data),
+		}).Debug(" FetchFile Response")
 
 		return fileChunk, err
 
+	} else {
+		log.WithFields(fields).Errorf("FetchFile Error Response:", err)
 	}
 
 	return nil, err
@@ -118,15 +137,24 @@ func FetchFile(request *Packet) (*FileChunk, error) {
 
 func ReadFile(request *Packet) (*FileChunk, error) {
 	readInfo := request.Data.(*ReadInfo)
-
 	filePath := readInfo.RemotePath.Path
+
+	fields := log.Fields{
+		"op":     "read",
+		"id":     request.Id,
+		"path":   filePath,
+		"size":   readInfo.Size,
+		"offset": readInfo.Offset,
+	}
+
+	log.WithFields(fields).Debug("Processing Read Request")
 
 	f, err := os.OpenFile(filePath, os.O_RDONLY, 0666)
 	defer f.Close()
 
 	// Should be there because the file is already opened
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(fields).Fatal("Fatal Error:", err)
 	}
 
 	b := make([]byte, readInfo.Size)
@@ -138,7 +166,18 @@ func ReadFile(request *Packet) (*FileChunk, error) {
 			Size:  n,
 		}
 
+		log.WithFields(log.Fields{
+			"op":         "read",
+			"id":         request.Id,
+			"path":       filePath,
+			"size":       readInfo.Size,
+			"offset":     readInfo.Offset,
+			"chunk_size": n,
+		}).Debug("Read Response")
+
 		return fileChunk, nil
+	} else {
+		log.WithFields(fields).Errorf("Read Error Response:", err)
 	}
 
 	return nil, err
@@ -146,15 +185,24 @@ func ReadFile(request *Packet) (*FileChunk, error) {
 
 func WriteFile(request *Packet) (*WriteResult, error) {
 	writeInfo := request.Data.(*WriteInfo)
-
 	filePath := writeInfo.RemotePath.Path
+
+	fields := log.Fields{
+		"op":     "write",
+		"id":     request.Id,
+		"path":   filePath,
+		"offset": writeInfo.Offset,
+		"size":   len(writeInfo.Data),
+	}
+
+	log.WithFields(fields).Debug("Processing Write Request")
 
 	f, err := os.OpenFile(filePath, os.O_WRONLY, 0666)
 	defer f.Close()
 
 	// Should be there because the file is already opened
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(fields).Fatal("Fatal Error:", err)
 	}
 
 	n, err := f.WriteAt(writeInfo.Data, writeInfo.Offset)
@@ -165,7 +213,18 @@ func WriteFile(request *Packet) (*WriteResult, error) {
 			Size: n,
 		}
 
+		log.WithFields(log.Fields{
+			"op":         "write",
+			"id":         request.Id,
+			"path":       filePath,
+			"offset":     writeInfo.Offset,
+			"chunk_size": len(writeInfo.Data),
+			"size":       n,
+		}).Debug("Write Response")
+
 		return result, nil
+	} else {
+		log.WithFields(fields).Errorf("Write Error Response")
 	}
 
 	return nil, err
@@ -173,8 +232,20 @@ func WriteFile(request *Packet) (*WriteResult, error) {
 
 func SetAttr(request *Packet) error {
 	attrInfo := request.Data.(*AttrInfo)
-
 	filePath := attrInfo.RemotePath.Path
+
+	fields := log.Fields{
+		"op":    "setattr",
+		"id":    request.Id,
+		"path":  filePath,
+		"valid": attrInfo.Valid.String(),
+		"size":  attrInfo.Size,
+		"mtime": attrInfo.MTime,
+		"atime": attrInfo.ATime,
+		"mode":  attrInfo.Mode,
+	}
+
+	log.WithFields(fields).Debug("Processing SetAttr Request")
 
 	var err error
 	if attrInfo.Valid.Size() {
@@ -190,6 +261,10 @@ func SetAttr(request *Packet) error {
 		err = os.Chtimes(filePath, time.Unix(0, attrInfo.ATime), time.Unix(0, attrInfo.MTime))
 	}
 
+	if err != nil {
+		log.WithFields(fields).Errorf("SetAttr Error Response:", err)
+	}
+
 	return err
 }
 
@@ -197,18 +272,52 @@ func CreateFile(request *Packet) error {
 	createInfo := request.Data.(*CreateInfo)
 	filePath := path.Join(createInfo.BaseDir.Path, createInfo.Name)
 
+	fields := log.Fields{
+		"op":       "create",
+		"id":       request.Id,
+		"path":     filePath,
+		"name":     createInfo.Name,
+		"base_dir": createInfo.BaseDir,
+		"is_dir":   createInfo.IsDir,
+	}
+
+	log.WithFields(fields).Debug("Processing Create Request")
+
 	if !createInfo.IsDir {
 		f, err := os.Create(filePath)
 		if err == nil {
 			defer f.Close()
+		} else {
+			log.WithFields(fields).Errorf("Create Error Response:", err)
 		}
 		return err
 	} else {
-		return os.Mkdir(filePath, 0755)
+		err := os.Mkdir(filePath, 0755)
+
+		if err != nil {
+			log.WithFields(fields).Errorf("Create Error Response:", err)
+		}
+
+		return err
 	}
 }
 
 func RemoveFile(request *Packet) error {
 	remotePath := request.Data.(*RemotePath)
-	return os.Remove(remotePath.Path)
+
+	fields := log.Fields{
+		"op":   "remove",
+		"id":   request.Id,
+		"path": remotePath.Path,
+	}
+
+	log.WithFields(fields).Debug("Processing Remove Request")
+
+	err := os.Remove(remotePath.Path)
+
+	if err != nil {
+		log.WithFields(fields).Debug("Remove Error Response:", err)
+	}
+
+	return err
 }

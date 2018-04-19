@@ -47,8 +47,12 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 
 		if typ == websocket.BinaryMessage {
 			req.Unmarshal(data)
-			log.Printf("Received Packet with Id %d and Op %s", req.Id, ConvertOpCodeToString(req.Op))
-			a.RequestChannel <- req
+			log.WithFields(log.Fields{
+				"id": req.Id,
+				"op": ConvertOpCodeToString(req.Op),
+			}).Debug("Received Packet")
+
+			go a.ProcessRequest(req)
 		}
 
 	}
@@ -56,65 +60,65 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	conn.Close()
 }
 
-func (a *Agent) ProcessRequests() {
-	log.Info("Starting Request Processor")
-	for req := range a.RequestChannel {
+func (a *Agent) ProcessRequest(req *Packet) {
 
-		resp := &Packet{
-			Id: req.Id,
-		}
-
-		var data Payload
-		var err error
-
-		switch req.Op {
-
-		case AttrRequest:
-			resp.Op = StatResponse
-			data, err = Attr(req)
-
-		case ReadDirRequest:
-			resp.Op = StatsResponse
-			data, err = ReadDir(req)
-
-		case FetchFileRequest:
-			resp.Op = FileDataResponse
-			data, err = FetchFile(req)
-
-		case ReadFileRequest:
-			resp.Op = FileDataResponse
-			data, err = ReadFile(req)
-
-		case WriteFileRequest:
-			resp.Op = WriteResponse
-			data, err = WriteFile(req)
-
-		case SetAttrRequest:
-			resp.Op = ErrorResponse
-			err = SetAttr(req)
-
-		case CreateRequest:
-			resp.Op = ErrorResponse
-			err = CreateFile(req)
-
-		case RemoveRequest:
-			resp.Op = ErrorResponse
-			err = RemoveFile(req)
-		}
-
-		populateResponse(resp, data, err)
-
-		a.ResponseChannel <- resp
+	resp := &Packet{
+		Id: req.Id,
 	}
+
+	var data Payload
+	var err error
+
+	switch req.Op {
+
+	case AttrRequest:
+		resp.Op = StatResponse
+		data, err = Attr(req)
+
+	case ReadDirRequest:
+		resp.Op = StatsResponse
+		data, err = ReadDir(req)
+
+	case FetchFileRequest:
+		resp.Op = FileDataResponse
+		data, err = FetchFile(req)
+
+	case ReadFileRequest:
+		resp.Op = FileDataResponse
+		data, err = ReadFile(req)
+
+	case WriteFileRequest:
+		resp.Op = WriteResponse
+		data, err = WriteFile(req)
+
+	case SetAttrRequest:
+		resp.Op = ErrorResponse
+		err = SetAttr(req)
+
+	case CreateRequest:
+		resp.Op = ErrorResponse
+		err = CreateFile(req)
+
+	case RemoveRequest:
+		resp.Op = ErrorResponse
+		err = RemoveFile(req)
+	}
+
+	populateResponse(resp, data, err)
+
+	a.ResponseChannel <- resp
 
 }
 
-func (a *Agent) ProcessResponses() {
+func (a *Agent) ProcessResponses(respChan chan *Packet) {
 	log.Println("Starting Response Processor")
-	for resp := range a.ResponseChannel {
+	for resp := range respChan {
 		data, _ := resp.Marshal()
 		err := a.Connection.WriteMessage(websocket.BinaryMessage, data)
-		log.Printf("Sent Packet Id %d with Op %s", resp.Id, ConvertOpCodeToString(resp.Op))
+		log.WithFields(log.Fields{
+			"id": resp.Id,
+			"op": ConvertOpCodeToString(resp.Op),
+		}).Debug("Sent Packet")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -132,8 +136,7 @@ func StartAgent(address string, port int) {
 		"port":    port,
 	}).Info("Starting Agent")
 
-	go agent.ProcessRequests()
-	go agent.ProcessResponses()
+	go agent.ProcessResponses(agent.ResponseChannel)
 
 	http.HandleFunc("/", agent.HandleRequests)
 	err := http.ListenAndServe(address+":"+strconv.FormatInt(int64(port), 10), nil)

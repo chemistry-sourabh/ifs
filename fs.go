@@ -220,6 +220,7 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 }
 
 // TODO Open for Dir also
+// TODO Should have actual file descriptor
 func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	fields := log.Fields{
 		"op":      "open",

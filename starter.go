@@ -35,7 +35,7 @@ func generateRemoteNodes(fs *Ifs, remoteRoot *RemoteRoot) map[string]*RemoteNode
 func SetupLogger(cfg *Config) {
 	if !cfg.Log.Logging {
 		log.SetOutput(ioutil.Discard)
-	} else {
+	} else if !cfg.Log.Console{
 		f, _ := os.Create(cfg.Log.Path)
 		defer f.Close()
 		log.SetOutput(bufio.NewWriter(f))
@@ -46,6 +46,7 @@ func SetupLogger(cfg *Config) {
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
+
 
 }
 

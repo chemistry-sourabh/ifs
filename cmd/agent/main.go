@@ -1,18 +1,21 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"strconv"
 	"ifs"
+	"os"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 
-	args := flag.Args()
+	args := os.Args[1:]
+
 
 	if len(args) != 2 {
 		fmt.Errorf("usage: agent address port")
+		os.Exit(1)
 	}
 
 	address := args[0]
@@ -21,6 +24,9 @@ func main() {
 	if err != nil {
 		fmt.Errorf("port should be integer")
 	}
+
+
+	log.SetLevel(log.DebugLevel)
 
 	ifs.StartAgent(address, int(port))
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"strings"
+	"fmt"
 )
 
 //type connectionPool struct {
@@ -109,6 +110,8 @@ func (t *Talker) processIncomingMessages() {
 
 		resp := &Packet{}
 
+		log.Debug("Listening for Packet")
+
 		_, data, err := t.connection.ReadMessage()
 
 		if err != nil {
@@ -121,9 +124,11 @@ func (t *Talker) processIncomingMessages() {
 		log.WithFields(log.Fields{
 			"op": strings.ToLower(ConvertOpCodeToString(resp.Op)),
 			"id": resp.Id,
-		}).Debug("Received Request")
+		}).Debug("Received Packet")
 
 		ch, ok := localRequests[resp.Id]
+
+		fmt.Println(localRequests)
 
 		if !ok {
 			for req := range t.requestBuffer {

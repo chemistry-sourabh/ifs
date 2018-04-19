@@ -7,6 +7,7 @@ import (
 
 type LogConfig struct {
 	Logging bool   `json:"logging"`
+	Console bool   `json:"console"`
 	Debug   bool   `json:"debug"`
 	Path    string `json:"path"`
 }

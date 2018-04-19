@@ -2,25 +2,30 @@ package main
 
 import (
 	"ifs"
-	"flag"
 	"fmt"
+	"os"
 )
 
 
 func main() {
 
-	cfgPath := "./fs/json"
+	cfgPath := "./fs.json"
 
-	args := flag.Args()
+	args := os.Args[1:]
 
 	if len(args) > 1 {
 		fmt.Errorf("usage: ifs [config]")
+		os.Exit(1)
 	} else if len(args) == 1 {
 		cfgPath = args[0]
 	}
 
 	cfg := &ifs.Config{}
-	cfg.Load(cfgPath)
+	err := cfg.Load(cfgPath)
+
+	if err != nil {
+		fmt.Errorf("got error: %s",err)
+	}
 
 	ifs.SetupLogger(cfg)
 	ifs.MountRemoteRoots(cfg)
