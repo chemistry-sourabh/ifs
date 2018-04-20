@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"strings"
-	"fmt"
 )
 
 //type connectionPool struct {
@@ -104,7 +103,7 @@ func (t *Talker) processEgressChannel() {
 func (t *Talker) processIncomingMessages() {
 	log.Info("Starting Incoming Message Processor")
 
-	localRequests := make(map[uint64]chan *Packet)
+	localRequests := make(map[uint64] *PacketChannelTuple)
 
 	for {
 
@@ -126,9 +125,12 @@ func (t *Talker) processIncomingMessages() {
 			"id": resp.Id,
 		}).Debug("Received Packet")
 
-		ch, ok := localRequests[resp.Id]
+		var ch chan *Packet
+		req, ok := localRequests[resp.Id]
 
-		fmt.Println(localRequests)
+		log.WithFields(log.Fields{
+			"requests": localRequests,
+		}).Debug("Local Requests")
 
 		if !ok {
 			for req := range t.requestBuffer {
@@ -138,14 +140,17 @@ func (t *Talker) processIncomingMessages() {
 					ch = channel
 					break
 				} else {
-					localRequests[pkt.Id] = ch
+					localRequests[pkt.Id] = req
 				}
 			}
 		} else {
+			ch = req.Channel
 			delete(localRequests, resp.Id)
 		}
 
+		log.Debug("Sending Response to Channel")
 		ch <- resp
+		log.Debug("Closing Channel")
 		close(ch)
 
 	}

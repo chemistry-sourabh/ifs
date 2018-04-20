@@ -59,6 +59,7 @@ func (fh *FileHandler) ReadData(remotePath *RemotePath, offset int64, size int) 
 			return nil, err.Err
 		} else {
 			fileChunk := resp.Data.(*FileChunk)
+			fileChunk.Decompress()
 			return fileChunk.Chunk, nil
 		}
 
@@ -79,6 +80,7 @@ func (fh *FileHandler) ReadAllData(remotePath *RemotePath) ([]byte, error) {
 			return nil, err.Err
 		} else {
 			fileChunk := resp.Data.(*FileChunk)
+			fileChunk.Decompress()
 			return fileChunk.Chunk, nil
 		}
 	} else {

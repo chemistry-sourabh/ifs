@@ -120,10 +120,13 @@ func FetchFile(request *Packet) (*FileChunk, error) {
 			Size:  len(data),
 		}
 
+		fileChunk.Compress()
+
 		log.WithFields(log.Fields{
 			"id":   request.Id,
 			"path": filePath,
 			"size": len(data),
+			"compressed_size": len(fileChunk.Chunk),
 		}).Debug(" FetchFile Response")
 
 		return fileChunk, err
@@ -166,6 +169,8 @@ func ReadFile(request *Packet) (*FileChunk, error) {
 			Size:  n,
 		}
 
+		fileChunk.Compress()
+
 		log.WithFields(log.Fields{
 			"op":         "read",
 			"id":         request.Id,
@@ -173,6 +178,7 @@ func ReadFile(request *Packet) (*FileChunk, error) {
 			"size":       readInfo.Size,
 			"offset":     readInfo.Offset,
 			"chunk_size": n,
+			"compressed_size": len(fileChunk.Chunk),
 		}).Debug("Read Response")
 
 		return fileChunk, nil
