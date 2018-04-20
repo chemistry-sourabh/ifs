@@ -8,9 +8,7 @@ import (
 )
 
 type Agent struct {
-	Connection      *websocket.Conn
-	RequestChannel  chan *Packet
-	ResponseChannel chan *Packet
+	Pool *AgentConnectionPool
 }
 
 func populateResponse(resp *Packet, data Payload, err error) {
@@ -24,15 +22,13 @@ func populateResponse(resp *Packet, data Payload, err error) {
 	}
 }
 
-func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
-	upgrader := websocket.Upgrader{}
-	conn, _ := upgrader.Upgrade(w, r, nil)
+func (a *Agent) Listen(index int) {
+
+	conn := a.Pool.Connections[index]
 
 	log.WithFields(log.Fields{
-		"address": conn.RemoteAddr().String(),
-	}).Debug("Got New Connection")
-
-	a.Connection = conn
+		"address": conn.RemoteAddr(),
+	}).Info("Listening for Packets")
 
 	for {
 
@@ -50,17 +46,33 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 			log.WithFields(log.Fields{
 				"id": req.Id,
 				"op": ConvertOpCodeToString(req.Op),
+				"index": index,
 			}).Debug("Received Packet")
 
-			go a.ProcessRequest(req)
+			go a.ProcessRequest(req, index)
 		}
 
 	}
 
-	conn.Close()
 }
 
-func (a *Agent) ProcessRequest(req *Packet) {
+func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
+	upgrader := websocket.Upgrader{}
+	conn, _ := upgrader.Upgrade(w, r, nil)
+
+	log.WithFields(log.Fields{
+		"address": conn.RemoteAddr().String(),
+	}).Debug("Got New Connection")
+
+	// TODO Sync Mutex
+	a.Pool.Append(conn)
+
+	i := len(a.Pool.Connections) - 1
+	go a.Listen(i)
+	go a.ProcessResponses(i)
+}
+
+func (a *Agent) ProcessRequest(req *Packet, index int) {
 
 	resp := &Packet{
 		Id: req.Id,
@@ -106,18 +118,23 @@ func (a *Agent) ProcessRequest(req *Packet) {
 
 	populateResponse(resp, data, err)
 
-	a.ResponseChannel <- resp
+	a.Pool.SendingChannels[index] <- resp
 
 }
 
-func (a *Agent) ProcessResponses(respChan chan *Packet) {
-	log.Println("Starting Response Processor")
+func (a *Agent) ProcessResponses(index int) {
+	log.WithFields(log.Fields{
+		"index": index,
+	}).Info("Starting Response Processor")
+
+	respChan := a.Pool.SendingChannels[index]
 	for resp := range respChan {
 		data, _ := resp.Marshal()
-		err := a.Connection.WriteMessage(websocket.BinaryMessage, data)
+		err := a.Pool.Connections[GetRandomIndex(len(a.Pool.Connections))].WriteMessage(websocket.BinaryMessage, data)
 		log.WithFields(log.Fields{
 			"id": resp.Id,
 			"op": ConvertOpCodeToString(resp.Op),
+			"index": index,
 		}).Debug("Sent Packet")
 		if err != nil {
 			log.Fatal(err)
@@ -127,8 +144,7 @@ func (a *Agent) ProcessResponses(respChan chan *Packet) {
 
 func StartAgent(address string, port int) {
 	agent := &Agent{
-		RequestChannel:  make(chan *Packet, ChannelLength),
-		ResponseChannel: make(chan *Packet, ChannelLength),
+		Pool: &AgentConnectionPool{},
 	}
 
 	log.WithFields(log.Fields{
@@ -136,7 +152,6 @@ func StartAgent(address string, port int) {
 		"port":    port,
 	}).Info("Starting Agent")
 
-	go agent.ProcessResponses(agent.ResponseChannel)
 
 	http.HandleFunc("/", agent.HandleRequests)
 	err := http.ListenAndServe(address+":"+strconv.FormatInt(int64(port), 10), nil)

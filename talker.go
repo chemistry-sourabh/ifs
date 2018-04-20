@@ -5,6 +5,8 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"strings"
+	"github.com/cornelk/hashmap"
+	"unsafe"
 )
 
 //type connectionPool struct {
@@ -22,39 +24,47 @@ import (
 
 type Talker struct {
 	// Should be map of hostname and port
-	Ifs                  *Ifs
-	idCounter            uint64
-	connection           *websocket.Conn
-	requestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
-	egressRequestChannel chan *PacketChannelTuple
-	stillConnected       bool
+	Ifs           *Ifs
+	idCounter     uint64
+	Pool          *FsConnectionPool
+	requestBuffer *hashmap.HashMap
+	//requestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
+	//egressRequestChannel chan *PacketChannelTuple
 }
 
 func (t *Talker) Startup(address string) {
 
-	t.egressRequestChannel = make(chan *PacketChannelTuple, ChannelLength)
-	t.requestBuffer = make(chan *PacketChannelTuple, ChannelLength)
+	//t.egressRequestChannel = make(chan *PacketChannelTuple, ChannelLength)
+	//t.requestBuffer = make(chan *PacketChannelTuple, ChannelLength)
+	t.requestBuffer = &hashmap.HashMap{}
 	t.mountRemoteRoot(address)
 	t.idCounter = 0
-
-	go t.processEgressChannel()
-	go t.processIncomingMessages()
 
 }
 
 func (t *Talker) mountRemoteRoot(address string) {
 
+	poolCount := 3
+
 	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
 
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	for i := 0; i < poolCount; i++ {
 
-	if err != nil {
-		log.Fatal(err)
+		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		t.Pool.Append(c)
+
+		index := len(t.Pool.Connections) - 1
+		go t.processEgressChannel(index)
+		go t.processIncomingMessages(index)
+
 	}
-
-	t.connection = c
-
 }
+
 
 func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 
@@ -65,7 +75,7 @@ func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 		Data: payload,
 	}
 
-	t.egressRequestChannel <- &PacketChannelTuple{
+	t.Pool.SendingChannels[GetRandomIndex(len(t.Pool.Connections))] <- &PacketChannelTuple{
 		req,
 		respChannel,
 	}
@@ -73,11 +83,11 @@ func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 	return <-respChannel
 }
 
-func (t *Talker) processEgressChannel() {
+func (t *Talker) processEgressChannel(index int) {
 
 	log.Info("Starting Egress Channel Processor")
 
-	for req := range t.egressRequestChannel {
+	for req := range t.Pool.SendingChannels[index] {
 
 		pkt, _ := req.Packet, req.Channel
 
@@ -89,21 +99,21 @@ func (t *Talker) processEgressChannel() {
 			"id": pkt.Id,
 		}).Debug("Sending Packet")
 
+		t.requestBuffer.Set(pkt.Id, unsafe.Pointer(req))
+
 		data, _ := pkt.Marshal()
-		err := t.connection.WriteMessage(websocket.BinaryMessage, data)
+		err := t.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		t.requestBuffer <- req
 
 	}
 }
 
-func (t *Talker) processIncomingMessages() {
+func (t *Talker) processIncomingMessages(index int) {
 	log.Info("Starting Incoming Message Processor")
 
-	localRequests := make(map[uint64] *PacketChannelTuple)
 
 	for {
 
@@ -111,7 +121,7 @@ func (t *Talker) processIncomingMessages() {
 
 		log.Debug("Listening for Packet")
 
-		_, data, err := t.connection.ReadMessage()
+		_, data, err := t.Pool.Connections[index].ReadMessage()
 
 		if err != nil {
 			log.Fatal(err)
@@ -126,32 +136,38 @@ func (t *Talker) processIncomingMessages() {
 		}).Debug("Received Packet")
 
 		var ch chan *Packet
-		req, ok := localRequests[resp.Id]
 
-		log.WithFields(log.Fields{
-			"requests": localRequests,
-		}).Debug("Local Requests")
+		req, _ := t.requestBuffer.Get(resp.Id)
 
-		if !ok {
-			for req := range t.requestBuffer {
-				pkt, channel := req.Packet, req.Channel
-
-				if pkt.Id == resp.Id {
-					ch = channel
-					break
-				} else {
-					localRequests[pkt.Id] = req
-				}
-			}
-		} else {
-			ch = req.Channel
-			delete(localRequests, resp.Id)
-		}
+		ch = ((*PacketChannelTuple) (req)).Channel
 
 		log.Debug("Sending Response to Channel")
 		ch <- resp
 		log.Debug("Closing Channel")
 		close(ch)
+
+		t.requestBuffer.Del(resp.Id)
+
+		//log.WithFields(log.Fields{
+		//	"requests": localRequests,
+		//}).Debug("Local Requests")
+
+		//if !ok {
+		//	for req := range t.requestBuffer {
+		//		pkt, channel := req.Packet, req.Channel
+		//
+		//		if pkt.Id == resp.Id {
+		//			ch = channel
+		//			break
+		//		} else {
+		//			localRequests[pkt.Id] = req
+		//		}
+		//	}
+		//} else {
+		//	ch = req.Channel
+		//	delete(localRequests, resp.Id)
+		//}
+
 
 	}
 

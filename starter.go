@@ -66,6 +66,7 @@ func MountRemoteRoots(cfg *Config) {
 
 	talker := &Talker{
 		Ifs: fileSystem,
+		Pool: &FsConnectionPool{},
 	}
 
 	fileHandler := &FileHandler{

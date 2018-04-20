@@ -4,7 +4,32 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+	"github.com/gorilla/websocket"
 )
+
+type AgentConnectionPool struct {
+	Connections      []*websocket.Conn
+	ReceivedChannels []chan *Packet
+	SendingChannels  []chan *Packet
+}
+
+func (p *AgentConnectionPool) Append(conn *websocket.Conn) {
+	p.Connections = append(p.Connections, conn)
+	p.ReceivedChannels = append(p.ReceivedChannels, make(chan *Packet, ChannelLength))
+	p.SendingChannels = append(p.SendingChannels, make(chan *Packet, ChannelLength))
+}
+
+type FsConnectionPool struct {
+	Connections      []*websocket.Conn
+	ReceivedChannels []chan *PacketChannelTuple
+	SendingChannels  []chan *PacketChannelTuple
+}
+
+func (p *FsConnectionPool) Append(conn *websocket.Conn) {
+	p.Connections = append(p.Connections, conn)
+	p.ReceivedChannels = append(p.ReceivedChannels, make(chan *PacketChannelTuple, ChannelLength))
+	p.SendingChannels = append(p.SendingChannels, make(chan *PacketChannelTuple, ChannelLength))
+}
 
 type PacketChannelTuple struct {
 	Packet  *Packet

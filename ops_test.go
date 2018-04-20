@@ -123,6 +123,8 @@ func TestFetchFile(t *testing.T) {
 
 	chunk, err := FetchFile(pkt)
 
+	chunk.Decompress()
+
 	if err != nil {
 		t.Error("Got Error in FetchFile", err)
 	}
@@ -177,6 +179,8 @@ func TestReadFile(t *testing.T) {
 
 	chunk, err := ReadFile(pkt)
 
+	chunk.Decompress()
+
 	if err != nil {
 		t.Error("Got Error in ReadFile", err)
 	}
@@ -208,6 +212,8 @@ func TestReadFile2(t *testing.T) {
 	pkt := CreatePacket(ReadFileRequest, payload)
 
 	chunk, err := ReadFile(pkt)
+
+	chunk.Decompress()
 
 	if err != nil {
 		t.Error("Got Error in ReadFile", err)
@@ -272,6 +278,8 @@ func TestReadFile4(t *testing.T) {
 	pkt := CreatePacket(ReadFileRequest, payload)
 
 	chunk, err := ReadFile(pkt)
+
+	chunk.Decompress()
 
 	if err != nil {
 		t.Error("Got Error in ReadFile", err)
