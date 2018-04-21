@@ -17,6 +17,7 @@ type Config struct {
 	CacheLocation string      `json:"cache_location"`
 	RemoteRoot    *RemoteRoot `json:"remote_root"`
 	Log           LogConfig   `json:"log"`
+	ConnCount     int         `json:"connection_count"`
 }
 
 func (c *Config) Load(path string) error {

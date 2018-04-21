@@ -32,19 +32,17 @@ type Talker struct {
 	//egressRequestChannel chan *PacketChannelTuple
 }
 
-func (t *Talker) Startup(address string) {
+func (t *Talker) Startup(address string, poolCount int) {
 
 	//t.egressRequestChannel = make(chan *PacketChannelTuple, ChannelLength)
 	//t.requestBuffer = make(chan *PacketChannelTuple, ChannelLength)
 	t.requestBuffer = &hashmap.HashMap{}
-	t.mountRemoteRoot(address)
+	t.mountRemoteRoot(address, poolCount)
 	t.idCounter = 0
 
 }
 
-func (t *Talker) mountRemoteRoot(address string) {
-
-	poolCount := 3
+func (t *Talker) mountRemoteRoot(address string, poolCount int) {
 
 	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
 
