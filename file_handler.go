@@ -4,18 +4,17 @@ import (
 	"path"
 	log "github.com/sirupsen/logrus"
 	"os"
-	"github.com/cornelk/hashmap"
 	"unsafe"
 )
 
 type FileHandler struct {
 	Ifs    *Ifs
-	Opened *hashmap.HashMap
+	Opened *FastMap
 }
 
 func (fh *FileHandler) StartUp() {
 	log.Info("Starting File Handler")
-	fh.Opened = &hashmap.HashMap{}
+	fh.Opened = NewFastMap()
 }
 
 func (fh *FileHandler) OpenFile(remotePath *RemotePath) error {
@@ -23,8 +22,7 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath) error {
 	var err error
 
 	fh.Ifs.Hoarder.SubmitRequest(CacheFileRequest, remotePath)
-	val := true
-	fh.Opened.Set(remotePath.String(), unsafe.Pointer(&val))
+	fh.Opened.Set(remotePath.String(), true)
 
 	return err
 }
@@ -132,8 +130,8 @@ func (fh *FileHandler) Truncate(attrInfo *AttrInfo) error {
 }
 
 func (fh *FileHandler) Release(remotePath *RemotePath) error {
-	if _, ok := fh.Opened.Get(remotePath.String()); ok {
-		fh.Opened.Del(remotePath.String())
+	if _, ok := fh.Opened.Load(remotePath.String()); ok {
+		fh.Opened.Delete(remotePath.String())
 		return nil
 	}
 

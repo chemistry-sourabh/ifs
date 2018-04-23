@@ -39,7 +39,10 @@ func (pkt *Packet) Unmarshal(data []byte) {
 	pkt.Op = data[8]
 	pkt.ConnId = data[9]
 
-	log.WithFields(log.Fields{"id": pkt.Id, "op": ConvertOpCodeToString(pkt.Op)}).Debug("Unmarshling Packet")
+	log.WithFields(log.Fields{
+		"id": pkt.Id,
+		"op": ConvertOpCodeToString(pkt.Op),
+	}).Debug("Unmarshling Packet")
 
 	payload := data[10:]
 

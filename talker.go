@@ -5,8 +5,6 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"strings"
-	"github.com/cornelk/hashmap"
-	"unsafe"
 	"strconv"
 )
 
@@ -15,7 +13,7 @@ type Talker struct {
 	Ifs           *Ifs
 	IdCounters    map[uint8]uint64
 	Pool          *FsConnectionPool
-	RequestBuffer *hashmap.HashMap
+	RequestBuffer *FastMap
 	//RequestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
 	//egressRequestChannel chan *PacketChannelTuple
 }
@@ -23,7 +21,7 @@ type Talker struct {
 func NewTalker(Ifs *Ifs) *Talker {
 	return &Talker{
 		Ifs:           Ifs,
-		RequestBuffer: &hashmap.HashMap{},
+		RequestBuffer: NewFastMap(),
 		IdCounters:    make(map[uint8]uint64),
 		Pool:          newFsConnectionPool(),
 	}
@@ -93,7 +91,7 @@ func (t *Talker) processSendingChannel(index uint8) {
 			"conn_id": pkt.ConnId,
 		}).Debug("Sending Packet")
 
-		t.RequestBuffer.Set(GetMapKey(pkt.ConnId, pkt.Id), unsafe.Pointer(req))
+		t.RequestBuffer.Set(GetMapKey(pkt.ConnId, pkt.Id), req)
 
 		data, _ := pkt.Marshal()
 		err := t.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
@@ -130,9 +128,9 @@ func (t *Talker) processIncomingMessages(index uint8) {
 
 		var ch chan *Packet
 
-		req, _ := t.RequestBuffer.Get(GetMapKey(resp.ConnId, resp.Id))
+		req, _ := t.RequestBuffer.Load(GetMapKey(resp.ConnId, resp.Id))
 
-		ch = ((*PacketChannelTuple)(req)).Channel
+		ch = req.(*PacketChannelTuple).Channel
 
 		log.Debug("Sending Response to Channel")
 		ch <- resp
@@ -140,7 +138,7 @@ func (t *Talker) processIncomingMessages(index uint8) {
 		close(ch)
 		log.Debug("Closed Channel")
 
-		t.RequestBuffer.Del(GetMapKey(resp.ConnId, resp.Id))
+		t.RequestBuffer.Delete(GetMapKey(resp.ConnId, resp.Id))
 
 	}
 
