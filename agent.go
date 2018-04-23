@@ -44,6 +44,7 @@ func (a *Agent) Listen(index int) {
 		if typ == websocket.BinaryMessage {
 			req.Unmarshal(data)
 			log.WithFields(log.Fields{
+				"conn_id": req.ConnId,
 				"id": req.Id,
 				"op": ConvertOpCodeToString(req.Op),
 				"index": index,
@@ -75,6 +76,7 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 func (a *Agent) ProcessRequest(req *Packet, index int) {
 
 	resp := &Packet{
+		ConnId: req.ConnId,
 		Id: req.Id,
 	}
 
@@ -132,6 +134,7 @@ func (a *Agent) ProcessResponses(index int) {
 		data, _ := resp.Marshal()
 		err := a.Pool.Connections[GetRandomIndex(len(a.Pool.Connections))].WriteMessage(websocket.BinaryMessage, data)
 		log.WithFields(log.Fields{
+			"conn_id": resp.ConnId,
 			"id": resp.Id,
 			"op": ConvertOpCodeToString(resp.Op),
 			"index": index,
@@ -144,7 +147,7 @@ func (a *Agent) ProcessResponses(index int) {
 
 func StartAgent(address string, port int) {
 	agent := &Agent{
-		Pool: &AgentConnectionPool{},
+		Pool: newAgentConnectionPool(),
 	}
 
 	log.WithFields(log.Fields{

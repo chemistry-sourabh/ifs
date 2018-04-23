@@ -7,39 +7,30 @@ import (
 	"strings"
 	"github.com/cornelk/hashmap"
 	"unsafe"
+	"strconv"
 )
-
-//type connectionPool struct {
-//	connections []*websocket.Conn
-//}
-//
-//func (cp *connectionPool) pickRandomConnection() *websocket.Conn {
-//	rand.Seed(time.Now().UnixNano())
-//	return cp.connections[rand.Intn(len(cp.connections))]
-//}
-//
-//func (cp *connectionPool) listen() *Response {
-//
-//}
 
 type Talker struct {
 	// Should be map of hostname and port
 	Ifs           *Ifs
-	idCounter     uint64
+	IdCounters    map[uint8]uint64
 	Pool          *FsConnectionPool
-	requestBuffer *hashmap.HashMap
-	//requestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
+	RequestBuffer *hashmap.HashMap
+	//RequestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
 	//egressRequestChannel chan *PacketChannelTuple
 }
 
+func NewTalker(Ifs *Ifs) *Talker {
+	return &Talker{
+		Ifs:           Ifs,
+		RequestBuffer: &hashmap.HashMap{},
+		IdCounters:    make(map[uint8]uint64),
+		Pool:          newFsConnectionPool(),
+	}
+}
+
 func (t *Talker) Startup(address string, poolCount int) {
-
-	//t.egressRequestChannel = make(chan *PacketChannelTuple, ChannelLength)
-	//t.requestBuffer = make(chan *PacketChannelTuple, ChannelLength)
-	t.requestBuffer = &hashmap.HashMap{}
 	t.mountRemoteRoot(address, poolCount)
-	t.idCounter = 0
-
 }
 
 func (t *Talker) mountRemoteRoot(address string, poolCount int) {
@@ -56,13 +47,12 @@ func (t *Talker) mountRemoteRoot(address string, poolCount int) {
 
 		t.Pool.Append(c)
 
-		index := len(t.Pool.Connections) - 1
-		go t.processEgressChannel(index)
+		index := uint8(len(t.Pool.Connections) - 1)
+		go t.processSendingChannel(index)
 		go t.processIncomingMessages(index)
 
 	}
 }
-
 
 func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 
@@ -81,7 +71,11 @@ func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 	return <-respChannel
 }
 
-func (t *Talker) processEgressChannel(index int) {
+func GetMapKey(connId uint8, id uint64) string {
+	return strings.Join([]string{strconv.FormatInt(int64(connId), 10), strconv.FormatInt(int64(id), 10)},"_")
+}
+
+func (t *Talker) processSendingChannel(index uint8) {
 
 	log.Info("Starting Egress Channel Processor")
 
@@ -89,15 +83,17 @@ func (t *Talker) processEgressChannel(index int) {
 
 		pkt, _ := req.Packet, req.Channel
 
-		pkt.Id = t.idCounter
-		t.idCounter++
+		pkt.ConnId = index
+		pkt.Id = t.IdCounters[index]
+		t.IdCounters[index]++
 
 		log.WithFields(log.Fields{
 			"op": strings.ToLower(ConvertOpCodeToString(pkt.Op)),
 			"id": pkt.Id,
+			"conn_id": pkt.ConnId,
 		}).Debug("Sending Packet")
 
-		t.requestBuffer.Set(pkt.Id, unsafe.Pointer(req))
+		t.RequestBuffer.Set(GetMapKey(pkt.ConnId, pkt.Id), unsafe.Pointer(req))
 
 		data, _ := pkt.Marshal()
 		err := t.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
@@ -105,13 +101,11 @@ func (t *Talker) processEgressChannel(index int) {
 			log.Fatal(err)
 		}
 
-
 	}
 }
 
-func (t *Talker) processIncomingMessages(index int) {
+func (t *Talker) processIncomingMessages(index uint8) {
 	log.Info("Starting Incoming Message Processor")
-
 
 	for {
 
@@ -131,41 +125,22 @@ func (t *Talker) processIncomingMessages(index int) {
 		log.WithFields(log.Fields{
 			"op": strings.ToLower(ConvertOpCodeToString(resp.Op)),
 			"id": resp.Id,
+			"conn_id": resp.ConnId,
 		}).Debug("Received Packet")
 
 		var ch chan *Packet
 
-		req, _ := t.requestBuffer.Get(resp.Id)
+		req, _ := t.RequestBuffer.Get(GetMapKey(resp.ConnId, resp.Id))
 
-		ch = ((*PacketChannelTuple) (req)).Channel
+		ch = ((*PacketChannelTuple)(req)).Channel
 
 		log.Debug("Sending Response to Channel")
 		ch <- resp
 		log.Debug("Closing Channel")
 		close(ch)
+		log.Debug("Closed Channel")
 
-		t.requestBuffer.Del(resp.Id)
-
-		//log.WithFields(log.Fields{
-		//	"requests": localRequests,
-		//}).Debug("Local Requests")
-
-		//if !ok {
-		//	for req := range t.requestBuffer {
-		//		pkt, channel := req.Packet, req.Channel
-		//
-		//		if pkt.Id == resp.Id {
-		//			ch = channel
-		//			break
-		//		} else {
-		//			localRequests[pkt.Id] = req
-		//		}
-		//	}
-		//} else {
-		//	ch = req.Channel
-		//	delete(localRequests, resp.Id)
-		//}
-
+		t.RequestBuffer.Del(GetMapKey(resp.ConnId, resp.Id))
 
 	}
 

@@ -13,6 +13,10 @@ type AgentConnectionPool struct {
 	SendingChannels  []chan *Packet
 }
 
+func newAgentConnectionPool() *AgentConnectionPool {
+	return &AgentConnectionPool{}
+}
+
 func (p *AgentConnectionPool) Append(conn *websocket.Conn) {
 	p.Connections = append(p.Connections, conn)
 	p.ReceivedChannels = append(p.ReceivedChannels, make(chan *Packet, ChannelLength))
@@ -23,6 +27,10 @@ type FsConnectionPool struct {
 	Connections      []*websocket.Conn
 	ReceivedChannels []chan *PacketChannelTuple
 	SendingChannels  []chan *PacketChannelTuple
+}
+
+func newFsConnectionPool() *FsConnectionPool {
+	return &FsConnectionPool{}
 }
 
 func (p *FsConnectionPool) Append(conn *websocket.Conn) {

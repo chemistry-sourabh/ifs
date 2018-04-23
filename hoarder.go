@@ -19,15 +19,17 @@ type CacheRequest interface {
 // Delete is RemotePath
 
 type Hoarder struct {
-	Ifs     *Ifs
-	Path    string
-	Size    uint64
-	cached  map[string]string
-	ingress chan *Packet
-	fileId  uint
+	Ifs      *Ifs
+	Path     string
+	Size     uint64
+	cached   map[string]string
+	fetching map[string]bool
+	ingress  chan *Packet
+	fileId   uint
 }
 
 func (h *Hoarder) Startup() {
+	h.fetching = make(map[string]bool)
 	h.cached = make(map[string]string)
 	h.ingress = make(chan *Packet, ChannelLength)
 	h.fileId = 0
@@ -85,9 +87,15 @@ func (h *Hoarder) IsCached(rp *RemotePath) bool {
 
 func (h *Hoarder) CacheFile(remotePath *RemotePath) error {
 
+	_, cachedOk := h.cached[remotePath.String()]
+	_, fetchingOk := h.fetching[remotePath.String()]
+
 	// TODO Check Cache Space
 	// TODO Implement some form of cache management
-	if _, ok := h.cached[remotePath.String()]; !ok {
+	if !cachedOk && !fetchingOk{
+
+		h.fetching[remotePath.String()] = true
+
 		resp := h.Ifs.Talker.sendRequest(FetchFileRequest, remotePath)
 
 		if err, ok := resp.Data.(Error); ok {
@@ -102,6 +110,7 @@ func (h *Hoarder) CacheFile(remotePath *RemotePath) error {
 
 		if err == nil {
 			h.cached[remotePath.String()] = fname
+			delete(h.fetching, remotePath.String())
 		}
 		return err
 	}
@@ -129,7 +138,7 @@ func (h *Hoarder) CacheCreate(remotePath *RemotePath) error {
 		fname := h.GetCacheFileName()
 		f, err := os.Create(path.Join(h.Path, fname))
 
-		// if error happens this will be nil right ?
+		// if error doesnt happens this will be nil right ?
 		if err == nil {
 			defer f.Close()
 			h.cached[remotePath.String()] = fname

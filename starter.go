@@ -64,10 +64,7 @@ func MountRemoteRoots(cfg *Config) {
 
 	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoot)
 
-	talker := &Talker{
-		Ifs: fileSystem,
-		Pool: &FsConnectionPool{},
-	}
+	talker := NewTalker(fileSystem)
 
 	fileHandler := &FileHandler{
 		Ifs: fileSystem,
