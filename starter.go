@@ -24,6 +24,7 @@ func generateRemoteNodes(fs *Ifs, remoteRoot *RemoteRoot) map[string]*RemoteNode
 			Ifs:        fs,
 			IsDir:      true,
 			RemotePath: rp,
+			RemoteNodes: make(map[string] *RemoteNode),
 		}
 
 		remoteRoots[path.Base(rp.Path)] = rn

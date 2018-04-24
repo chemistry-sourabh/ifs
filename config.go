@@ -16,7 +16,7 @@ type Config struct {
 	MountPoint    string      `json:"mount_point"`
 	CacheLocation string      `json:"cache_location"`
 	RemoteRoot    *RemoteRoot `json:"remote_root"`
-	Log           LogConfig   `json:"log"`
+	Log           *LogConfig   `json:"log"`
 	ConnCount     int         `json:"connection_count"`
 }
 
