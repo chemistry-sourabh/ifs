@@ -25,7 +25,7 @@ func (c *Config) Load(path string) error {
 	data, err := ioutil.ReadFile(path)
 
 	if err == nil {
-		json.Unmarshal(data, c)
+		err = json.Unmarshal(data, c)
 	}
 
 	return err

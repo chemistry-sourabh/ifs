@@ -120,7 +120,7 @@ func (a *Agent) ProcessRequest(req *Packet, index int) {
 
 	populateResponse(resp, data, err)
 
-	a.Pool.SendingChannels[index] <- resp
+	a.Pool.SendingChannels[GetRandomIndex(len(a.Pool.Connections))] <- resp
 
 }
 
@@ -132,7 +132,7 @@ func (a *Agent) ProcessResponses(index int) {
 	respChan := a.Pool.SendingChannels[index]
 	for resp := range respChan {
 		data, _ := resp.Marshal()
-		err := a.Pool.Connections[GetRandomIndex(len(a.Pool.Connections))].WriteMessage(websocket.BinaryMessage, data)
+		err := a.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
 		log.WithFields(log.Fields{
 			"conn_id": resp.ConnId,
 			"id": resp.Id,

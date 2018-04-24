@@ -24,7 +24,7 @@ func main() {
 	err := cfg.Load(cfgPath)
 
 	if err != nil {
-		fmt.Errorf("got error: %s",err)
+		fmt.Printf("got error: %s",err)
 	}
 
 	ifs.SetupLogger(cfg)
