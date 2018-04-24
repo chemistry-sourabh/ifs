@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"encoding/binary"
 	"crypto/rand"
+	"github.com/google/go-cmp/cmp"
 )
 
 func PrintTestError(t *testing.T, message string, got interface{}, want interface{}) {
@@ -50,4 +51,22 @@ func WriteDummyData(name string, size int) []byte{
 	binary.Read(rand.Reader, binary.LittleEndian, &data)
 	ioutil.WriteFile(fPath, data, 0666)
 	return data
+}
+
+func Compare(t *testing.T, msg string, got interface{}, want interface{}) {
+	if !cmp.Equal(got, want) {
+		PrintTestError(t, msg+" don't match", got, want)
+	}
+}
+
+func IsError(t *testing.T, msg string, err error) {
+	if err != nil {
+		t.Error(msg, err)
+	}
+}
+
+func IsNil(t *testing.T, msg string, val interface{}) {
+	if val == nil {
+		t.Error(msg+" is nil")
+	}
 }
