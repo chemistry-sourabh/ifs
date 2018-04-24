@@ -65,7 +65,6 @@ func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
 		"address": conn.RemoteAddr().String(),
 	}).Debug("Got New Connection")
 
-	// TODO Sync Mutex
 	a.Pool.Append(conn)
 
 	i := len(a.Pool.Connections) - 1

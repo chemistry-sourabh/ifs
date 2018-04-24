@@ -20,7 +20,9 @@ func Attr(request *Packet) (*Stat, error) {
 	}
 	log.WithFields(fields).Debug("Processing Attr Request")
 
-	info, err := os.Lstat(filePath)
+	info, pathError := os.Lstat(filePath)
+
+	err := pathError.(*os.PathError).Err
 
 	if err == nil {
 		s := &Stat{}
@@ -290,7 +292,8 @@ func CreateFile(request *Packet) error {
 	log.WithFields(fields).Debug("Processing Create Request")
 
 	if !createInfo.IsDir {
-		f, err := os.Create(filePath)
+		f, pathError := os.Create(filePath)
+		err := pathError.(*os.PathError).Err
 		if err == nil {
 			defer f.Close()
 		} else {
