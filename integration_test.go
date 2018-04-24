@@ -7,6 +7,7 @@ import (
 	"path"
 	"strconv"
 	"syscall"
+	"io/ioutil"
 )
 
 const TestRoot = "/tmp/test_root"
@@ -36,9 +37,7 @@ func CreateConfig() *Config {
 			Paths:   []string{TestRemoteRoot},
 		},
 		Log: &LogConfig{
-			Logging: true,
-			Console: true,
-			Debug:   true,
+			Logging: false,
 		},
 
 		ConnCount: 3,
@@ -67,6 +66,14 @@ func CreateTestFile(name string) error {
 	return err
 }
 
+func CreateTestFileRemote(name string) {
+	fullPath := path.Join(TestRemoteRoot, name)
+	f, err := os.Create(fullPath)
+	if err == nil {
+		f.Close()
+	}
+}
+
 func CreateTestDir(name string) error {
 	fullPath := path.Join(TestRoot, "test_remote_root", name)
 	return os.Mkdir(fullPath, 0755)
@@ -75,6 +82,11 @@ func CreateTestDir(name string) error {
 func RemoveTestFile(name string) error {
 	fullPath := path.Join(TestRoot, "test_remote_root", name)
 	return os.Remove(fullPath)
+}
+
+func RemoveTestFileRemote(name string) {
+	fullPath := path.Join(TestRemoteRoot, name)
+	os.Remove(fullPath)
 }
 
 func GetFileName(i int) string {
@@ -88,6 +100,7 @@ func GetDirName(i int) string {
 func Setup() {
 	CreateTestDirs()
 	cfg := CreateConfig()
+	SetupLogger(cfg)
 	StartAgentProcess()
 	time.Sleep(1 * time.Second)
 	StartFsProcess(cfg)
@@ -100,34 +113,78 @@ func Teardown() {
 	DeleteTestDirs()
 }
 
-func TestCreateAndRemove(t *testing.T) {
-	Setup()
+func ContainsInArray(arr []string, str string) bool {
+	for _, v := range arr {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
 
-	for i := 0; i < 10; i++ {
+func TestCreateAndRemove(t *testing.T) {
+
+	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestFile(GetFileName(i))
 		IsError(t,"Create file failed "+GetFileName(i), err)
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < SmallFileCount; i++ {
 		err := RemoveTestFile(GetFileName(i))
 		IsError(t, "Remove file failed "+GetFileName(i), err)
 	}
 
-	Teardown()
 }
 
 func TestMkdirAndRemove(t *testing.T) {
-	Setup()
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestDir(GetDirName(i))
 		IsError(t,"Create file failed "+GetDirName(i), err)
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < SmallFileCount; i++ {
 		err := RemoveTestFile(GetDirName(i))
 		IsError(t, "Remove file failed "+GetDirName(i), err)
 	}
 
+}
+
+func TestReadDirAll(t *testing.T) {
+	for i := 0; i < SmallFileCount; i++ {
+		CreateTestFileRemote(GetFileName(i))
+	}
+
+	fullPath := path.Join(TestRoot, "test_remote_root")
+	files, err := ioutil.ReadDir(fullPath)
+
+	IsError(t, "ReadDir gave error", err)
+
+	Compare(t, "File Count", len(files), SmallFileCount)
+
+	var names []string
+	for _, file := range files {
+		names = append(names, file.Name())
+	}
+
+	var actNames []string
+	for i := 0; i< SmallFileCount; i++ {
+		actNames = append(actNames, GetFileName(i))
+	}
+
+	for i := 0; i < SmallFileCount; i++ {
+		if !ContainsInArray(names, GetFileName(i))  {
+			PrintTestError(t, "Dir content is wrong", names, actNames)
+		}
+	}
+
+	for i := 0; i < SmallFileCount; i++ {
+		RemoveTestFileRemote(GetFileName(i))
+	}
+}
+
+func TestMain(m *testing.M) {
+	Setup()
+	m.Run()
 	Teardown()
 }

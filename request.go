@@ -1,7 +1,6 @@
 package ifs
 
 import (
-	"fmt"
 	"bazil.org/fuse"
 	"os"
 )
@@ -12,9 +11,6 @@ type ReadInfo struct {
 	Size       int
 }
 
-func (ri *ReadInfo) String() string {
-	return fmt.Sprintf("RemotePath = %s Offset = %d Size = %d", ri.RemotePath, ri.Offset, ri.Size)
-}
 
 type WriteInfo struct {
 	RemotePath *RemotePath
