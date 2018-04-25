@@ -26,6 +26,8 @@ func ConvertOpCodeToString(opCode uint8) string {
 		return "Create Request"
 	case RemoveRequest:
 		return "Remove Request"
+	case RenameRequest:
+		return "Rename Request"
 
 	case StatResponse:
 		return "Stat Response"
@@ -54,6 +56,8 @@ func GetRandomIndex(length int) int {
 func ConvertErr(err error) error {
 	switch t := err.(type) {
 	case *os.PathError:
+		return t.Err
+	case *os.LinkError:
 		return t.Err
 	default:
 		return err

@@ -115,6 +115,10 @@ func (a *Agent) ProcessRequest(req *Packet, index int) {
 	case RemoveRequest:
 		resp.Op = ErrorResponse
 		err = RemoveFile(req)
+
+	case RenameRequest:
+		resp.Op = ErrorResponse
+		err = RenameFile(req)
 	}
 
 	populateResponse(resp, data, err)

@@ -65,6 +65,8 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		struc = &CreateInfo{}
 	case RemoveRequest:
 		struc = &RemotePath{}
+	case RenameRequest:
+		struc = &RenameInfo{}
 	case StatResponse:
 		struc = &Stat{}
 	case StatsResponse:

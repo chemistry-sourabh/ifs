@@ -318,11 +318,11 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 
 	attrInfo := &AttrInfo{
 		RemotePath: rn.RemotePath,
-		Valid: req.Valid,
-		Size: req.Size,
-		Mode: req.Mode,
-		ATime: req.Atime.UnixNano(),
-		MTime: req.Mtime.UnixNano(),
+		Valid:      req.Valid,
+		Size:       req.Size,
+		Mode:       req.Mode,
+		ATime:      req.Atime.UnixNano(),
+		MTime:      req.Mtime.UnixNano(),
 	}
 
 	var err error
@@ -438,11 +438,35 @@ func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error
 }
 
 func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
-	log.WithFields(log.Fields{
-		"op":      "rename",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"name":    req.NewName,
-	}).Debug("Rename FS Request")
-	return nil
+	fields := log.Fields{
+		"op":       "rename",
+		"address":  rn.RemotePath.Address(),
+		"path":     rn.RemotePath.Path,
+		"old_name": req.OldName,
+		"new_name": req.NewName,
+		"new_dir":  newDir.(*RemoteNode).RemotePath.Path,
+	}
+	log.WithFields(fields).Debug("Rename FS Request")
+
+	rnDestDir := newDir.(*RemoteNode)
+	curRn := rn.RemoteNodes[req.OldName]
+	destPath := path.Join(rnDestDir.RemotePath.Path, req.NewName)
+
+	err := rn.Ifs.FileHandler.Rename(curRn.RemotePath, destPath)
+	// Check If destination exists (actual move should do it)
+	// Do Move at Remote
+	// Update Cache Map
+	// Update Open Map
+	// Change RemoteNode Path
+	// Add RemoteNode in newDir's list (if doesnt exist)
+
+	if err == nil {
+		curRn.RemotePath.Path = destPath
+		delete(rn.RemoteNodes, req.OldName)
+		rnDestDir.RemoteNodes[req.NewName] = curRn
+	} else {
+		log.WithFields(fields).Warn("Rename Error Response", err)
+	}
+
+	return err
 }

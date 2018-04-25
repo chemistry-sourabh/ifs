@@ -200,3 +200,31 @@ func (fh *FileHandler) Remove(remotePath *RemotePath, name string) error {
 
 	return nil
 }
+func (fh *FileHandler) Rename(remotePath *RemotePath, destPath string) error {
+
+	req := &RenameInfo{
+		RemotePath: remotePath,
+		DestPath: destPath,
+	}
+
+	resp := fh.Ifs.Talker.sendRequest(RenameRequest, req)
+
+	if err, ok := resp.Data.(Error); ok {
+		return err.Err
+	}
+
+	fh.Ifs.Hoarder.SubmitRequest(CacheRenameRequest, req)
+
+	newRemotePath := &RemotePath{
+		Hostname: remotePath.Hostname,
+		Port: remotePath.Port,
+		Path: destPath,
+	}
+
+	if v, ok := fh.Opened.Load(remotePath.String()); ok {
+		fh.Opened.Set(newRemotePath.String(), v)
+		fh.Opened.Delete(remotePath.String())
+	}
+
+	return nil
+}

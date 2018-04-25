@@ -338,3 +338,25 @@ func RemoveFile(request *Packet) error {
 
 	return err
 }
+
+func RenameFile(request *Packet) error {
+	renameInfo := request.Data.(*RenameInfo)
+
+	fields := log.Fields{
+		"op": "rename",
+		"id": request.Id,
+		"path": renameInfo.RemotePath.Path,
+		"new_path": renameInfo.DestPath,
+	}
+
+	log.WithFields(fields).Debug("Processing Rename Request")
+
+	err := os.Rename(renameInfo.RemotePath.Path, renameInfo.DestPath)
+
+	if err != nil {
+		err = ConvertErr(err)
+		log.WithFields(fields).Warnf("Rename Error Response:", err)
+	}
+
+	return err
+}

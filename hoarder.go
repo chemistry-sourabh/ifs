@@ -65,6 +65,9 @@ func (h *Hoarder) ProcessCacheRequests() {
 		case CacheDeleteRequest:
 			rp := pkt.Data.(*RemotePath)
 			h.CacheDelete(rp)
+		case CacheRenameRequest:
+			req := pkt.Data.(*RenameInfo)
+			h.CacheRename(req.RemotePath, req.DestPath)
 		}
 
 	}
@@ -78,6 +81,20 @@ func (h *Hoarder) SubmitRequest(opCode uint8, payload Payload) {
 	}
 
 	h.ingress <- req
+}
+
+func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) {
+	if fname, ok := h.cached[remotePath.String()]; ok {
+
+		newRemotePath := &RemotePath{
+			Hostname: remotePath.Hostname,
+			Port: remotePath.Port,
+			Path: destPath,
+		}
+
+		h.cached[newRemotePath.String()] = fname
+		delete(h.cached, remotePath.String())
+	}
 }
 
 func (h *Hoarder) IsCached(rp *RemotePath) bool {
