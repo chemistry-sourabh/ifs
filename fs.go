@@ -121,7 +121,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 	} else {
 		err = respErr.Err
-		log.WithFields(fields).Error("Attr Error Response:", err)
+		log.WithFields(fields).Warn("Attr Error Response:", err)
 	}
 
 	return err
@@ -176,7 +176,7 @@ func (rn *RemoteNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	} else {
 		err = respError.Err
-		log.WithFields(fields).Error("ReadDir Error Response:", err)
+		log.WithFields(fields).Warn("ReadDir Error Response:", err)
 	}
 	return nil, err
 }
@@ -235,7 +235,7 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 	}
 
 	if err != nil {
-		log.WithFields(fields).Error("Open Error Response:", err)
+		log.WithFields(fields).Warn("Open Error Response:", err)
 	}
 
 	return rn, err
@@ -257,7 +257,7 @@ func (rn *RemoteNode) Read(ctx context.Context, req *fuse.ReadRequest, resp *fus
 	resp.Data = b
 
 	if err != nil {
-		log.WithFields(fields).Error("Read Error Response:", err)
+		log.WithFields(fields).Warn("Read Error Response:", err)
 	}
 
 	return err
@@ -274,7 +274,7 @@ func (rn *RemoteNode) ReadAll(ctx context.Context) ([]byte, error) {
 	data, err := rn.Ifs.FileHandler.ReadAllData(rn.RemotePath)
 
 	if err != nil {
-		log.WithFields(fields).Error("ReadAll Error Response:", err)
+		log.WithFields(fields).Warn("ReadAll Error Response:", err)
 	}
 
 	return data, err
@@ -296,7 +296,7 @@ func (rn *RemoteNode) Write(ctx context.Context, req *fuse.WriteRequest, resp *f
 	resp.Size = n
 
 	if err != nil {
-		log.WithFields(fields).Error("Write Error Response:", err)
+		log.WithFields(fields).Warn("Write Error Response:", err)
 	}
 
 	return err
@@ -336,7 +336,7 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 	}
 
 	if err != nil {
-		log.WithFields(fields).Debug("SetAttr Error Response", err)
+		log.WithFields(fields).Warn("SetAttr Error Response", err)
 	}
 
 	return err
@@ -390,7 +390,7 @@ func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp 
 		rn.RemoteNodes[req.Name] = newRn
 		return newRn, newRn, nil
 	} else {
-		log.WithFields(fields).Error("Create Error Response:", err)
+		log.WithFields(fields).Warn("Create Error Response:", err)
 	}
 
 	return nil, nil, err
@@ -413,7 +413,7 @@ func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Nod
 		rn.RemoteNodes[req.Name] = newRn
 		return newRn, nil
 	} else {
-		log.WithFields(fields).Error("Mkdir Error Response:", err)
+		log.WithFields(fields).Warn("Mkdir Error Response:", err)
 	}
 
 	return nil, err
@@ -432,7 +432,17 @@ func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error
 	if err == nil {
 		delete(rn.RemoteNodes, req.Name)
 	} else {
-		log.WithFields(fields).Error("Remove Error Response", err)
+		log.WithFields(fields).Warn("Remove Error Response", err)
 	}
 	return err
+}
+
+func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
+	log.WithFields(log.Fields{
+		"op":      "rename",
+		"address": rn.RemotePath.Address(),
+		"path":    rn.RemotePath.Path,
+		"name":    req.NewName,
+	}).Debug("Rename FS Request")
+	return nil
 }

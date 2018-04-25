@@ -7,7 +7,6 @@ import (
 	"path"
 	"io/ioutil"
 	"os"
-	"bufio"
 )
 
 func generateRemoteNodes(fs *Ifs, remoteRoot *RemoteRoot) map[string]*RemoteNode {
@@ -33,16 +32,21 @@ func generateRemoteNodes(fs *Ifs, remoteRoot *RemoteRoot) map[string]*RemoteNode
 	return remoteRoots
 }
 
-func SetupLogger(cfg *Config) {
-	if !cfg.Log.Logging {
+func SetupLogger(cfg *LogConfig) {
+	if !cfg.Logging {
 		log.SetOutput(ioutil.Discard)
-	} else if !cfg.Log.Console{
-		f, _ := os.Create(cfg.Log.Path)
-		defer f.Close()
-		log.SetOutput(bufio.NewWriter(f))
+	} else if !cfg.Console{
+		f, _ := os.Create(cfg.Path)
+		//defer f.Close()
+		log.SetOutput(f)
 	}
 
-	if cfg.Log.Debug {
+	formatter := &log.TextFormatter{}
+	formatter.DisableColors = true
+
+	log.SetFormatter(formatter)
+
+	if cfg.Debug {
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
@@ -51,7 +55,7 @@ func SetupLogger(cfg *Config) {
 
 }
 
-func MountRemoteRoots(cfg *Config) {
+func MountRemoteRoots(cfg *FsConfig) {
 	c, err := fuse.Mount(cfg.MountPoint)
 	if err != nil {
 		log.Fatal(err)

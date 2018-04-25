@@ -20,9 +20,8 @@ func Attr(request *Packet) (*Stat, error) {
 	}
 	log.WithFields(fields).Debug("Processing Attr Request")
 
-	info, pathError := os.Lstat(filePath)
+	info, err := os.Lstat(filePath)
 
-	err := pathError.(*os.PathError).Err
 
 	if err == nil {
 		s := &Stat{}
@@ -43,6 +42,7 @@ func Attr(request *Packet) (*Stat, error) {
 
 		return s, nil
 	} else {
+		err = ConvertErr(err)
 		log.WithFields(fields).Error("Attr Error Response:", err)
 	}
 
@@ -95,6 +95,8 @@ func ReadDir(request *Packet) (*DirInfo, error) {
 
 		return dirInfo, nil
 	} else {
+
+		err = ConvertErr(err)
 		log.WithFields(fields).Error("Readdir Error Response:", err)
 	}
 
@@ -125,16 +127,17 @@ func FetchFile(request *Packet) (*FileChunk, error) {
 		fileChunk.Compress()
 
 		log.WithFields(log.Fields{
-			"id":   request.Id,
-			"path": filePath,
-			"size": len(data),
+			"id":              request.Id,
+			"path":            filePath,
+			"size":            len(data),
 			"compressed_size": len(fileChunk.Chunk),
 		}).Debug(" FetchFile Response")
 
 		return fileChunk, err
 
 	} else {
-		log.WithFields(fields).Errorf("FetchFile Error Response:", err)
+		err = ConvertErr(err)
+		log.WithFields(fields).Warnf("FetchFile Error Response:", err)
 	}
 
 	return nil, err
@@ -174,18 +177,19 @@ func ReadFile(request *Packet) (*FileChunk, error) {
 		fileChunk.Compress()
 
 		log.WithFields(log.Fields{
-			"op":         "read",
-			"id":         request.Id,
-			"path":       filePath,
-			"size":       readInfo.Size,
-			"offset":     readInfo.Offset,
-			"chunk_size": n,
+			"op":              "read",
+			"id":              request.Id,
+			"path":            filePath,
+			"size":            readInfo.Size,
+			"offset":          readInfo.Offset,
+			"chunk_size":      n,
 			"compressed_size": len(fileChunk.Chunk),
 		}).Debug("Read Response")
 
 		return fileChunk, nil
 	} else {
-		log.WithFields(fields).Errorf("Read Error Response:", err)
+		err = ConvertErr(err)
+		log.WithFields(fields).Warnf("Read Error Response:", err)
 	}
 
 	return nil, err
@@ -232,7 +236,8 @@ func WriteFile(request *Packet) (*WriteResult, error) {
 
 		return result, nil
 	} else {
-		log.WithFields(fields).Errorf("Write Error Response")
+		err = ConvertErr(err)
+		log.WithFields(fields).Warnf("Write Error Response")
 	}
 
 	return nil, err
@@ -270,7 +275,8 @@ func SetAttr(request *Packet) error {
 	}
 
 	if err != nil {
-		log.WithFields(fields).Errorf("SetAttr Error Response:", err)
+		err = ConvertErr(err)
+		log.WithFields(fields).Warnf("SetAttr Error Response:", err)
 	}
 
 	return err
@@ -292,19 +298,20 @@ func CreateFile(request *Packet) error {
 	log.WithFields(fields).Debug("Processing Create Request")
 
 	if !createInfo.IsDir {
-		f, pathError := os.Create(filePath)
-		err := pathError.(*os.PathError).Err
+		f, err := os.Create(filePath)
 		if err == nil {
 			defer f.Close()
 		} else {
-			log.WithFields(fields).Errorf("Create Error Response:", err)
+			err = ConvertErr(err)
+			log.WithFields(fields).Warnf("Create Error Response:", err)
 		}
 		return err
 	} else {
 		err := os.Mkdir(filePath, 0755)
 
 		if err != nil {
-			log.WithFields(fields).Errorf("Create Error Response:", err)
+			err = ConvertErr(err)
+			log.WithFields(fields).Warnf("Create Error Response:", err)
 		}
 
 		return err
@@ -325,7 +332,8 @@ func RemoveFile(request *Packet) error {
 	err := os.Remove(remotePath.Path)
 
 	if err != nil {
-		log.WithFields(fields).Debug("Remove Error Response:", err)
+		err = ConvertErr(err)
+		log.WithFields(fields).Warnf("Remove Error Response:", err)
 	}
 
 	return err

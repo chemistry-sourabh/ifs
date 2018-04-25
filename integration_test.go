@@ -22,14 +22,14 @@ func StartAgentProcess() {
 	}()
 }
 
-func StartFsProcess(cfg *Config) {
+func StartFsProcess(cfg *FsConfig) {
 	go func() {
 		MountRemoteRoots(cfg)
 	}()
 }
 
-func CreateConfig() *Config {
-	return &Config{
+func CreateConfig() *FsConfig {
+	return &FsConfig{
 		MountPoint:    TestRoot,
 		CacheLocation: TestCache,
 		RemoteRoot: &RemoteRoot{
@@ -100,7 +100,7 @@ func GetDirName(i int) string {
 func Setup() {
 	CreateTestDirs()
 	cfg := CreateConfig()
-	SetupLogger(cfg)
+	SetupLogger(cfg.Log)
 	StartAgentProcess()
 	time.Sleep(1 * time.Second)
 	StartFsProcess(cfg)
@@ -182,6 +182,24 @@ func TestReadDirAll(t *testing.T) {
 		RemoveTestFileRemote(GetFileName(i))
 	}
 }
+
+
+func TestSetAttr(t *testing.T) {
+	CreateTestFileRemote(GetFileName(0))
+	defer RemoveTestFile(GetFileName(0))
+
+	fullPath := path.Join(TestRemoteRoot, GetFileName(0))
+	WriteDummyData(fullPath, 100)
+
+	err := os.Truncate(fullPath, 10)
+
+	IsError(t, "Got error in setattr", err)
+
+	f, _ := os.Lstat(fullPath)
+
+	Compare(t, "size", int(f.Size()), 10)
+}
+
 
 func TestMain(m *testing.M) {
 	Setup()

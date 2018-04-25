@@ -144,7 +144,7 @@ func (a *Agent) ProcessResponses(index int) {
 	}
 }
 
-func StartAgent(address string, port int) {
+func StartAgent(address string, port uint16) {
 	agent := &Agent{
 		Pool: newAgentConnectionPool(),
 	}

@@ -12,15 +12,15 @@ type LogConfig struct {
 	Path    string `json:"path"`
 }
 
-type Config struct {
+type FsConfig struct {
 	MountPoint    string      `json:"mount_point"`
 	CacheLocation string      `json:"cache_location"`
 	RemoteRoot    *RemoteRoot `json:"remote_root"`
-	Log           *LogConfig   `json:"log"`
+	Log           *LogConfig  `json:"log"`
 	ConnCount     int         `json:"connection_count"`
 }
 
-func (c *Config) Load(path string) error {
+func (c *FsConfig) Load(path string) error {
 
 	data, err := ioutil.ReadFile(path)
 
@@ -44,4 +44,21 @@ func (rr *RemoteRoot) StringArray() []string {
 	}
 
 	return joinedPaths
+}
+
+type AgentConfig struct {
+	Address string     `json:"address"`
+	Port    uint16     `json:"port"`
+	Log     *LogConfig `json:"log"`
+}
+
+func (c *AgentConfig) Load(path string) error {
+
+	data, err := ioutil.ReadFile(path)
+
+	if err == nil {
+		err = json.Unmarshal(data, c)
+	}
+
+	return err
 }

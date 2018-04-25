@@ -4,6 +4,7 @@ import (
 	"path"
 	"math/rand"
 	"time"
+	"os"
 )
 
 func ConvertOpCodeToString(opCode uint8) string {
@@ -41,12 +42,21 @@ func ConvertOpCodeToString(opCode uint8) string {
 	return "Unknown Op"
 }
 
-
 func AppendFileToRemotePath(rp *RemotePath, name string) string {
-	return rp.Address()+"@"+ path.Join(rp.Path, name)
+	return rp.Address() + "@" + path.Join(rp.Path, name)
 }
 
 func GetRandomIndex(length int) int {
 	rand.Seed(time.Now().UnixNano())
 	return rand.Intn(length)
+}
+
+func ConvertErr(err error) error {
+	switch t := err.(type) {
+	case *os.PathError:
+		return t.Err
+	default:
+		return err
+
+	}
 }

@@ -1,0 +1,10 @@
+{
+  "address": "localhost",
+  "port": 8000,
+  "log": {
+    "logging": true,
+    "debug": true,
+    "console": true,
+    "path": "/tmp/agent.log"
+  }
+}

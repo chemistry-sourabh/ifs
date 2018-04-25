@@ -14,7 +14,7 @@ const configLocation = "testConfig"
 func TestConfig_LoadSuccess(t *testing.T) {
 
 	// Setup
-	initialCfg := Config{
+	initialCfg := FsConfig{
 		MountPoint: "/tmp",
 		RemoteRoot: &RemoteRoot{
 			Address: "localhost:11211",
@@ -26,7 +26,7 @@ func TestConfig_LoadSuccess(t *testing.T) {
 	ioutil.WriteFile(configLocation, data, 0666)
 
 	// Test
-	cfg := Config{}
+	cfg := FsConfig{}
 	cfg.Load(configLocation)
 
 	if !cmp.Equal(initialCfg, cfg) {
@@ -40,7 +40,7 @@ func TestConfig_LoadSuccess(t *testing.T) {
 
 func TestConfig_LoadFailure(t *testing.T) {
 
-	cfg := Config{}
+	cfg := FsConfig{}
 	err := cfg.Load(configLocation)
 
 	if err == nil {
