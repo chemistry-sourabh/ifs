@@ -15,4 +15,6 @@ pipelines:
           - cd "${PACKAGE_PATH}"
           - go get -v -t
           - go build -v
-          - go test -v
+          - ls -l
+          - ls -l /
+          - go test -v -cover
