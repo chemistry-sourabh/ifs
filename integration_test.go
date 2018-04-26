@@ -45,9 +45,9 @@ func CreateConfig() *FsConfig {
 }
 
 func CreateTestDirs() {
-	os.Mkdir(TestRoot, 0755)
-	os.Mkdir(TestCache, 0755)
-	os.Mkdir(TestRemoteRoot, 0755)
+	os.MkdirAll(TestRoot, 0755)
+	os.MkdirAll(TestCache, 0755)
+	os.MkdirAll(TestRemoteRoot, 0755)
 }
 
 func DeleteTestDirs() {
