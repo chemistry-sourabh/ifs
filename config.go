@@ -3,6 +3,7 @@ package ifs
 import (
 	"io/ioutil"
 	"encoding/json"
+	"strconv"
 )
 
 type LogConfig struct {
@@ -13,11 +14,11 @@ type LogConfig struct {
 }
 
 type FsConfig struct {
-	MountPoint    string      `json:"mount_point"`
-	CacheLocation string      `json:"cache_location"`
-	RemoteRoot    *RemoteRoot `json:"remote_root"`
-	Log           *LogConfig  `json:"log"`
-	ConnCount     int         `json:"connection_count"`
+	MountPoint    string        `json:"mount_point"`
+	CacheLocation string        `json:"cache_location"`
+	RemoteRoots   []*RemoteRoot `json:"remote_roots"`
+	Log           *LogConfig    `json:"log"`
+	ConnCount     int           `json:"connection_count"`
 }
 
 func (c *FsConfig) Load(path string) error {
@@ -32,18 +33,23 @@ func (c *FsConfig) Load(path string) error {
 }
 
 type RemoteRoot struct {
-	Address string   `json:"address"`
-	Paths   []string `json:"paths"`
+	Hostname string   `json:"hostname"`
+	Port     uint16   `json:"port"`
+	Paths    []string `json:"paths"`
 }
 
 func (rr *RemoteRoot) StringArray() []string {
 
 	var joinedPaths []string
 	for _, path := range rr.Paths {
-		joinedPaths = append(joinedPaths, rr.Address+"@"+path)
+		joinedPaths = append(joinedPaths, rr.Address()+"@"+path)
 	}
 
 	return joinedPaths
+}
+
+func (rr *RemoteRoot) Address() string {
+	return rr.Hostname+":"+strconv.FormatInt(int64(rr.Port), 10)
 }
 
 type AgentConfig struct {

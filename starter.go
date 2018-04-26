@@ -4,38 +4,73 @@ import (
 	"bazil.org/fuse"
 	log "github.com/sirupsen/logrus"
 	"bazil.org/fuse/fs"
-	"path"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
-func generateRemoteNodes(fs *Ifs, remoteRoot *RemoteRoot) map[string]*RemoteNode {
+func generateVirtualNode(ifs *Ifs, paths string) *VirtualNode {
 
-	remoteRoots := make(map[string]*RemoteNode)
+}
 
-	for _, joinedPath := range remoteRoot.StringArray() {
 
-		rp := &RemotePath{}
 
-		rp.Convert(joinedPath)
+func generateVirtualNodes(ifs *Ifs, paths []string) map[string] *VirtualNode {
 
-		rn := &RemoteNode{
-			Ifs:        fs,
-			IsDir:      true,
-			RemotePath: rp,
-			RemoteNodes: make(map[string] *RemoteNode),
-		}
+	aggPaths := make(map[string] []string)
+	virtualNodes := make(map[string] *VirtualNode)
 
-		remoteRoots[path.Base(rp.Path)] = rn
+	for _, p := range paths {
+
+		l := filepath.SplitList(p)
+
+		firstDir := l[0]
+
+		aggPaths[firstDir] = append(aggPaths[firstDir], p)
+
+		//if _, ok := virtualNodes[firstDir]; !ok {
+		//	virtualNodes[firstDir] = generateVirtualNode(ifs, p)
+		//} else {
+		//
+		//}
+
 	}
 
-	return remoteRoots
+	for k,v := range aggPaths {
+
+		virtualNodes[k] = &VirtualNode{
+			Ifs:   ifs,
+			Nodes: generateVirtualNodes(ifs, v),
+		}
+	}
+
+	return virtualNodes
+}
+
+func generateRemoteRoot(ifs *Ifs, paths []string) *VirtualNode {
+
+	return &VirtualNode{
+		Ifs:   ifs,
+		Nodes: generateVirtualNodes(ifs, paths),
+	}
+}
+
+func generateRemoteRoots(ifs *Ifs, remoteRoots []*RemoteRoot) map[string]*VirtualNode {
+
+	virtualNodes := make(map[string]*VirtualNode)
+
+	for _, remoteRoot := range remoteRoots {
+		vn := generateRemoteRoot(ifs, remoteRoot.StringArray())
+		virtualNodes[remoteRoot.Hostname] = vn
+	}
+
+	return virtualNodes
 }
 
 func SetupLogger(cfg *LogConfig) {
 	if !cfg.Logging {
 		log.SetOutput(ioutil.Discard)
-	} else if !cfg.Console{
+	} else if !cfg.Console {
 		f, _ := os.Create(cfg.Path)
 		//defer f.Close()
 		log.SetOutput(f)
@@ -52,7 +87,6 @@ func SetupLogger(cfg *LogConfig) {
 		log.SetLevel(log.InfoLevel)
 	}
 
-
 }
 
 func MountRemoteRoots(cfg *FsConfig) {
@@ -67,7 +101,7 @@ func MountRemoteRoots(cfg *FsConfig) {
 		CachedStats: make(map[string]*Stat),
 	}
 
-	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoot)
+	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoots)
 
 	talker := NewTalker(fileSystem)
 
@@ -86,7 +120,7 @@ func MountRemoteRoots(cfg *FsConfig) {
 	fileSystem.Hoarder = hoarder
 	fileSystem.RemoteRoots = remoteRootNodes
 
-	talker.Startup(cfg.RemoteRoot.Address, cfg.ConnCount)
+	talker.Startup(cfg.RemoteRoots[0].Address(), cfg.ConnCount)
 	hoarder.Startup()
 	fileHandler.StartUp()
 
