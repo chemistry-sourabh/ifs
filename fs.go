@@ -14,7 +14,7 @@ type Ifs struct {
 	Talker      *Talker
 	FileHandler *FileHandler
 	Hoarder     *Hoarder
-	RemoteRoots map[string]*fs.Node
+	RemoteRoots map[string] fs.Node
 	CachedStats map[string]*Stat
 }
 

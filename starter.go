@@ -7,26 +7,25 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"fmt"
+	"strings"
 )
 
-func generateVirtualNode(ifs *Ifs, paths string) *VirtualNode {
+func generateVirtualNodes(ifs *Ifs, paths []string) (map[string]fs.Node) {
 
-}
-
-
-
-func generateVirtualNodes(ifs *Ifs, paths []string) map[string] *VirtualNode {
-
-	aggPaths := make(map[string] []string)
-	virtualNodes := make(map[string] *VirtualNode)
+	aggPaths := make(map[string][]string)
+	virtualNodes := make(map[string]fs.Node)
 
 	for _, p := range paths {
 
-		l := filepath.SplitList(p)
 
-		firstDir := l[0]
+		l := strings.Split(strings.Trim(p, "/") , "/")
+		//l := filepath.SplitList(p)
 
-		aggPaths[firstDir] = append(aggPaths[firstDir], p)
+		if l[0] != "" {
+			firstDir := l[0]
+			aggPaths[firstDir] = append(aggPaths[firstDir], filepath.Join(l[1:]...))
+		}
 
 		//if _, ok := virtualNodes[firstDir]; !ok {
 		//	virtualNodes[firstDir] = generateVirtualNode(ifs, p)
@@ -36,11 +35,20 @@ func generateVirtualNodes(ifs *Ifs, paths []string) map[string] *VirtualNode {
 
 	}
 
-	for k,v := range aggPaths {
+	for k, v := range aggPaths {
 
-		virtualNodes[k] = &VirtualNode{
-			Ifs:   ifs,
-			Nodes: generateVirtualNodes(ifs, v),
+		if len(v) > 0 {
+			virtualNodes[k] = &VirtualNode{
+				Ifs:   ifs,
+				Nodes: generateVirtualNodes(ifs, v),
+			}
+		} else {
+			virtualNodes[k] = &RemoteNode{
+				Ifs: ifs,
+				IsDir: true,
+				//RemotePath:
+				RemoteNodes: make(map[string] *RemoteNode),
+			}
 		}
 	}
 
@@ -55,12 +63,12 @@ func generateRemoteRoot(ifs *Ifs, paths []string) *VirtualNode {
 	}
 }
 
-func generateRemoteRoots(ifs *Ifs, remoteRoots []*RemoteRoot) map[string]*VirtualNode {
+func generateRemoteRoots(ifs *Ifs, remoteRoots []*RemoteRoot) map[string] fs.Node {
 
-	virtualNodes := make(map[string]*VirtualNode)
+	virtualNodes := make(map[string] fs.Node)
 
 	for _, remoteRoot := range remoteRoots {
-		vn := generateRemoteRoot(ifs, remoteRoot.StringArray())
+		vn := generateRemoteRoot(ifs, remoteRoot.Paths)
 		virtualNodes[remoteRoot.Hostname] = vn
 	}
 
@@ -101,7 +109,8 @@ func MountRemoteRoots(cfg *FsConfig) {
 		CachedStats: make(map[string]*Stat),
 	}
 
-	remoteRootNodes := generateRemoteNodes(fileSystem, cfg.RemoteRoots)
+	fmt.Println(cfg.RemoteRoots)
+	remoteRootNodes := generateRemoteRoots(fileSystem, cfg.RemoteRoots)
 
 	talker := NewTalker(fileSystem)
 
@@ -120,7 +129,9 @@ func MountRemoteRoots(cfg *FsConfig) {
 	fileSystem.Hoarder = hoarder
 	fileSystem.RemoteRoots = remoteRootNodes
 
-	talker.Startup(cfg.RemoteRoots[0].Address(), cfg.ConnCount)
+	for _, rr := range cfg.RemoteRoots {
+		talker.Startup(rr.Address(), cfg.ConnCount)
+	}
 	hoarder.Startup()
 	fileHandler.StartUp()
 
