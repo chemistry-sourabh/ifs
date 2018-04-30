@@ -38,6 +38,19 @@ type RemoteRoot struct {
 	Paths    []string `json:"paths"`
 }
 
+func (rr *RemoteRoot) RemotePaths() []*RemotePath {
+	var remotePaths []*RemotePath
+	for _, path := range rr.Paths {
+		remotePaths = append(remotePaths, &RemotePath{
+			Hostname: rr.Hostname,
+			Port:     rr.Port,
+			Path:     path,
+		})
+	}
+
+	return remotePaths
+}
+
 func (rr *RemoteRoot) StringArray() []string {
 
 	var joinedPaths []string
@@ -49,7 +62,7 @@ func (rr *RemoteRoot) StringArray() []string {
 }
 
 func (rr *RemoteRoot) Address() string {
-	return rr.Hostname+":"+strconv.FormatInt(int64(rr.Port), 10)
+	return rr.Hostname + ":" + strconv.FormatInt(int64(rr.Port), 10)
 }
 
 type AgentConfig struct {

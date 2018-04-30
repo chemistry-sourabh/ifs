@@ -46,7 +46,7 @@ type PacketChannelTuple struct {
 
 type RemotePath struct {
 	Hostname string
-	Port     uint32
+	Port     uint16
 	Path     string
 }
 
@@ -59,7 +59,7 @@ func (rp *RemotePath) Convert(str string) {
 	rp.Hostname = parts[0]
 	parts = strings.Split(parts[1], "@")
 	p64, _ := strconv.ParseUint(parts[0], 10, 32)
-	rp.Port = uint32(p64)
+	rp.Port = uint16(p64)
 	rp.Path = parts[1]
 }
 

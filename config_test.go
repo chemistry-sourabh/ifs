@@ -12,15 +12,17 @@ import (
 
 const configLocation = "testConfig"
 
-
 func TestConfig_LoadSuccess(t *testing.T) {
 
 	// Setup
 	initialCfg := FsConfig{
 		MountPoint: "/tmp",
-		RemoteRoot: &RemoteRoot{
-			Address: "localhost:11211",
-			Paths: []string{"/tmp", "/tmp/test"},
+		RemoteRoots: []*RemoteRoot{
+			{
+				Hostname: "localhost",
+				Port:     11211,
+				Paths:    []string{"/tmp", "/tmp/test"},
+			},
 		},
 	}
 
@@ -32,9 +34,8 @@ func TestConfig_LoadSuccess(t *testing.T) {
 	cfg.Load(configLocation)
 
 	if !cmp.Equal(initialCfg, cfg) {
-		PrintTestError(t,"cfg not matching", cfg, initialCfg)
+		PrintTestError(t, "cfg not matching", cfg, initialCfg)
 	}
-
 
 	// Cleanup
 	os.Remove(configLocation)
@@ -53,8 +54,9 @@ func TestConfig_LoadFailure(t *testing.T) {
 func TestRemoteRoot_StringArray(t *testing.T) {
 
 	rr := &RemoteRoot{
-		Address: "localhost:11211",
-		Paths: []string{"/tmp/hello", "/tmp/bye"},
+		Hostname: "localhost",
+		Port:     11211,
+		Paths:    []string{"/tmp/hello", "/tmp/bye"},
 	}
 
 	paths := rr.StringArray()

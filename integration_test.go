@@ -34,9 +34,12 @@ func CreateConfig() *FsConfig {
 	return &FsConfig{
 		MountPoint:    TestRoot,
 		CacheLocation: TestCache,
-		RemoteRoot: &RemoteRoot{
-			Address: "localhost:8000",
-			Paths:   []string{TestRemoteRoot},
+		RemoteRoots: []*RemoteRoot{
+			&RemoteRoot{
+				Hostname: "localhost",
+				Port: 8000,
+				Paths:   []string{TestRemoteRoot},
+			},
 		},
 		Log: &LogConfig{
 			Logging: false,
@@ -59,7 +62,7 @@ func DeleteTestDirs() {
 }
 
 func CreateTestFile(name string) error {
-	fullPath := path.Join(TestRoot, "test_remote_root", name)
+	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot , name)
 	f, err := os.Create(fullPath)
 	if err == nil {
 		f.Close()
@@ -77,12 +80,12 @@ func CreateTestFileRemote(name string) {
 }
 
 func CreateTestDir(name string) error {
-	fullPath := path.Join(TestRoot, "test_remote_root", name)
+	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot, name)
 	return os.Mkdir(fullPath, 0755)
 }
 
 func RemoveTestFile(name string) error {
-	fullPath := path.Join(TestRoot, "test_remote_root", name)
+	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot, name)
 	return os.Remove(fullPath)
 }
 
@@ -128,7 +131,7 @@ func TestCreateAndRemove(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestFile(GetFileName(i))
-		IsError(t,"Create file failed "+GetFileName(i), err)
+		IsError(t, "Create file failed "+GetFileName(i), err)
 	}
 
 	for i := 0; i < SmallFileCount; i++ {
@@ -142,7 +145,7 @@ func TestMkdirAndRemove(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestDir(GetDirName(i))
-		IsError(t,"Create file failed "+GetDirName(i), err)
+		IsError(t, "Create file failed "+GetDirName(i), err)
 	}
 
 	for i := 0; i < SmallFileCount; i++ {
@@ -157,7 +160,7 @@ func TestReadDirAll(t *testing.T) {
 		CreateTestFileRemote(GetFileName(i))
 	}
 
-	fullPath := path.Join(TestRoot, "test_remote_root")
+	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot)
 	files, err := ioutil.ReadDir(fullPath)
 
 	IsError(t, "ReadDir gave error", err)
@@ -170,12 +173,12 @@ func TestReadDirAll(t *testing.T) {
 	}
 
 	var actNames []string
-	for i := 0; i< SmallFileCount; i++ {
+	for i := 0; i < SmallFileCount; i++ {
 		actNames = append(actNames, GetFileName(i))
 	}
 
 	for i := 0; i < SmallFileCount; i++ {
-		if !ContainsInArray(names, GetFileName(i))  {
+		if !ContainsInArray(names, GetFileName(i)) {
 			PrintTestError(t, "Dir content is wrong", names, actNames)
 		}
 	}
@@ -184,7 +187,6 @@ func TestReadDirAll(t *testing.T) {
 		RemoveTestFileRemote(GetFileName(i))
 	}
 }
-
 
 func TestSetAttr(t *testing.T) {
 	CreateTestFileRemote(GetFileName(0))
@@ -201,7 +203,6 @@ func TestSetAttr(t *testing.T) {
 
 	Compare(t, "size", int(f.Size()), 10)
 }
-
 
 func TestMain(m *testing.M) {
 	Setup()
