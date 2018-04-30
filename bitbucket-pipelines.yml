@@ -18,4 +18,3 @@ pipelines:
           - go get -v -t
           - go build -v
           - go test -v -cover -tags=unit
-          - go test -v -cover -tags=integration
