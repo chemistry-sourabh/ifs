@@ -15,6 +15,7 @@ type Ifs struct {
 	FileHandler *FileHandler
 	Hoarder     *Hoarder
 	RemoteRoots map[string] fs.Node
+
 	CachedStats map[string]*Stat
 }
 

@@ -9,6 +9,8 @@ import (
 
 type FileHandler struct {
 	Ifs    *Ifs
+	FileDescriptor uint64
+	OpenedFiles map[uint64] *OpenInfo
 	Opened *FastMap
 }
 

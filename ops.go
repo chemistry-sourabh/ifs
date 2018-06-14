@@ -360,3 +360,19 @@ func RenameFile(request *Packet) error {
 
 	return err
 }
+
+func OpenFile(request *Packet) error {
+	openInfo := request.Data.(*OpenInfo)
+
+	fields := log.Fields{
+		"op": "open",
+		"id": request.Id,
+		"path": openInfo.RemotePath.Path,
+		"file_descriptor": openInfo.FileDescriptor,
+		"flags": openInfo.Flags,
+	}
+
+	log.WithFields(fields).Debug("Processing Open Request")
+
+	return nil
+}

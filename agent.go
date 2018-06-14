@@ -5,10 +5,13 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"strconv"
+	"os"
 )
 
 type Agent struct {
 	Pool *AgentConnectionPool
+
+	Opened map[uint64] *os.File
 }
 
 func populateResponse(resp *Packet, data Payload, err error) {

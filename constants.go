@@ -9,6 +9,7 @@ const SetAttrRequest = 5
 const CreateRequest = 6
 const RemoveRequest = 7
 const RenameRequest = 8
+const OpenRequest = 9
 
 const CacheFileRequest = 10
 const CacheCreateRequest = 11

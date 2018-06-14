@@ -6,12 +6,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"strings"
 	"strconv"
+	"sync/atomic"
 )
 
 type Talker struct {
 	// Should be map of hostname and port
 	Ifs           *Ifs
-	IdCounters    map[uint8]uint64
+	IdCounter	  uint64
+	//IdCounters    map[uint8]uint64
 	Pool          *FsConnectionPool
 	RequestBuffer *FastMap
 	//RequestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
@@ -22,7 +24,7 @@ func NewTalker(Ifs *Ifs) *Talker {
 	return &Talker{
 		Ifs:           Ifs,
 		RequestBuffer: NewFastMap(),
-		IdCounters:    make(map[uint8]uint64),
+		//IdCounters:    make(map[uint8]uint64),
 		Pool:          newFsConnectionPool(),
 	}
 }
@@ -82,8 +84,9 @@ func (t *Talker) processSendingChannel(index uint8) {
 		pkt, _ := req.Packet, req.Channel
 
 		pkt.ConnId = index
-		pkt.Id = t.IdCounters[index]
-		t.IdCounters[index]++
+		pkt.Id = atomic.AddUint64(&t.IdCounter, 1)
+		//pkt.Id = t.IdCounters[index]
+		//t.IdCounters[index]++
 
 		log.WithFields(log.Fields{
 			"op": strings.ToLower(ConvertOpCodeToString(pkt.Op)),

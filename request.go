@@ -36,3 +36,10 @@ type RenameInfo struct {
 	RemotePath *RemotePath
 	DestPath   string
 }
+
+type OpenInfo struct {
+	RemotePath     *RemotePath
+	FileDescriptor uint64
+	Flags          uint32
+	//Perm           int
+}
