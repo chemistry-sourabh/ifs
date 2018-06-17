@@ -18,6 +18,7 @@ const CacheDeleteRequest = 13
 const CacheSyncRequest = 14
 const CacheTruncRequest = 15
 const CacheRenameRequest = 16
+const CacheOpenRequest = 17
 
 const StatResponse = 20
 const StatsResponse = 21

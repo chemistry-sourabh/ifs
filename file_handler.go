@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"os"
 	"unsafe"
+	"sync/atomic"
 )
 
 type FileHandler struct {
@@ -19,11 +20,23 @@ func (fh *FileHandler) StartUp() {
 	fh.Opened = NewFastMap()
 }
 
-func (fh *FileHandler) OpenFile(remotePath *RemotePath) error {
+func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags int) error {
 
 	var err error
 
+	fd := atomic.AddUint64(&fh.FileDescriptor, 1)
+
+	openInfo := &OpenInfo {
+		FileDescriptor: fd,
+		RemotePath: remotePath,
+		Flags: flags,
+	}
+
 	fh.Ifs.Hoarder.SubmitRequest(CacheFileRequest, remotePath)
+	fh.Ifs.Hoarder.SubmitRequest(CacheOpenRequest, openInfo)
+
+	resp := fh.Ifs.Talker.sendRequest(OpenRequest, openInfo)
+
 	fh.Opened.Set(remotePath.String(), true)
 
 	return err

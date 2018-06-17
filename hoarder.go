@@ -24,8 +24,10 @@ type Hoarder struct {
 	Size     uint64
 	cached   map[string]string
 	fetching map[string]bool
+	openedFiles map[uint64] *os.File
 	ingress  chan *Packet
 	fileId   uint
+	fileDescriptor uint64
 }
 
 func (h *Hoarder) Startup() {
@@ -68,6 +70,9 @@ func (h *Hoarder) ProcessCacheRequests() {
 		case CacheRenameRequest:
 			req := pkt.Data.(*RenameInfo)
 			h.CacheRename(req.RemotePath, req.DestPath)
+		case CacheOpenRequest:
+			req := pkt.Data.(*OpenInfo)
+			h.CacheOpen(req.RemotePath, req.FileDescriptor, req.Flags)
 		}
 
 	}
@@ -100,6 +105,24 @@ func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) {
 func (h *Hoarder) IsCached(rp *RemotePath) bool {
 	_, ok := h.cached[rp.String()]
 	return ok
+}
+
+func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags int) error {
+
+	if fname, ok := h.cached[remotePath.String()]; ok {
+
+		f, err := os.OpenFile(path.Join(h.Path, fname), flags, 0666)
+
+		if err != nil {
+			return err
+		}
+
+		h.openedFiles[fileDescriptor] = f
+
+		return nil
+	}
+
+	return os.ErrNotExist
 }
 
 func (h *Hoarder) CacheFile(remotePath *RemotePath) error {

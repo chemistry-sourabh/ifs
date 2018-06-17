@@ -29,14 +29,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	log.WithFields(fields).Debug("Attr FS Request")
 
 	var resp *Packet
-	//if stat, ok := rn.Ifs.CachedStats[rn.RemotePath.String()]; ok {
-	//	resp = &Packet{
-	//		Data: stat,
-	//	}
-	//	delete(rn.Ifs.CachedStats, rn.RemotePath.String())
-	//} else {
 	resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
-	//}
 
 	var err error = nil
 	if respErr, ok := resp.Data.(Error); !ok {
@@ -174,7 +167,7 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 
 	var err error
 	if !rn.IsDir {
-		err = rn.Ifs.FileHandler.OpenFile(rn.RemotePath)
+		err = rn.Ifs.FileHandler.OpenFile(rn.RemotePath, int(req.Flags))
 	}
 
 	if err != nil {
