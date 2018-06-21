@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	log "github.com/sirupsen/logrus"
+	"sync"
 )
 
 type CacheRequest interface {
@@ -19,26 +20,30 @@ type CacheRequest interface {
 // Delete is RemotePath
 
 type Hoarder struct {
-	Ifs      *Ifs
-	Path     string
-	Size     uint64
-	cached   map[string]string
-	fetching map[string]bool
-	openedFiles map[uint64] *os.File
-	ingress  chan *Packet
-	fileId   uint
+	Ifs    *Ifs
+	Path   string
+	Size   uint64
+	cached *sync.Map
+	//cached   map[string]string
+	fetching *sync.Map
+	//fetching       map[string]bool
+	opened *sync.Map
+	//openedFiles    map[uint64]*os.File
+	fetchQueue     chan *OpenInfo
+	fileId         uint
 	fileDescriptor uint64
 }
 
 func (h *Hoarder) Startup() {
-	h.fetching = make(map[string]bool)
-	h.cached = make(map[string]string)
-	h.ingress = make(chan *Packet, ChannelLength)
+	h.fetching = &sync.Map{}
+	h.cached = &sync.Map{}
+	h.opened = &sync.Map{}
+	h.fetchQueue = make(chan *OpenInfo, ChannelLength)
 	h.fileId = 0
 
 	h.DeleteCache()
 
-	go h.ProcessCacheRequests()
+	go h.processFetchRequests()
 }
 
 func (h *Hoarder) DeleteCache() {
@@ -47,115 +52,144 @@ func (h *Hoarder) DeleteCache() {
 	os.MkdirAll(h.Path, 0755)
 }
 
-func (h *Hoarder) ProcessCacheRequests() {
+//func (h *Hoarder) ProcessCacheRequests() {
+//
+//	for pkt := range h.ingress {
+//
+//		switch pkt.Op {
+//		case CacheFileRequest:
+//			rp := pkt.Data.(*RemotePath)
+//			h.cacheFile(rp)
+//		case CacheWriteRequest:
+//			writeInfo := pkt.Data.(*WriteInfo)
+//			h.SendWrite(writeInfo)
+//		case CacheTruncRequest:
+//			truncInfo := pkt.Data.(*AttrInfo)
+//			h.CacheTrunc(truncInfo)
+//		case CacheCreateRequest:
+//			rp := pkt.Data.(*RemotePath)
+//			h.CacheCreate(rp)
+//		case CacheDeleteRequest:
+//			rp := pkt.Data.(*RemotePath)
+//			h.CacheDelete(rp)
+//		case CacheRenameRequest:
+//			req := pkt.Data.(*RenameInfo)
+//			h.CacheRename(req.RemotePath, req.DestPath)
+//		case CacheOpenRequest:
+//			req := pkt.Data.(*OpenInfo)
+//			h.CacheOpen(req.RemotePath, req.FileDescriptor, req.Flags)
+//		}
+//
+//	}
+//
+//}
 
-	for pkt := range h.ingress {
-
-		switch pkt.Op {
-		case CacheFileRequest:
-			rp := pkt.Data.(*RemotePath)
-			h.CacheFile(rp)
-		case CacheWriteRequest:
-			writeInfo := pkt.Data.(*WriteInfo)
-			h.SendWrite(writeInfo)
-		case CacheTruncRequest:
-			truncInfo := pkt.Data.(*AttrInfo)
-			h.CacheTrunc(truncInfo)
-		case CacheCreateRequest:
-			rp := pkt.Data.(*RemotePath)
-			h.CacheCreate(rp)
-		case CacheDeleteRequest:
-			rp := pkt.Data.(*RemotePath)
-			h.CacheDelete(rp)
-		case CacheRenameRequest:
-			req := pkt.Data.(*RenameInfo)
-			h.CacheRename(req.RemotePath, req.DestPath)
-		case CacheOpenRequest:
-			req := pkt.Data.(*OpenInfo)
-			h.CacheOpen(req.RemotePath, req.FileDescriptor, req.Flags)
-		}
-
-	}
-
-}
-
-func (h *Hoarder) SubmitRequest(opCode uint8, payload Payload) {
-	req := &Packet{
-		Op:   opCode,
-		Data: payload,
-	}
-
-	h.ingress <- req
-}
+//func (h *Hoarder) SubmitRequest(opCode uint8, payload Payload) {
+//	req := &Packet{
+//		Op:   opCode,
+//		Data: payload,
+//	}
+//
+//	h.ingress <- req
+//}
 
 func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) {
-	if fname, ok := h.cached[remotePath.String()]; ok {
+	if val, ok := h.cached.Load(remotePath.String()); ok {
+
+		fname := val.(string)
 
 		newRemotePath := &RemotePath{
 			Hostname: remotePath.Hostname,
-			Port: remotePath.Port,
-			Path: destPath,
+			Port:     remotePath.Port,
+			Path:     destPath,
 		}
 
-		h.cached[newRemotePath.String()] = fname
-		delete(h.cached, remotePath.String())
+		h.cached.Store(newRemotePath.String(), fname)
+		h.cached.Delete(remotePath.String())
 	}
 }
 
 func (h *Hoarder) IsCached(rp *RemotePath) bool {
-	_, ok := h.cached[rp.String()]
+	_, ok := h.cached.Load(rp.String())
 	return ok
 }
 
-func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags int) error {
+func (h *Hoarder) openCacheFile(fname string, fileDescriptor uint64, flags int) error {
 
-	if fname, ok := h.cached[remotePath.String()]; ok {
+	f, err := os.OpenFile(path.Join(h.Path, fname), flags, 0666)
 
-		f, err := os.OpenFile(path.Join(h.Path, fname), flags, 0666)
-
-		if err != nil {
-			return err
-		}
-
-		h.openedFiles[fileDescriptor] = f
-
-		return nil
-	}
-
-	return os.ErrNotExist
-}
-
-func (h *Hoarder) CacheFile(remotePath *RemotePath) error {
-
-	_, cachedOk := h.cached[remotePath.String()]
-	_, fetchingOk := h.fetching[remotePath.String()]
-
-	// TODO Check Cache Space
-	// TODO Implement some form of cache management
-	if !cachedOk && !fetchingOk{
-
-		h.fetching[remotePath.String()] = true
-
-		resp := h.Ifs.Talker.sendRequest(FetchFileRequest, remotePath)
-
-		if err, ok := resp.Data.(Error); ok {
-			return err.Err
-		}
-
-		fname := h.GetCacheFileName()
-		fileChunk := resp.Data.(*FileChunk)
-		fileChunk.Decompress()
-		err := ioutil.WriteFile(path.Join(h.Path, fname), fileChunk.Chunk,
-			0666)
-
-		if err == nil {
-			h.cached[remotePath.String()] = fname
-			delete(h.fetching, remotePath.String())
-		}
+	if err != nil {
 		return err
 	}
 
-	return os.ErrExist
+	h.opened.Store(fileDescriptor, f)
+	return nil
+}
+
+func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags int) {
+
+	if val, ok := h.cached.Load(remotePath.String()); ok {
+		h.openCacheFile(val.(string), fileDescriptor, flags)
+	} else {
+
+		openInfo := &OpenInfo{
+			RemotePath:     remotePath,
+			FileDescriptor: fileDescriptor,
+			Flags:          flags,
+		}
+
+		h.fetchQueue <- openInfo
+	}
+}
+
+func (h *Hoarder) processFetchRequests() {
+	for openInfo := range h.fetchQueue {
+
+		rp := openInfo.RemotePath
+
+		_, cachedOk := h.cached.Load(rp.String())
+		_, fetchingOk := h.fetching.Load(rp.String())
+
+		if !cachedOk && !fetchingOk {
+			go func() {
+				err := h.cacheFile(rp)
+
+				if err == nil {
+					val, _ := h.cached.Load(rp.String())
+					h.openCacheFile(val.(string), openInfo.FileDescriptor, openInfo.Flags)
+				}
+
+			}()
+		}
+
+	}
+}
+
+func (h *Hoarder) cacheFile(remotePath *RemotePath) error {
+
+	// TODO Check Cache Space
+	// TODO Implement some form of cache management
+	h.fetching.Store(remotePath.String(), true)
+
+	resp := h.Ifs.Talker.sendRequest(FetchFileRequest, remotePath)
+
+	// TODO Log Error
+	if err, ok := resp.Data.(Error); ok {
+		return err.Err
+	}
+
+	fname := h.GetCacheFileName()
+	fileChunk := resp.Data.(*FileChunk)
+	fileChunk.Decompress()
+	err := ioutil.WriteFile(path.Join(h.Path, fname), fileChunk.Chunk,
+		0666)
+
+	if err == nil {
+		h.cached.Store(remotePath.String(), fname)
+	}
+	h.fetching.Delete(remotePath.String())
+
+	return err
 }
 
 func (h *Hoarder) SendWrite(writeInfo *WriteInfo) error {
@@ -165,23 +199,23 @@ func (h *Hoarder) SendWrite(writeInfo *WriteInfo) error {
 }
 
 func (h *Hoarder) CacheTrunc(truncInfo *AttrInfo) error {
-	if fname, ok := h.cached[truncInfo.RemotePath.String()]; ok {
-		err := os.Truncate(path.Join(h.Path, fname), int64(truncInfo.Size))
+	if fname, ok := h.cached.Load(truncInfo.RemotePath.String()); ok {
+		err := os.Truncate(path.Join(h.Path, fname.(string)), int64(truncInfo.Size))
 		return err
 	}
 
 	return os.ErrNotExist
 }
 
-func (h *Hoarder) CacheCreate(remotePath *RemotePath) error {
-	if _, ok := h.cached[remotePath.String()]; !ok {
+func (h *Hoarder) CacheCreate(remotePath *RemotePath, fd uint64) error {
+	if _, ok := h.cached.Load(remotePath.String()); !ok {
 		fname := h.GetCacheFileName()
 		f, err := os.Create(path.Join(h.Path, fname))
 
 		// if error doesnt happens this will be nil right ?
 		if err == nil {
-			defer f.Close()
-			h.cached[remotePath.String()] = fname
+			h.cached.Store(remotePath.String(), fname)
+			h.opened.Store(fd, f)
 		}
 
 		return err
@@ -191,41 +225,39 @@ func (h *Hoarder) CacheCreate(remotePath *RemotePath) error {
 }
 
 func (h *Hoarder) CacheDelete(remotePath *RemotePath) error {
-	if fname, ok := h.cached[remotePath.String()]; ok {
+	if val, ok := h.cached.Load(remotePath.String()); ok {
+
+		fname := val.(string)
+
 		err := os.Remove(path.Join(h.Path, fname))
 
 		if err == nil {
-			delete(h.cached, remotePath.String())
+			h.cached.Delete(remotePath.String())
 		}
 
 		return err
 	}
 
-	return os.ErrNotExist
+	return os.ErrInvalid
 }
 
-func (h *Hoarder) ReadAllCache(remotePath *RemotePath) ([]byte, error) {
-	if fname, ok := h.cached[remotePath.String()]; ok {
-		data, err := ioutil.ReadFile(path.Join(h.Path, fname))
-		return data, err
-	}
+//func (h *Hoarder) ReadAllCache(remotePath *RemotePath) ([]byte, error) {
+//	if fname, ok := h.cached[remotePath.String()]; ok {
+//		data, err := ioutil.ReadFile(path.Join(h.Path, fname))
+//		return data, err
+//	}
+//
+//	return nil, os.ErrNotExist
+//}
 
-	return nil, os.ErrNotExist
-}
+func (h *Hoarder) ReadCache(fd uint64, offset int64, size int) ([]byte, error) {
+	if val, ok := h.opened.Load(fd); ok {
 
-func (h *Hoarder) ReadCache(remotePath *RemotePath, offset int64, size int) ([]byte, error) {
-	if fname, ok := h.cached[remotePath.String()]; ok {
-
-		f, err := os.OpenFile(path.Join(h.Path, fname), os.O_RDONLY, 0666)
-		defer f.Close()
-
-		// Something is not right
-		if err != nil {
-			log.Panic(err)
-		}
+		f := val.(*os.File)
 
 		b := make([]byte, size)
-		_, err = f.ReadAt(b, offset)
+		_, err := f.ReadAt(b, offset)
+
 
 		if err == nil {
 			return b, nil
@@ -234,7 +266,7 @@ func (h *Hoarder) ReadCache(remotePath *RemotePath, offset int64, size int) ([]b
 		return nil, err
 	}
 
-	return nil, os.ErrNotExist
+	return nil, os.ErrInvalid
 }
 
 func (h *Hoarder) GetCacheFileName() string {
@@ -243,30 +275,30 @@ func (h *Hoarder) GetCacheFileName() string {
 	return fmt.Sprintf("%d", fileId)
 }
 
-func (h *Hoarder) WriteCache(remotePath *RemotePath, offset int64, data []byte) (int, error) {
-	log.Println(h.cached)
-	if fname, ok := h.cached[remotePath.String()]; ok {
-		f, err := os.OpenFile(path.Join(h.Path, fname), os.O_WRONLY, 0666)
-
-		// Something is not right
-		if err != nil {
-			log.Panic(err)
-		} else {
-			defer f.Close()
-		}
-
+func (h *Hoarder) WriteCache(fd uint64, offset int64, data []byte) (int, error) {
+	if val, ok := h.opened.Load(fd); ok {
+		f := val.(*os.File)
 		n, err := f.WriteAt(data, offset)
-
-		write := &WriteInfo{
-			RemotePath: remotePath,
-			Offset:     offset,
-			Data:       data,
-		}
-
-		h.SubmitRequest(CacheWriteRequest, write)
-
 		return n, err
 	}
 
-	return 0, os.ErrNotExist
+	return 0, os.ErrInvalid
 }
+
+func (h *Hoarder) CacheClose(fd uint64) error {
+	if val, ok := h.opened.Load(fd); ok {
+		f := val.(*os.File)
+		return f.Close()
+	}
+
+	return os.ErrInvalid
+}
+
+//func (h *Hoarder) CacheFlush(fd uint64) error {
+//	if val, ok := h.opened.Load(fd); ok {
+//		f := val.(*os.File)
+//		return f.Sync()
+//	}
+//
+//	return os.ErrInvalid
+//}

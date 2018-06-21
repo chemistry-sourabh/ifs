@@ -21,7 +21,8 @@ func TestAttr(t *testing.T) {
 
 	pkt := CreatePacket(AttrRequest, payload)
 
-	s, err := Attr(pkt)
+	fh := NewAgentFileHandler()
+	s, err := fh.Attr(pkt)
 
 	if err != nil {
 		t.Error("Got Error for Attr", err)
@@ -42,7 +43,9 @@ func TestAttr2(t *testing.T) {
 
 	pkt := CreatePacket(AttrRequest, payload)
 
-	s, err := Attr(pkt)
+	fh := NewAgentFileHandler()
+
+	s, err := fh.Attr(pkt)
 
 	if err == nil {
 		t.Error("Didnt get error")
@@ -72,7 +75,8 @@ func TestReadDir(t *testing.T) {
 
 	pkt := CreatePacket(ReadDirRequest, payload)
 
-	stats, err := ReadDir(pkt)
+	fh := NewAgentFileHandler()
+	stats, err := fh.ReadDir(pkt)
 
 	if err != nil {
 		t.Error("Got Error in ReadDir", err)
@@ -97,7 +101,8 @@ func TestReadDir2(t *testing.T) {
 
 	pkt := CreatePacket(ReadDirRequest, payload)
 
-	stats, err := ReadDir(pkt)
+	fh := NewAgentFileHandler()
+	stats, err := fh.ReadDir(pkt)
 
 	if err == nil {
 		t.Error("err is nil")
@@ -123,7 +128,8 @@ func TestFetchFile(t *testing.T) {
 
 	pkt := CreatePacket(FetchFileRequest, payload)
 
-	chunk, err := FetchFile(pkt)
+	fh := NewAgentFileHandler()
+	chunk, err := fh.FetchFile(pkt)
 
 	chunk.Decompress()
 
@@ -147,7 +153,8 @@ func TestFetchFile2(t *testing.T) {
 
 	pkt := CreatePacket(FetchFileRequest, payload)
 
-	chunk, err := FetchFile(pkt)
+	fh := NewAgentFileHandler()
+	chunk, err := fh.FetchFile(pkt)
 
 	if err == nil {
 		t.Error("err is nil")
@@ -179,7 +186,8 @@ func TestReadFile(t *testing.T) {
 
 	pkt := CreatePacket(ReadFileRequest, payload)
 
-	chunk, err := ReadFile(pkt)
+	fh := NewAgentFileHandler()
+	chunk, err := fh.ReadFile(pkt)
 
 	chunk.Decompress()
 
@@ -213,7 +221,8 @@ func TestReadFile2(t *testing.T) {
 
 	pkt := CreatePacket(ReadFileRequest, payload)
 
-	chunk, err := ReadFile(pkt)
+	fh := NewAgentFileHandler()
+	chunk, err := fh.ReadFile(pkt)
 
 	chunk.Decompress()
 
@@ -246,7 +255,8 @@ func TestReadFile3(t *testing.T) {
 
 	pkt := CreatePacket(ReadFileRequest, payload)
 
-	chunk, err := ReadFile(pkt)
+	fh := NewAgentFileHandler()
+	chunk, err := fh.ReadFile(pkt)
 
 	// EOF Error
 	if err == nil {
@@ -279,7 +289,8 @@ func TestReadFile4(t *testing.T) {
 
 	pkt := CreatePacket(ReadFileRequest, payload)
 
-	chunk, err := ReadFile(pkt)
+	fh := NewAgentFileHandler()
+	chunk, err := fh.ReadFile(pkt)
 
 	chunk.Decompress()
 

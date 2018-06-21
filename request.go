@@ -5,16 +5,23 @@ import (
 	"os"
 )
 
-type ReadInfo struct {
+type ReadDirInfo struct {
 	RemotePath *RemotePath
-	Offset     int64
-	Size       int
+	FileDescriptor uint64
+}
+
+type ReadInfo struct {
+	RemotePath     *RemotePath
+	FileDescriptor uint64
+	Offset         int64
+	Size           int
 }
 
 type WriteInfo struct {
-	RemotePath *RemotePath
-	Offset     int64
-	Data       []byte
+	RemotePath     *RemotePath
+	FileDescriptor uint64
+	Offset         int64
+	Data           []byte
 }
 
 type AttrInfo struct {
@@ -27,9 +34,10 @@ type AttrInfo struct {
 }
 
 type CreateInfo struct {
-	BaseDir *RemotePath
-	Name    string
-	IsDir   bool
+	BaseDir        *RemotePath
+	Name           string
+	IsDir          bool
+	FileDescriptor uint64
 }
 
 type RenameInfo struct {
@@ -42,4 +50,14 @@ type OpenInfo struct {
 	FileDescriptor uint64
 	Flags          int
 	//Perm           int
+}
+
+type CloseInfo struct {
+	RemotePath     *RemotePath
+	FileDescriptor uint64
+}
+
+type FlushInfo struct {
+	RemotePath     *RemotePath
+	FileDescriptor uint64
 }

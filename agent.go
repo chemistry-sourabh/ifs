@@ -5,13 +5,11 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"strconv"
-	"os"
 )
 
 type Agent struct {
 	Pool *AgentConnectionPool
-
-	Opened map[uint64] *os.File
+	FileHandler *AgentFileHandler
 }
 
 func populateResponse(resp *Packet, data Payload, err error) {
@@ -89,39 +87,47 @@ func (a *Agent) ProcessRequest(req *Packet, index int) {
 
 	case AttrRequest:
 		resp.Op = StatResponse
-		data, err = Attr(req)
+		data, err = a.FileHandler.Attr(req)
 
 	case ReadDirRequest:
 		resp.Op = StatsResponse
-		data, err = ReadDir(req)
+		data, err = a.FileHandler.ReadDir(req)
 
 	case FetchFileRequest:
 		resp.Op = FileDataResponse
-		data, err = FetchFile(req)
+		data, err = a.FileHandler.FetchFile(req)
 
 	case ReadFileRequest:
 		resp.Op = FileDataResponse
-		data, err = ReadFile(req)
+		data, err = a.FileHandler.ReadFile(req)
 
 	case WriteFileRequest:
 		resp.Op = WriteResponse
-		data, err = WriteFile(req)
+		data, err = a.FileHandler.WriteFile(req)
 
 	case SetAttrRequest:
 		resp.Op = ErrorResponse
-		err = SetAttr(req)
+		err = a.FileHandler.SetAttr(req)
 
 	case CreateRequest:
 		resp.Op = ErrorResponse
-		err = CreateFile(req)
+		err = a.FileHandler.CreateFile(req)
 
 	case RemoveRequest:
 		resp.Op = ErrorResponse
-		err = RemoveFile(req)
+		err = a.FileHandler.RemoveFile(req)
 
 	case RenameRequest:
 		resp.Op = ErrorResponse
-		err = RenameFile(req)
+		err = a.FileHandler.RenameFile(req)
+
+	case OpenRequest:
+		resp.Op = ErrorResponse
+		err = a.FileHandler.OpenFile(req)
+	case CloseRequest:
+		resp.Op = ErrorResponse
+		err = a.FileHandler.CloseFile(req)
+
 	}
 
 	populateResponse(resp, data, err)
@@ -154,6 +160,7 @@ func (a *Agent) ProcessResponses(index int) {
 func StartAgent(address string, port uint16) {
 	agent := &Agent{
 		Pool: newAgentConnectionPool(),
+		FileHandler: NewAgentFileHandler(),
 	}
 
 	log.WithFields(log.Fields{

@@ -1,29 +1,34 @@
 package ifs
 
-const AttrRequest = 0
-const ReadDirRequest = 1
-const FetchFileRequest = 2
-const ReadFileRequest = 3
-const WriteFileRequest = 4
-const SetAttrRequest = 5
-const CreateRequest = 6
-const RemoveRequest = 7
-const RenameRequest = 8
-const OpenRequest = 9
+const RequestBase = 0
+const AttrRequest = RequestBase + 0
+const ReadDirRequest = RequestBase + 1
+const FetchFileRequest = RequestBase + 2
+const ReadFileRequest = RequestBase + 3
+const WriteFileRequest = RequestBase + 4
+const SetAttrRequest = RequestBase + 5
+const CreateRequest = RequestBase + 6
+const RemoveRequest = RequestBase + 7
+const RenameRequest = RequestBase + 8
+const OpenRequest = RequestBase + 9
+const CloseRequest = RequestBase + 10
+const FlushRequest  = RequestBase + 11
 
-const CacheFileRequest = 10
-const CacheCreateRequest = 11
-const CacheWriteRequest = 12
-const CacheDeleteRequest = 13
-const CacheSyncRequest = 14
-const CacheTruncRequest = 15
-const CacheRenameRequest = 16
-const CacheOpenRequest = 17
+//const CacheBase = 20
+//const CacheFileRequest = CacheBase + 0
+//const CacheCreateRequest = CacheBase + 1
+//const CacheWriteRequest = CacheBase + 2
+//const CacheDeleteRequest = CacheBase + 3
+//const CacheTruncRequest = CacheBase + 4
+//const CacheRenameRequest = CacheBase + 5
+//const CacheOpenRequest = CacheBase + 6
+//const CacheSyncRequest = CacheBase + 7
 
-const StatResponse = 20
-const StatsResponse = 21
-const FileDataResponse = 22
-const WriteResponse = 23
-const ErrorResponse = 24
+const ResponseBase = 30
+const StatResponse = ResponseBase + 0
+const StatsResponse = ResponseBase + 1
+const FileDataResponse = ResponseBase + 2
+const WriteResponse = ResponseBase + 3
+const ErrorResponse = ResponseBase + 4
 
 const ChannelLength = 100

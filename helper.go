@@ -28,6 +28,10 @@ func ConvertOpCodeToString(opCode uint8) string {
 		return "Remove Request"
 	case RenameRequest:
 		return "Rename Request"
+	case OpenRequest:
+		return "Open Request"
+	case CloseRequest:
+		return "Close Request"
 
 	case StatResponse:
 		return "Stat Response"

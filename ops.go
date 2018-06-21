@@ -7,9 +7,21 @@ import (
 
 	"path"
 	"time"
+	"sync"
 )
 
-func Attr(request *Packet) (*Stat, error) {
+type AgentFileHandler struct {
+	Opened sync.Map
+	//Opened map[uint64]*os.File
+}
+
+func NewAgentFileHandler() *AgentFileHandler {
+	return &AgentFileHandler{
+		Opened: sync.Map{},
+	}
+}
+
+func (fh *AgentFileHandler) Attr(request *Packet) (*Stat, error) {
 
 	filePath := request.Data.(*RemotePath).Path
 
@@ -21,7 +33,6 @@ func Attr(request *Packet) (*Stat, error) {
 	log.WithFields(fields).Debug("Processing Attr Request")
 
 	info, err := os.Lstat(filePath)
-
 
 	if err == nil {
 		s := &Stat{}
@@ -50,9 +61,11 @@ func Attr(request *Packet) (*Stat, error) {
 
 }
 
-func ReadDir(request *Packet) (*DirInfo, error) {
+func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 
-	filePath := request.Data.(*RemotePath).Path
+	readDirInfo := request.Data.(*ReadDirInfo)
+
+	filePath := readDirInfo.RemotePath.Path
 
 	dirInfo := &DirInfo{}
 
@@ -66,44 +79,53 @@ func ReadDir(request *Packet) (*DirInfo, error) {
 
 	log.WithFields(fields).Debug("Processing Readdir Request")
 
-	files, err := ioutil.ReadDir(filePath)
+	val, ok := fh.Opened.Load(readDirInfo.FileDescriptor)
 
-	if err == nil {
+	if ok {
 
-		for _, file := range files {
+		f := val.(*os.File)
 
-			s := &Stat{}
+		files, err := f.Readdir(-1)
 
-			s.Name = file.Name()
-			s.Size = file.Size()
-			s.Mode = file.Mode()
-			s.ModTime = file.ModTime().UnixNano()
-			s.IsDir = file.IsDir()
+		if err == nil {
 
-			stats = append(stats, s)
+			for _, file := range files {
 
+				s := &Stat{}
+
+				s.Name = file.Name()
+				s.Size = file.Size()
+				s.Mode = file.Mode()
+				s.ModTime = file.ModTime().UnixNano()
+				s.IsDir = file.IsDir()
+
+				stats = append(stats, s)
+
+			}
+
+			dirInfo.Stats = stats
+
+			log.WithFields(log.Fields{
+				"op":   "readdir",
+				"id":   request.Id,
+				"path": filePath,
+				"size": len(stats),
+			}).Debug("Readdir Response")
+
+			return dirInfo, nil
+		} else {
+
+			err = ConvertErr(err)
+			log.WithFields(fields).Error("Readdir Error Response:", err)
 		}
 
-		dirInfo.Stats = stats
-
-		log.WithFields(log.Fields{
-			"op":   "readdir",
-			"id":   request.Id,
-			"path": filePath,
-			"size": len(stats),
-		}).Debug("Readdir Response")
-
-		return dirInfo, nil
-	} else {
-
-		err = ConvertErr(err)
-		log.WithFields(fields).Error("Readdir Error Response:", err)
+		return nil, err
 	}
 
-	return nil, err
+	return nil, os.ErrInvalid
 }
 
-func FetchFile(request *Packet) (*FileChunk, error) {
+func (fh *AgentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
 
 	filePath := request.Data.(*RemotePath).Path
 
@@ -143,7 +165,7 @@ func FetchFile(request *Packet) (*FileChunk, error) {
 	return nil, err
 }
 
-func ReadFile(request *Packet) (*FileChunk, error) {
+func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 	readInfo := request.Data.(*ReadInfo)
 	filePath := readInfo.RemotePath.Path
 
@@ -151,51 +173,53 @@ func ReadFile(request *Packet) (*FileChunk, error) {
 		"op":     "read",
 		"id":     request.Id,
 		"path":   filePath,
+		"fd":     readInfo.FileDescriptor,
 		"size":   readInfo.Size,
 		"offset": readInfo.Offset,
 	}
 
 	log.WithFields(fields).Debug("Processing Read Request")
 
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0666)
-	defer f.Close()
+	val, ok := fh.Opened.Load(readInfo.FileDescriptor)
 
-	// Should be there because the file is already opened
-	if err != nil {
-		log.WithFields(fields).Fatal("Fatal Error:", err)
-	}
+	if ok {
 
-	b := make([]byte, readInfo.Size)
-	n, err := f.ReadAt(b, readInfo.Offset)
+		f := val.(*os.File)
 
-	if err == nil {
-		fileChunk := &FileChunk{
-			Chunk: b,
-			Size:  n,
+		b := make([]byte, readInfo.Size)
+		n, err := f.ReadAt(b, readInfo.Offset)
+
+		if err == nil {
+			fileChunk := &FileChunk{
+				Chunk: b,
+				Size:  n,
+			}
+
+			fileChunk.Compress()
+
+			log.WithFields(log.Fields{
+				"op":              "read",
+				"id":              request.Id,
+				"path":            filePath,
+				"size":            readInfo.Size,
+				"offset":          readInfo.Offset,
+				"chunk_size":      n,
+				"compressed_size": len(fileChunk.Chunk),
+			}).Debug("Read Response")
+
+			return fileChunk, nil
+		} else {
+			err = ConvertErr(err)
+			log.WithFields(fields).Warnf("Read Error Response:", err)
 		}
 
-		fileChunk.Compress()
-
-		log.WithFields(log.Fields{
-			"op":              "read",
-			"id":              request.Id,
-			"path":            filePath,
-			"size":            readInfo.Size,
-			"offset":          readInfo.Offset,
-			"chunk_size":      n,
-			"compressed_size": len(fileChunk.Chunk),
-		}).Debug("Read Response")
-
-		return fileChunk, nil
-	} else {
-		err = ConvertErr(err)
-		log.WithFields(fields).Warnf("Read Error Response:", err)
+		return nil, err
 	}
 
-	return nil, err
+	return nil, os.ErrInvalid
 }
 
-func WriteFile(request *Packet) (*WriteResult, error) {
+func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 	writeInfo := request.Data.(*WriteInfo)
 	filePath := writeInfo.RemotePath.Path
 
@@ -203,47 +227,49 @@ func WriteFile(request *Packet) (*WriteResult, error) {
 		"op":     "write",
 		"id":     request.Id,
 		"path":   filePath,
+		"fd":     writeInfo.FileDescriptor,
 		"offset": writeInfo.Offset,
 		"size":   len(writeInfo.Data),
 	}
 
 	log.WithFields(fields).Debug("Processing Write Request")
 
-	f, err := os.OpenFile(filePath, os.O_WRONLY, 0666)
-	defer f.Close()
+	val, ok := fh.Opened.Load(writeInfo.FileDescriptor)
 
-	// Should be there because the file is already opened
-	if err != nil {
-		log.WithFields(fields).Fatal("Fatal Error:", err)
-	}
+	if ok {
 
-	n, err := f.WriteAt(writeInfo.Data, writeInfo.Offset)
+		f := val.(*os.File)
 
-	if err == nil {
+		n, err := f.WriteAt(writeInfo.Data, writeInfo.Offset)
 
-		result := &WriteResult{
-			Size: n,
+		if err == nil {
+
+			result := &WriteResult{
+				Size: n,
+			}
+
+			log.WithFields(log.Fields{
+				"op":         "write",
+				"id":         request.Id,
+				"path":       filePath,
+				"offset":     writeInfo.Offset,
+				"chunk_size": len(writeInfo.Data),
+				"size":       n,
+			}).Debug("Write Response")
+
+			return result, nil
+		} else {
+			err = ConvertErr(err)
+			log.WithFields(fields).Warnf("Write Error Response")
 		}
 
-		log.WithFields(log.Fields{
-			"op":         "write",
-			"id":         request.Id,
-			"path":       filePath,
-			"offset":     writeInfo.Offset,
-			"chunk_size": len(writeInfo.Data),
-			"size":       n,
-		}).Debug("Write Response")
-
-		return result, nil
-	} else {
-		err = ConvertErr(err)
-		log.WithFields(fields).Warnf("Write Error Response")
+		return nil, err
 	}
 
-	return nil, err
+	return nil, os.ErrInvalid
 }
 
-func SetAttr(request *Packet) error {
+func (fh *AgentFileHandler) SetAttr(request *Packet) error {
 	attrInfo := request.Data.(*AttrInfo)
 	filePath := attrInfo.RemotePath.Path
 
@@ -282,7 +308,7 @@ func SetAttr(request *Packet) error {
 	return err
 }
 
-func CreateFile(request *Packet) error {
+func (fh *AgentFileHandler) CreateFile(request *Packet) error {
 	createInfo := request.Data.(*CreateInfo)
 	filePath := path.Join(createInfo.BaseDir.Path, createInfo.Name)
 
@@ -299,12 +325,13 @@ func CreateFile(request *Packet) error {
 
 	if !createInfo.IsDir {
 		f, err := os.Create(filePath)
-		if err == nil {
-			defer f.Close()
-		} else {
+		if err != nil {
 			err = ConvertErr(err)
 			log.WithFields(fields).Warnf("Create Error Response:", err)
 		}
+
+		fh.Opened.Store(createInfo.FileDescriptor, f)
+
 		return err
 	} else {
 		err := os.Mkdir(filePath, 0755)
@@ -318,7 +345,7 @@ func CreateFile(request *Packet) error {
 	}
 }
 
-func RemoveFile(request *Packet) error {
+func (fh *AgentFileHandler) RemoveFile(request *Packet) error {
 	remotePath := request.Data.(*RemotePath)
 
 	fields := log.Fields{
@@ -339,13 +366,13 @@ func RemoveFile(request *Packet) error {
 	return err
 }
 
-func RenameFile(request *Packet) error {
+func (fh *AgentFileHandler) RenameFile(request *Packet) error {
 	renameInfo := request.Data.(*RenameInfo)
 
 	fields := log.Fields{
-		"op": "rename",
-		"id": request.Id,
-		"path": renameInfo.RemotePath.Path,
+		"op":       "rename",
+		"id":       request.Id,
+		"path":     renameInfo.RemotePath.Path,
 		"new_path": renameInfo.DestPath,
 	}
 
@@ -361,18 +388,48 @@ func RenameFile(request *Packet) error {
 	return err
 }
 
-func OpenFile(request *Packet) error {
+func (fh *AgentFileHandler) OpenFile(request *Packet) error {
 	openInfo := request.Data.(*OpenInfo)
 
 	fields := log.Fields{
-		"op": "open",
-		"id": request.Id,
-		"path": openInfo.RemotePath.Path,
+		"op":              "open",
+		"id":              request.Id,
+		"path":            openInfo.RemotePath.Path,
 		"file_descriptor": openInfo.FileDescriptor,
-		"flags": openInfo.Flags,
+		"flags":           openInfo.Flags,
 	}
 
 	log.WithFields(fields).Debug("Processing Open Request")
+
+	f, err := os.OpenFile(openInfo.RemotePath.Path, openInfo.Flags, 0666)
+
+	if err != nil {
+		return err
+	}
+
+	fh.Opened.Store(openInfo.FileDescriptor, f)
+
+	return nil
+}
+
+func (fh *AgentFileHandler) CloseFile(request *Packet) error {
+
+	closeInfo := request.Data.(*CloseInfo)
+
+	fields := log.Fields{
+		"op":              "close",
+		"id":              request.Id,
+		"path":            closeInfo.RemotePath.Path,
+		"file_descriptor": closeInfo.FileDescriptor,
+	}
+
+	log.WithFields(fields).Debug("Processing Close Request")
+
+	if val, ok := fh.Opened.Load(closeInfo.FileDescriptor); ok {
+		f := val.(*os.File)
+		f.Close()
+		fh.Opened.Delete(closeInfo.FileDescriptor)
+	}
 
 	return nil
 }
