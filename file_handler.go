@@ -178,7 +178,7 @@ func (fh *FileHandler) Release(handle *FileHandle) error {
 	return os.ErrNotExist
 }
 
-func (fh *FileHandler) Create(remotePath *RemotePath, name string) error {
+func (fh *FileHandler) Create(remotePath *RemotePath, name string) (uint64, error) {
 
 	fd := atomic.AddUint64(&fh.FileDescriptor, 1)
 
@@ -192,7 +192,7 @@ func (fh *FileHandler) Create(remotePath *RemotePath, name string) error {
 	resp := fh.Ifs.Talker.sendRequest(CreateRequest, req)
 
 	if err, ok := resp.Data.(Error); ok {
-		return err.Err
+		return 0, err.Err
 	}
 
 	newRemotePath := &RemotePath{
@@ -205,7 +205,7 @@ func (fh *FileHandler) Create(remotePath *RemotePath, name string) error {
 
 	fh.Opened.Store(fd, req)
 
-	return nil
+	return fd, nil
 }
 
 func (fh *FileHandler) Mkdir(remotePath *RemotePath, name string) error {

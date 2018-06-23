@@ -404,6 +404,7 @@ func (fh *AgentFileHandler) OpenFile(request *Packet) error {
 	f, err := os.OpenFile(openInfo.RemotePath.Path, openInfo.Flags, 0666)
 
 	if err != nil {
+		log.WithFields(fields).Warnf("Open Error Response:", err)
 		return err
 	}
 
@@ -429,7 +430,8 @@ func (fh *AgentFileHandler) CloseFile(request *Packet) error {
 		f := val.(*os.File)
 		f.Close()
 		fh.Opened.Delete(closeInfo.FileDescriptor)
+		return nil
 	}
 
-	return nil
+	return os.ErrInvalid
 }

@@ -67,15 +67,31 @@ func TestReadDir(t *testing.T) {
 	CreateTempFile("dir1/file2")
 	defer RemoveTempFile("dir1/file2")
 
-	payload := &RemotePath{
+	remotePath := &RemotePath{
 		Hostname: "localhost",
 		Port:     11211,
 		Path:     "/tmp/dir1",
 	}
 
-	pkt := CreatePacket(ReadDirRequest, payload)
-
 	fh := NewAgentFileHandler()
+
+	payload := &OpenInfo{
+		RemotePath: remotePath,
+		FileDescriptor: 1,
+		Flags: 0,
+	}
+
+	pkt := CreatePacket(OpenRequest, payload)
+
+	fh.OpenFile(pkt)
+
+	payload1 := &ReadDirInfo{
+		RemotePath: remotePath,
+		FileDescriptor: 1,
+	}
+
+	pkt = CreatePacket(ReadDirRequest, payload1)
+
 	stats, err := fh.ReadDir(pkt)
 
 	if err != nil {
@@ -90,18 +106,44 @@ func TestReadDir(t *testing.T) {
 
 	// TODO Check File names
 
+	payload2 := &CloseInfo{
+		RemotePath: remotePath,
+		FileDescriptor: 1,
+	}
+
+	pkt = CreatePacket(CloseRequest, payload2)
+
+	fh.CloseFile(pkt)
+
 }
 
 func TestReadDir2(t *testing.T) {
-	payload := &RemotePath{
+	remotePath := &RemotePath{
 		Hostname: "localhost",
 		Port:     11211,
 		Path:     "/tmp/dir1",
 	}
 
-	pkt := CreatePacket(ReadDirRequest, payload)
-
 	fh := NewAgentFileHandler()
+
+	payload := &OpenInfo{
+		RemotePath: remotePath,
+		FileDescriptor: 1,
+		Flags: 0,
+	}
+
+	pkt := CreatePacket(OpenRequest, payload)
+
+	fh.OpenFile(pkt)
+
+	payload1 := &ReadDirInfo{
+		RemotePath: remotePath,
+		FileDescriptor: 1,
+	}
+
+
+	pkt = CreatePacket(ReadDirRequest, payload1)
+
 	stats, err := fh.ReadDir(pkt)
 
 	if err == nil {
@@ -111,6 +153,15 @@ func TestReadDir2(t *testing.T) {
 	if stats != nil {
 		t.Error("stats are not nil")
 	}
+
+	payload2 := &CloseInfo{
+		RemotePath: remotePath,
+		FileDescriptor: 1,
+	}
+
+	pkt = CreatePacket(CloseRequest, payload2)
+
+	fh.CloseFile(pkt)
 }
 
 func TestFetchFile(t *testing.T) {
@@ -178,15 +229,27 @@ func TestReadFile(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	payload := &ReadInfo{
+	fh := NewAgentFileHandler()
+
+	payload := &OpenInfo{
 		RemotePath: rp,
+		FileDescriptor: 1,
+		Flags: 0,
+	}
+
+	pkt := CreatePacket(OpenRequest, payload)
+
+	fh.OpenFile(pkt)
+
+	payload1 := &ReadInfo{
+		RemotePath: rp,
+		FileDescriptor: 1,
 		Offset:     0,
 		Size:       100,
 	}
 
-	pkt := CreatePacket(ReadFileRequest, payload)
+	pkt = CreatePacket(ReadFileRequest, payload1)
 
-	fh := NewAgentFileHandler()
 	chunk, err := fh.ReadFile(pkt)
 
 	chunk.Decompress()
@@ -198,6 +261,15 @@ func TestReadFile(t *testing.T) {
 	if !cmp.Equal(chunk.Chunk, data[:100]) {
 		PrintTestError(t, "chunks dont match", chunk.Chunk, data[:100])
 	}
+
+	payload2 := &CloseInfo{
+		RemotePath: rp,
+		FileDescriptor: 1,
+	}
+
+	pkt = CreatePacket(CloseRequest, payload2)
+
+	fh.CloseFile(pkt)
 
 }
 
@@ -213,15 +285,27 @@ func TestReadFile2(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	payload := &ReadInfo{
+	fh := NewAgentFileHandler()
+
+	payload := &OpenInfo{
 		RemotePath: rp,
+		FileDescriptor: 1,
+		Flags: 0,
+	}
+
+	pkt := CreatePacket(OpenRequest, payload)
+
+	fh.OpenFile(pkt)
+
+	payload1 := &ReadInfo{
+		RemotePath: rp,
+		FileDescriptor: 1,
 		Offset:     100,
 		Size:       100,
 	}
 
-	pkt := CreatePacket(ReadFileRequest, payload)
+	pkt = CreatePacket(ReadFileRequest, payload1)
 
-	fh := NewAgentFileHandler()
 	chunk, err := fh.ReadFile(pkt)
 
 	chunk.Decompress()
@@ -233,6 +317,15 @@ func TestReadFile2(t *testing.T) {
 	if !cmp.Equal(chunk.Chunk, data[100:200]) {
 		PrintTestError(t, "chunks dont match", chunk.Chunk, data[100:200])
 	}
+
+	payload2 := &CloseInfo{
+		RemotePath: rp,
+		FileDescriptor: 1,
+	}
+
+	pkt = CreatePacket(CloseRequest, payload2)
+
+	fh.CloseFile(pkt)
 }
 
 func TestReadFile3(t *testing.T) {
@@ -249,6 +342,7 @@ func TestReadFile3(t *testing.T) {
 
 	payload := &ReadInfo{
 		RemotePath: rp,
+		FileDescriptor: 1,
 		Offset:     999,
 		Size:       100,
 	}
@@ -281,15 +375,27 @@ func TestReadFile4(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	payload := &ReadInfo{
+	fh := NewAgentFileHandler()
+
+	payload := &OpenInfo{
 		RemotePath: rp,
+		FileDescriptor: 1,
+		Flags: 0,
+	}
+
+	pkt := CreatePacket(OpenRequest, payload)
+
+	fh.OpenFile(pkt)
+
+	payload1 := &ReadInfo{
+		RemotePath: rp,
+		FileDescriptor: 1,
 		Offset:     0,
 		Size:       1000,
 	}
 
-	pkt := CreatePacket(ReadFileRequest, payload)
+	pkt = CreatePacket(ReadFileRequest, payload1)
 
-	fh := NewAgentFileHandler()
 	chunk, err := fh.ReadFile(pkt)
 
 	chunk.Decompress()
@@ -301,4 +407,13 @@ func TestReadFile4(t *testing.T) {
 	if !cmp.Equal(chunk.Chunk, data) {
 		PrintTestError(t, "chunks dont match", chunk.Chunk, data)
 	}
+
+	payload2 := &CloseInfo{
+		RemotePath: rp,
+		FileDescriptor: 1,
+	}
+
+	pkt = CreatePacket(CloseRequest, payload2)
+
+	fh.CloseFile(pkt)
 }

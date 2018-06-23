@@ -122,7 +122,12 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 		log.WithFields(fields).Warn("Open Error Response:", err)
 	}
 
-	return fd, err
+	fh := &FileHandle{
+		RemoteNode: rn,
+		FileDescriptor: fd,
+	}
+
+	return fh, err
 
 }
 
@@ -207,11 +212,17 @@ func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp 
 	// Create File in Cache if Space is available
 	// File should be in open state
 	// Return Errors
-	err := rn.Ifs.FileHandler.Create(rn.RemotePath, req.Name)
+	fd, err := rn.Ifs.FileHandler.Create(rn.RemotePath, req.Name)
 	if err == nil {
 		newRn := rn.generateChildRemoteNode(req.Name, false)
 		rn.RemoteNodes[req.Name] = newRn
-		return newRn, newRn, nil
+
+		fh := &FileHandle{
+			FileDescriptor: fd,
+			RemoteNode: newRn,
+		}
+
+		return newRn, fh, nil
 	} else {
 		log.WithFields(fields).Warn("Create Error Response:", err)
 	}
