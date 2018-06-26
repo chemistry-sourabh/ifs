@@ -32,8 +32,6 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags int, isDir bool) (
 	if !isDir {
 		go fh.Ifs.Hoarder.CacheOpen(remotePath, fd, flags)
 	}
-	//fh.Ifs.Hoarder.SubmitRequest(CacheFileRequest, remotePath)
-	//fh.Ifs.Hoarder.SubmitRequest(CacheOpenRequest, openInfo)
 
 	resp := fh.Ifs.Talker.sendRequest(OpenRequest, openInfo)
 
@@ -46,17 +44,6 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags int, isDir bool) (
 	return fd, nil
 }
 
-//func (fh *FileHandler) checkCacheSpace() bool {
-//	// TODO Implement properly
-//	return fh.Size > 0
-//}
-
-//func (fh *FileHandler) convertToCacheName(path *RemotePath) string {
-//	s := strings.Replace(path.String(), "/", "_", -1)
-//	s = strings.Replace(s, ":", "_", 1)
-//	s = strings.Replace(s, "@", "_", 1)
-//	return s
-//}
 
 // TODO Skip Cache if io op fails
 func (fh *FileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]byte, error) {
@@ -93,27 +80,6 @@ func (fh *FileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]b
 	return nil, os.ErrInvalid
 }
 
-//func (fh *FileHandler) ReadAllData(remotePath *RemotePath) ([]byte, error) {
-//
-//	data, err := fh.Ifs.Hoarder.ReadAllCache(remotePath)
-//
-//	if err != nil {
-//
-//		resp := fh.Ifs.Talker.sendRequest(FetchFileRequest, remotePath)
-//
-//		if err, ok := resp.Data.(Error); ok {
-//			return nil, err.Err
-//		} else {
-//			fileChunk := resp.Data.(*FileChunk)
-//			fileChunk.Decompress()
-//			return fileChunk.Chunk, nil
-//		}
-//	} else {
-//		return data, err
-//	}
-//}
-
-// TODO Parallize Cache and Remote Writes
 func (fh *FileHandler) WriteData(handle *FileHandle, data []byte, offset int64) (int, error) {
 
 	if _, ok := fh.Opened.Load(handle.FileDescriptor); ok {

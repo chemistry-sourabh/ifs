@@ -101,8 +101,6 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 	}
 }
 
-// TODO Open for Dir also
-// TODO Should have actual file descriptor
 func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	fields := log.Fields{
 		"op":      "open",
@@ -114,9 +112,8 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 
 	var err error
 	var fd uint64
-	//if !rn.IsDir {
+
 	fd, err = rn.Ifs.FileHandler.OpenFile(rn.RemotePath, int(req.Flags), rn.IsDir)
-	//}
 
 	if err != nil {
 		log.WithFields(fields).Warn("Open Error Response:", err)
@@ -130,24 +127,6 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 	return fh, err
 
 }
-
-//func (rn *RemoteNode) ReadAll(ctx context.Context) ([]byte, error) {
-//	fields := log.Fields{
-//		"op":      "readall",
-//		"address": rn.RemotePath.Address(),
-//		"path":    rn.RemotePath.Path,
-//	}
-//	log.WithFields(fields).Debug("ReadAll FS Request")
-//
-//	data, err := rn.Ifs.FileHandler.ReadAllData(rn.RemotePath)
-//
-//	if err != nil {
-//		log.WithFields(fields).Warn("ReadAll Error Response:", err)
-//	}
-//
-//	return data, err
-//
-//}
 
 func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
 	// TODO Add other attributes

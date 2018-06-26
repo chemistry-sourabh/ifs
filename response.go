@@ -39,7 +39,7 @@ func (fc *FileChunk) Decompress() {
 	r, err := zlib.NewReader(&b)
 
 	if err != nil {
-		log.Fatal("Shit just happened", err)
+		log.Fatal("Shit just happened = ", err)
 	}
 
 	var out bytes.Buffer

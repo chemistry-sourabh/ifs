@@ -34,7 +34,6 @@ func (fh *FileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fus
 	return err
 }
 
-// TODO Think About Append Mode
 func (fh *FileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
 
 	rn := fh.RemoteNode
