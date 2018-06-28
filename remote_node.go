@@ -9,11 +9,17 @@ import (
 	"strconv"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"os"
 )
 
 type RemoteNode struct {
-	Ifs         *Ifs                   `msgpack:"-"`
-	IsDir       bool
+	Ifs      *Ifs        `msgpack:"-"`
+	IsDir    bool
+	IsCached bool        `msgpack:"-"`
+	Size     uint64      `msgpack:"-"`
+	Mode     os.FileMode `msgpack:"-"`
+	Mtime    time.Time   `msgpack:"-"`
+	// TODO Add Atime also
 	RemotePath  *RemotePath
 	RemoteNodes map[string]*RemoteNode `msgpack:"-"`
 }
@@ -28,45 +34,57 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 	log.WithFields(fields).Debug("Attr FS Request")
 
-	var resp *Packet
-	resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
+	if !rn.IsCached {
 
-	var err error = nil
-	if respErr, ok := resp.Data.(Error); !ok {
+		var resp *Packet
+		resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
 
-		s := resp.Data.(*Stat)
-		log.WithFields(log.Fields{
-			"op":       "attr",
-			"address":  rn.RemotePath.Address(),
-			"path":     rn.RemotePath.Path,
-			"mode":     s.Mode,
-			"size":     s.Size,
-			"mod_time": time.Unix(0, s.ModTime)}).Debug("Attr Response From Agent")
-		// Check Error
-		curUser, _ := user.Current()
-		uid, _ := strconv.ParseUint(curUser.Uid, 10, 64)
+		var err error = nil
+		if respErr, ok := resp.Data.(Error); !ok {
 
-		curGroup, _ := user.LookupGroup("staff")
-		gid, _ := strconv.ParseUint(curGroup.Gid, 10, 64)
+			s := resp.Data.(*Stat)
+			log.WithFields(log.Fields{
+				"op":       "attr",
+				"address":  rn.RemotePath.Address(),
+				"path":     rn.RemotePath.Path,
+				"mode":     s.Mode,
+				"size":     s.Size,
+				"mod_time": time.Unix(0, s.ModTime)}).Debug("Attr Response From Agent")
 
-		attr.Uid = uint32(uid)
-		attr.Gid = uint32(gid)
-		attr.Size = uint64(s.Size)
-		attr.Mode = s.Mode
-		attr.Mtime = time.Unix(0, s.ModTime)
+			rn.Size = uint64(s.Size)
+			rn.Mode = s.Mode
+			rn.Mtime = time.Unix(0, s.ModTime)
+			rn.IsCached = true
 
-	} else {
-		err = respErr.Err
-		log.WithFields(fields).Warn("Attr Error Response:", err)
+		} else {
+			err = respErr.Err
+			log.WithFields(fields).Warn("Attr Error Response:", err)
+			return err
+		}
+
 	}
 
-	return err
+	// Check Error
+	curUser, _ := user.Current()
+	uid, _ := strconv.ParseUint(curUser.Uid, 10, 64)
+
+	curGroup, _ := user.LookupGroup("staff")
+	gid, _ := strconv.ParseUint(curGroup.Gid, 10, 64)
+
+	attr.Uid = uint32(uid)
+	attr.Gid = uint32(gid)
+	attr.Size = rn.Size
+	attr.Mode = rn.Mode
+	attr.Mtime = rn.Mtime
+
+	return nil
 }
 
 func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNode {
 	return &RemoteNode{
-		Ifs:   rn.Ifs,
-		IsDir: isDir,
+		Ifs:      rn.Ifs,
+		IsDir:    isDir,
+		IsCached: false,
 		RemotePath: &RemotePath{
 			Hostname: rn.RemotePath.Hostname,
 			Port:     rn.RemotePath.Port,
@@ -193,10 +211,25 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 	var err error
 	if req.Valid.Size() {
 		err = rn.Ifs.FileHandler.Truncate(attrInfo)
-	} else if req.Valid.Mode() {
+
+		if err == nil {
+			rn.Size = req.Size
+		}
+
+	} else {
 		resp := rn.Ifs.Talker.sendRequest(SetAttrRequest, attrInfo)
 		if respErr, ok := resp.Data.(Error); ok {
 			err = respErr.Err
+		}
+
+		if err == nil {
+
+			if req.Valid.Mode() {
+				rn.Mode = req.Mode
+			} else if req.Valid.Mtime() {
+				rn.Mtime = req.Mtime
+			}
+
 		}
 	}
 

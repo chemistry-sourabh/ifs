@@ -2,7 +2,10 @@ package ifs
 
 import "bazil.org/fuse"
 import log "github.com/sirupsen/logrus"
-import "golang.org/x/net/context"
+import (
+	"golang.org/x/net/context"
+	"time"
+)
 
 type FileHandle struct {
 	RemoteNode     *RemoteNode
@@ -97,8 +100,6 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 			s := file
 
-			//rn.Ifs.CachedStats[AppendFileToRemotePath(rn.RemotePath, s.Name)] = s
-
 			var child fuse.Dirent
 			if s.IsDir {
 				child = fuse.Dirent{Type: fuse.DT_Dir, Name: s.Name}
@@ -106,7 +107,14 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 				child = fuse.Dirent{Type: fuse.DT_File, Name: s.Name}
 			}
 			children = append(children, child)
-			rn.RemoteNodes[s.Name] = rn.generateChildRemoteNode(s.Name, s.IsDir)
+			newRn := rn.generateChildRemoteNode(s.Name, s.IsDir)
+
+			newRn.Size = uint64(s.Size)
+			newRn.Mode = s.Mode
+			newRn.Mtime = time.Unix(0, s.ModTime)
+			newRn.IsCached = true
+
+			rn.RemoteNodes[s.Name] = newRn
 
 		}
 
