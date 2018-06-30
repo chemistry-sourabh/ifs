@@ -5,9 +5,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 
-	"path"
 	"time"
 	"sync"
+	"path"
 )
 
 type AgentFileHandler struct {
@@ -123,6 +123,60 @@ func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 	}
 
 	return nil, os.ErrInvalid
+}
+
+func (fh *AgentFileHandler) ReadDirAll(request *Packet) (*DirInfo, error) {
+
+	remotePath := request.Data.(*RemotePath)
+
+	filePath := remotePath.Path
+
+	dirInfo := &DirInfo{}
+
+	var stats []*Stat
+
+	fields := log.Fields{
+		"op":   "readdirall",
+		"id":   request.Id,
+		"path": filePath,
+	}
+
+	log.WithFields(fields).Debug("Processing ReadDirAll Request")
+
+	files, err := ioutil.ReadDir(filePath)
+
+	if err == nil {
+
+		for _, file := range files {
+
+			s := &Stat{}
+
+			s.Name = file.Name()
+			s.Size = file.Size()
+			s.Mode = file.Mode()
+			s.ModTime = file.ModTime().UnixNano()
+			s.IsDir = file.IsDir()
+
+			stats = append(stats, s)
+
+		}
+
+		dirInfo.Stats = stats
+
+		log.WithFields(log.Fields{
+			"op":   "readdirall",
+			"id":   request.Id,
+			"path": filePath,
+			"size": len(stats),
+		}).Debug("ReadDirAll Response")
+
+		return dirInfo, nil
+	} else {
+		err = ConvertErr(err)
+		log.WithFields(fields).Error("ReadDir Error Response:", err)
+	}
+
+	return nil, err
 }
 
 func (fh *AgentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {

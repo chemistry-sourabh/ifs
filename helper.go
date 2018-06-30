@@ -14,6 +14,8 @@ func ConvertOpCodeToString(opCode uint8) string {
 		return "Attr Request"
 	case ReadDirRequest:
 		return "ReadDir Request"
+	case ReadDirAllRequest:
+		return "ReadDirAll Request"
 	case FetchFileRequest:
 		return "FetchFile Request"
 	case ReadFileRequest:

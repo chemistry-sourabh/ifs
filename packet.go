@@ -53,6 +53,8 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		struc = &RemotePath{}
 	case ReadDirRequest:
 		struc = &ReadDirInfo{}
+	case ReadDirAllRequest:
+		struc = &RemotePath{}
 	case FetchFileRequest:
 		struc = &RemotePath{}
 	case ReadFileRequest:

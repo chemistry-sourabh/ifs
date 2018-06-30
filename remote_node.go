@@ -86,18 +86,58 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 
 	val, ok := rn.RemoteNodes[name]
 
-	log.WithFields(log.Fields{
-		"op":      "lookup",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"name":    name,
-		"ok":      ok,
-	}).Debug("Lookup Response")
 
 	if ok {
 		return val, nil
 	} else {
-		return nil, fuse.ENOENT
+
+
+		resp := rn.Ifs.Talker.sendRequest(ReadDirAllRequest, rn.RemotePath)
+
+		rn.RemoteNodes = make(map[string]*RemoteNode)
+
+		var err error
+		if respError, ok := resp.Data.(Error); !ok {
+
+			files := resp.Data.(*DirInfo).Stats
+
+			log.WithFields(log.Fields{
+				"op":      "readdirall",
+				"address": rn.RemotePath.Address(),
+				"path":    rn.RemotePath.Path,
+				"size":    len(files),
+			}).Debug("ReadDirAll Response from Agent")
+
+			for _, file := range files {
+				s := file
+				rn.RemoteNodes[s.Name] = rn.generateChildRemoteNode(s.Name, s.IsDir)
+			}
+
+		} else {
+			err = respError.Err
+			log.WithFields(log.Fields{
+				"op":      "readdirall",
+				"address": rn.RemotePath.Address(),
+				"path":    rn.RemotePath.Path,
+			}).Warn("ReadDirAll Error Response:", err)
+		}
+
+		val, ok = rn.RemoteNodes[name]
+
+		log.WithFields(log.Fields{
+			"op":      "lookup",
+			"address": rn.RemotePath.Address(),
+			"path":    rn.RemotePath.Path,
+			"name":    name,
+			"ok":      ok,
+		}).Debug("Lookup Response")
+
+		if ok {
+			return val, nil
+		} else {
+			return nil, fuse.ENOENT
+		}
+
 	}
 }
 
@@ -120,7 +160,7 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 	}
 
 	fh := &FileHandle{
-		RemoteNode: rn,
+		RemoteNode:     rn,
 		FileDescriptor: fd,
 	}
 
@@ -198,7 +238,7 @@ func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp 
 
 		fh := &FileHandle{
 			FileDescriptor: fd,
-			RemoteNode: newRn,
+			RemoteNode:     newRn,
 		}
 
 		return newRn, fh, nil

@@ -13,6 +13,7 @@ const RenameRequest = RequestBase + 8
 const OpenRequest = RequestBase + 9
 const CloseRequest = RequestBase + 10
 const FlushRequest  = RequestBase + 11
+const ReadDirAllRequest = RequestBase + 12
 
 //const CacheBase = 20
 //const CacheFileRequest = CacheBase + 0

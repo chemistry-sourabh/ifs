@@ -92,7 +92,9 @@ func (a *Agent) ProcessRequest(req *Packet, index int) {
 	case ReadDirRequest:
 		resp.Op = StatsResponse
 		data, err = a.FileHandler.ReadDir(req)
-
+	case ReadDirAllRequest:
+		resp.Op = StatsResponse
+		data, err = a.FileHandler.ReadDirAll(req)
 	case FetchFileRequest:
 		resp.Op = FileDataResponse
 		data, err = a.FileHandler.FetchFile(req)
