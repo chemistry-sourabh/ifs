@@ -8,24 +8,23 @@ import (
 )
 
 type Watcher struct {
+	Agent   *Agent
 	Paths   []string
 	watcher *fsnotify.Watcher
 }
 
-func NewWatcher() (*Watcher, error) {
+func (w *Watcher) Startup() error {
 	watcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	obj := &Watcher{
-		watcher: watcher,
-	}
+	w.watcher = watcher
 
-	go obj.processEvents()
+	go w.processEvents()
 
-	return obj, nil
+	return nil
 }
 
 func (w *Watcher) processEvents() {
@@ -54,6 +53,16 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 
 	} else if event.Op&fsnotify.Chmod == fsnotify.Chmod {
 		// Simple Attr Update
+
+		//payload := &AttrUpdateInfo{}
+		//
+		//info, err := os.Stat(event.Name)
+		//
+		//payload.RemotePath = event.Name
+		//payload.Size = info.Size()
+		//payload.Mode = info.Mode()
+		//payload.ModTime = info.ModTime().UnixNano()
+
 	}
 
 }
@@ -61,7 +70,7 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 func (w *Watcher) watchDir(dirPath string) error {
 	//w.watcher.Add(dirPath)
 
-	allDirs := []string{}
+	var allDirs []string
 	dirs := []string{dirPath}
 
 	for len(dirs) > 0 {

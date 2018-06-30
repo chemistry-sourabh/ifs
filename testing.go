@@ -40,6 +40,7 @@ func CreateTestConfig() {
 func CreatePacket(opCode uint8, payload Payload) *Packet {
 	return &Packet{
 		Id: 0,
+		Flags: 0,
 		Op: opCode,
 		Data: payload,
 	}

@@ -12,16 +12,18 @@ type Payload interface {
 
 type Packet struct {
 	ConnId uint8
+	Flags  uint8
 	Id     uint64 // TODO What if this overflows ?
 	Op     uint8
 	Data   Payload
 }
 
 func (pkt *Packet) Marshal() ([]byte, error) {
-	header := make([]byte, 10)
+	header := make([]byte, 11)
 	binary.BigEndian.PutUint64(header, pkt.Id)
 	header[8] = pkt.Op
 	header[9] = pkt.ConnId
+	header[10] = pkt.Flags
 
 	data, err := msgpack.Marshal(pkt.Data)
 
@@ -38,13 +40,14 @@ func (pkt *Packet) Unmarshal(data []byte) {
 	pkt.Id = binary.BigEndian.Uint64(data)
 	pkt.Op = data[8]
 	pkt.ConnId = data[9]
+	pkt.Flags = data[10]
 
 	log.WithFields(log.Fields{
 		"id": pkt.Id,
 		"op": ConvertOpCodeToString(pkt.Op),
 	}).Debug("Unmarshling Packet")
 
-	payload := data[10:]
+	payload := data[11:]
 
 	var struc Payload
 
@@ -96,4 +99,12 @@ func (pkt *Packet) Unmarshal(data []byte) {
 
 func (pkt *Packet) String() string {
 	return fmt.Sprintf("Id = %d Op = %s Data = %s", pkt.Id, ConvertOpCodeToString(pkt.Op), pkt.Data)
+}
+
+func (pkt *Packet) IsRequest() bool {
+	if pkt.Flags == 0 {
+		return true
+	}
+
+	return false
 }

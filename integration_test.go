@@ -179,7 +179,7 @@ func TestReadDirAll(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		if !ContainsInArray(names, GetFileName(i)) {
-			PrintTestError(t, "Dir content is wrong", names, actNames)
+			PrintTestError(t, "Flags content is wrong", names, actNames)
 		}
 	}
 

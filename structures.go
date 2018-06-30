@@ -13,7 +13,7 @@ type AgentConnectionPool struct {
 	SendingChannels  []chan *Packet
 }
 
-func newAgentConnectionPool() *AgentConnectionPool {
+func NewAgentConnectionPool() *AgentConnectionPool {
 	return &AgentConnectionPool{}
 }
 

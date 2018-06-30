@@ -11,6 +11,7 @@ import (
 
 //TODO Check Proper Id and ConnId
 //TODO Remove Verbose Log Printing
+// TODO Check Flags
 func TestPacket_Marshal(t *testing.T) {
 
 	payload := &RemotePath{
@@ -26,7 +27,7 @@ func TestPacket_Marshal(t *testing.T) {
 	IsError(t, "Got error in Marshal", err)
 	IsNil(t, "data", data)
 
-	header := data[:10]
+	header := data[:11]
 
 	Compare(t, "op code", header[8], uint8(ReadFileRequest))
 
@@ -36,7 +37,7 @@ func TestPacket_Marshal(t *testing.T) {
 
 	rp := &RemotePath{}
 
-	msgpack.Unmarshal(data[10:], rp)
+	msgpack.Unmarshal(data[11:], rp)
 
 	Compare(t, "payload", rp, payload)
 
@@ -55,7 +56,7 @@ func TestPacket_Marshal2(t *testing.T) {
 		t.Error("data is nil")
 	}
 
-	header := data[:10]
+	header := data[:11]
 
 	if header[8] != ReadFileRequest {
 		PrintTestError(t, "op code not matching", header[8], ReadFileRequest)
@@ -67,7 +68,7 @@ func TestPacket_Marshal2(t *testing.T) {
 
 	var n interface{}
 
-	msgpack.Unmarshal(data[10:], &n)
+	msgpack.Unmarshal(data[11:], &n)
 
 	if n != nil {
 		PrintTestError(t, "data is not nil", n, nil)
@@ -92,7 +93,7 @@ func TestPacket_Marshal3(t *testing.T) {
 		t.Error("data is nil")
 	}
 
-	header := data[:10]
+	header := data[:11]
 
 	if header[8] != FileDataResponse {
 		PrintTestError(t, "op code not matching", header[8], FileDataResponse)
@@ -105,7 +106,7 @@ func TestPacket_Marshal3(t *testing.T) {
 	}
 
 	e := Error{}
-	msgpack.Unmarshal(data[10:], &e)
+	msgpack.Unmarshal(data[11:], &e)
 
 	if !cmp.Equal(e.Err.Error(), io.EOF.Error()) {
 		PrintTestError(t, "errors dont match", e.Err, io.EOF)

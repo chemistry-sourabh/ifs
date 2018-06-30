@@ -1,15 +1,13 @@
 package ifs
 
 import (
-	"net/http"
-	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"strconv"
 )
 
 type Agent struct {
-	Pool *AgentConnectionPool
+	Talker      *AgentTalker
 	FileHandler *AgentFileHandler
+	Watcher     *Watcher
 }
 
 func populateResponse(resp *Packet, data Payload, err error) {
@@ -21,63 +19,15 @@ func populateResponse(resp *Packet, data Payload, err error) {
 			Err: err,
 		}
 	}
+
+	resp.Flags = 1
 }
 
-func (a *Agent) Listen(index int) {
-
-	conn := a.Pool.Connections[index]
-
-	log.WithFields(log.Fields{
-		"address": conn.RemoteAddr(),
-	}).Info("Listening for Packets")
-
-	for {
-
-		req := &Packet{}
-
-		typ, data, err := conn.ReadMessage()
-
-		if err != nil {
-			log.Fatal(err)
-			break
-		}
-
-		if typ == websocket.BinaryMessage {
-			req.Unmarshal(data)
-			log.WithFields(log.Fields{
-				"conn_id": req.ConnId,
-				"id": req.Id,
-				"op": ConvertOpCodeToString(req.Op),
-				"index": index,
-			}).Debug("Received Packet")
-
-			go a.ProcessRequest(req, index)
-		}
-
-	}
-
-}
-
-func (a *Agent) HandleRequests(w http.ResponseWriter, r *http.Request) {
-	upgrader := websocket.Upgrader{}
-	conn, _ := upgrader.Upgrade(w, r, nil)
-
-	log.WithFields(log.Fields{
-		"address": conn.RemoteAddr().String(),
-	}).Debug("Got New Connection")
-
-	a.Pool.Append(conn)
-
-	i := len(a.Pool.Connections) - 1
-	go a.Listen(i)
-	go a.ProcessResponses(i)
-}
-
-func (a *Agent) ProcessRequest(req *Packet, index int) {
+func (a *Agent) ProcessRequest(req *Packet) {
 
 	resp := &Packet{
 		ConnId: req.ConnId,
-		Id: req.Id,
+		Id:     req.Id,
 	}
 
 	var data Payload
@@ -134,35 +84,22 @@ func (a *Agent) ProcessRequest(req *Packet, index int) {
 
 	populateResponse(resp, data, err)
 
-	a.Pool.SendingChannels[GetRandomIndex(len(a.Pool.Connections))] <- resp
+	a.Talker.SendResponse(resp)
 
-}
-
-func (a *Agent) ProcessResponses(index int) {
-	log.WithFields(log.Fields{
-		"index": index,
-	}).Info("Starting Response Processor")
-
-	respChan := a.Pool.SendingChannels[index]
-	for resp := range respChan {
-		data, _ := resp.Marshal()
-		err := a.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
-		log.WithFields(log.Fields{
-			"conn_id": resp.ConnId,
-			"id": resp.Id,
-			"op": ConvertOpCodeToString(resp.Op),
-			"index": index,
-		}).Debug("Sent Packet")
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
 }
 
 func StartAgent(address string, port uint16) {
 	agent := &Agent{
-		Pool: newAgentConnectionPool(),
 		FileHandler: NewAgentFileHandler(),
+	}
+
+	talker := &AgentTalker{
+		Agent: agent,
+		Pool:  NewAgentConnectionPool(),
+	}
+
+	watcher := &Watcher{
+		Agent: agent,
 	}
 
 	log.WithFields(log.Fields{
@@ -170,12 +107,15 @@ func StartAgent(address string, port uint16) {
 		"port":    port,
 	}).Info("Starting Agent")
 
+	agent.Talker = talker
+	agent.Watcher = watcher
 
-	http.HandleFunc("/", agent.HandleRequests)
-	err := http.ListenAndServe(address+":"+strconv.FormatInt(int64(port), 10), nil)
+	agent.Talker.Startup(address, port)
+
+	err := agent.Watcher.Startup()
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Watcher Failed")
 	}
 
 }

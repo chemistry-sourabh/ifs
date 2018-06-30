@@ -124,7 +124,7 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 
 	for {
 
-		resp := &Packet{}
+		packet := &Packet{}
 
 		log.Debug("Listening for Packet")
 
@@ -135,29 +135,37 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 			break
 		}
 
-
-		resp.Unmarshal(data)
+		packet.Unmarshal(data)
 
 		log.WithFields(log.Fields{
-			"op":      strings.ToLower(ConvertOpCodeToString(resp.Op)),
-			"id":      resp.Id,
-			"conn_id": resp.ConnId,
+			"op":      strings.ToLower(ConvertOpCodeToString(packet.Op)),
+			"request": packet.IsRequest(),
+			"id":      packet.Id,
+			"conn_id": packet.ConnId,
 		}).Debug("Received Packet")
 
-		var ch chan *Packet
+		if !packet.IsRequest() {
 
-		req, _ := t.RequestBuffer.Load(GetMapKey(hostname, resp.ConnId, resp.Id))
+			var ch chan *Packet
 
-		ch = req.(*PacketChannelTuple).Channel
+			req, _ := t.RequestBuffer.Load(GetMapKey(packet.ConnId, packet.Id))
 
-		log.Debug("Sending Response to Channel")
-		ch <- resp
-		log.Debug("Closing Channel")
-		close(ch)
-		log.Debug("Closed Channel")
+			ch = req.(*PacketChannelTuple).Channel
 
-		t.RequestBuffer.Delete(GetMapKey(hostname, resp.ConnId, resp.Id))
+			log.Debug("Sending Response to Channel")
+			ch <- packet
+			log.Debug("Closing Channel")
+			close(ch)
+			log.Debug("Closed Channel")
 
+			t.RequestBuffer.Delete(GetMapKey(packet.ConnId, packet.Id))
+
+		} else {
+			go t.processRequest(packet)
+		}
 	}
+}
 
+func (t *Talker) processRequest(packet *Packet) {
+	// Blah Blah
 }

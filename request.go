@@ -67,3 +67,10 @@ type FetchInfo struct {
 	FileDescriptor uint64
 	Flags          int
 }
+
+type AttrUpdateInfo struct {
+	RemotePath *RemotePath
+	Size       int64
+	Mode       os.FileMode
+	ModTime    int64
+}
