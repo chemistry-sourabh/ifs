@@ -148,7 +148,7 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 
 			var ch chan *Packet
 
-			req, _ := t.RequestBuffer.Load(GetMapKey(packet.ConnId, packet.Id))
+			req, _ := t.RequestBuffer.Load(GetMapKey(hostname, packet.ConnId, packet.Id))
 
 			ch = req.(*PacketChannelTuple).Channel
 
@@ -158,7 +158,7 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 			close(ch)
 			log.Debug("Closed Channel")
 
-			t.RequestBuffer.Delete(GetMapKey(packet.ConnId, packet.Id))
+			t.RequestBuffer.Delete(GetMapKey(hostname, packet.ConnId, packet.Id))
 
 		} else {
 			go t.processRequest(packet)
