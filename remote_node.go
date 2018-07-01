@@ -37,7 +37,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	if !rn.IsCached {
 
 		var resp *Packet
-		resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath)
+		resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath.Hostname, rn.RemotePath)
 
 		var err error = nil
 		if respErr, ok := resp.Data.(Error); !ok {
@@ -95,7 +95,7 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 }
 
 func (rn *RemoteNode) updateChildrenRemoteNodes() {
-	resp := rn.Ifs.Talker.sendRequest(ReadDirAllRequest, rn.RemotePath)
+	resp := rn.Ifs.Talker.sendRequest(ReadDirAllRequest, rn.RemotePath.Hostname, rn.RemotePath)
 
 	rn.RemoteNodes = make(map[string]*RemoteNode)
 
@@ -200,24 +200,24 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 	log.WithFields(fields).Debug("SetAttr FS Request")
 
 	attrInfo := &AttrInfo{
-		RemotePath: rn.RemotePath,
-		Valid:      req.Valid,
-		Size:       req.Size,
-		Mode:       req.Mode,
-		ATime:      req.Atime.UnixNano(),
-		MTime:      req.Mtime.UnixNano(),
+		Path:  rn.RemotePath.Path,
+		Valid: req.Valid,
+		Size:  req.Size,
+		Mode:  req.Mode,
+		ATime: req.Atime.UnixNano(),
+		MTime: req.Mtime.UnixNano(),
 	}
 
 	var err error
 	if req.Valid.Size() {
-		err = rn.Ifs.FileHandler.Truncate(attrInfo)
+		err = rn.Ifs.FileHandler.Truncate(rn.RemotePath, attrInfo)
 
 		if err == nil {
 			rn.Size = req.Size
 		}
 
 	} else {
-		resp := rn.Ifs.Talker.sendRequest(SetAttrRequest, attrInfo)
+		resp := rn.Ifs.Talker.sendRequest(SetAttrRequest, rn.RemotePath.Hostname, attrInfo)
 		if respErr, ok := resp.Data.(Error); ok {
 			err = respErr.Err
 		}

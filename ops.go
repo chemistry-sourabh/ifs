@@ -95,7 +95,7 @@ func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 
 	readDirInfo := request.Data.(*ReadDirInfo)
 
-	filePath := readDirInfo.RemotePath.Path
+	filePath := readDirInfo.Path
 
 	fields := log.Fields{
 		"op":   "readdir",
@@ -207,7 +207,7 @@ func (fh *AgentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
 
 func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 	readInfo := request.Data.(*ReadInfo)
-	filePath := readInfo.RemotePath.Path
+	filePath := readInfo.Path
 
 	fields := log.Fields{
 		"op":     "read",
@@ -261,7 +261,7 @@ func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 
 func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 	writeInfo := request.Data.(*WriteInfo)
-	filePath := writeInfo.RemotePath.Path
+	filePath := writeInfo.Path
 
 	fields := log.Fields{
 		"op":     "write",
@@ -311,7 +311,7 @@ func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 
 func (fh *AgentFileHandler) SetAttr(request *Packet) error {
 	attrInfo := request.Data.(*AttrInfo)
-	filePath := attrInfo.RemotePath.Path
+	filePath := attrInfo.Path
 
 	fields := log.Fields{
 		"op":    "setattr",
@@ -350,7 +350,7 @@ func (fh *AgentFileHandler) SetAttr(request *Packet) error {
 
 func (fh *AgentFileHandler) CreateFile(request *Packet) error {
 	createInfo := request.Data.(*CreateInfo)
-	filePath := path.Join(createInfo.BaseDir.Path, createInfo.Name)
+	filePath := path.Join(createInfo.BaseDir, createInfo.Name)
 
 	fields := log.Fields{
 		"op":       "create",
@@ -412,13 +412,13 @@ func (fh *AgentFileHandler) RenameFile(request *Packet) error {
 	fields := log.Fields{
 		"op":       "rename",
 		"id":       request.Id,
-		"path":     renameInfo.RemotePath.Path,
+		"path":     renameInfo.Path,
 		"new_path": renameInfo.DestPath,
 	}
 
 	log.WithFields(fields).Debug("Processing Rename Request")
 
-	err := os.Rename(renameInfo.RemotePath.Path, renameInfo.DestPath)
+	err := os.Rename(renameInfo.Path, renameInfo.DestPath)
 
 	if err != nil {
 		err = ConvertErr(err)
@@ -434,14 +434,14 @@ func (fh *AgentFileHandler) OpenFile(request *Packet) error {
 	fields := log.Fields{
 		"op":              "open",
 		"id":              request.Id,
-		"path":            openInfo.RemotePath.Path,
+		"path":            openInfo.Path,
 		"file_descriptor": openInfo.FileDescriptor,
 		"flags":           openInfo.Flags,
 	}
 
 	log.WithFields(fields).Debug("Processing Open Request")
 
-	f, err := os.OpenFile(openInfo.RemotePath.Path, openInfo.Flags, 0666)
+	f, err := os.OpenFile(openInfo.Path, openInfo.Flags, 0666)
 
 	if err != nil {
 		log.WithFields(fields).Warnf("Open Error Response:", err)
@@ -460,7 +460,7 @@ func (fh *AgentFileHandler) CloseFile(request *Packet) error {
 	fields := log.Fields{
 		"op":              "close",
 		"id":              request.Id,
-		"path":            closeInfo.RemotePath.Path,
+		"path":            closeInfo.Path,
 		"file_descriptor": closeInfo.FileDescriptor,
 	}
 

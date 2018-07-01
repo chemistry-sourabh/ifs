@@ -39,6 +39,10 @@ func (p *FsConnectionPool) Append(conn *websocket.Conn) {
 	p.SendingChannels = append(p.SendingChannels, make(chan *PacketChannelTuple, ChannelLength))
 }
 
+func (p *FsConnectionPool) Len() int {
+	return len(p.Connections)
+}
+
 type PacketChannelTuple struct {
 	Packet  *Packet
 	Channel chan *Packet

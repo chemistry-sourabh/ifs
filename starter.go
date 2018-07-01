@@ -122,9 +122,7 @@ func MountRemoteRoots(cfg *FsConfig) {
 	fileSystem.Hoarder = hoarder
 	fileSystem.RemoteRoots = remoteRootNodes
 
-	for _, rr := range cfg.RemoteRoots {
-		talker.Startup(rr.Address(), cfg.ConnCount)
-	}
+	talker.Startup(cfg.RemoteRoots, cfg.ConnCount)
 	hoarder.Startup()
 	fileHandler.StartUp()
 

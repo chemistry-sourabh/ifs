@@ -76,7 +76,7 @@ func TestReadDir(t *testing.T) {
 	fh := NewAgentFileHandler()
 
 	payload := &OpenInfo{
-		RemotePath: remotePath,
+		Path: remotePath.Path,
 		FileDescriptor: 1,
 		Flags: 0,
 	}
@@ -86,7 +86,7 @@ func TestReadDir(t *testing.T) {
 	fh.OpenFile(pkt)
 
 	payload1 := &ReadDirInfo{
-		RemotePath: remotePath,
+		Path: remotePath.Path,
 		FileDescriptor: 1,
 	}
 
@@ -107,7 +107,7 @@ func TestReadDir(t *testing.T) {
 	// TODO Check File names
 
 	payload2 := &CloseInfo{
-		RemotePath: remotePath,
+		Path: remotePath.Path,
 		FileDescriptor: 1,
 	}
 
@@ -127,7 +127,7 @@ func TestReadDir2(t *testing.T) {
 	fh := NewAgentFileHandler()
 
 	payload := &OpenInfo{
-		RemotePath: remotePath,
+		Path: remotePath.Path,
 		FileDescriptor: 1,
 		Flags: 0,
 	}
@@ -137,7 +137,7 @@ func TestReadDir2(t *testing.T) {
 	fh.OpenFile(pkt)
 
 	payload1 := &ReadDirInfo{
-		RemotePath: remotePath,
+		Path: remotePath.Path,
 		FileDescriptor: 1,
 	}
 
@@ -155,7 +155,7 @@ func TestReadDir2(t *testing.T) {
 	}
 
 	payload2 := &CloseInfo{
-		RemotePath: remotePath,
+		Path: remotePath.Path,
 		FileDescriptor: 1,
 	}
 
@@ -232,7 +232,7 @@ func TestReadFile(t *testing.T) {
 	fh := NewAgentFileHandler()
 
 	payload := &OpenInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 		Flags: 0,
 	}
@@ -242,7 +242,7 @@ func TestReadFile(t *testing.T) {
 	fh.OpenFile(pkt)
 
 	payload1 := &ReadInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 		Offset:     0,
 		Size:       100,
@@ -263,7 +263,7 @@ func TestReadFile(t *testing.T) {
 	}
 
 	payload2 := &CloseInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 	}
 
@@ -288,7 +288,7 @@ func TestReadFile2(t *testing.T) {
 	fh := NewAgentFileHandler()
 
 	payload := &OpenInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 		Flags: 0,
 	}
@@ -298,7 +298,7 @@ func TestReadFile2(t *testing.T) {
 	fh.OpenFile(pkt)
 
 	payload1 := &ReadInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 		Offset:     100,
 		Size:       100,
@@ -319,7 +319,7 @@ func TestReadFile2(t *testing.T) {
 	}
 
 	payload2 := &CloseInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 	}
 
@@ -341,7 +341,7 @@ func TestReadFile3(t *testing.T) {
 	}
 
 	payload := &ReadInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 		Offset:     999,
 		Size:       100,
@@ -378,7 +378,7 @@ func TestReadFile4(t *testing.T) {
 	fh := NewAgentFileHandler()
 
 	payload := &OpenInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 		Flags: 0,
 	}
@@ -388,7 +388,7 @@ func TestReadFile4(t *testing.T) {
 	fh.OpenFile(pkt)
 
 	payload1 := &ReadInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 		Offset:     0,
 		Size:       1000,
@@ -409,7 +409,7 @@ func TestReadFile4(t *testing.T) {
 	}
 
 	payload2 := &CloseInfo{
-		RemotePath: rp,
+		Path: rp.Path,
 		FileDescriptor: 1,
 	}
 

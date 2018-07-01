@@ -11,11 +11,12 @@ import (
 
 type Talker struct {
 	// Should be map of hostname and port
-	Ifs           *Ifs
-	IdCounter	  uint64
+	Ifs        *Ifs
+	IdCounters map[string] *uint64
 	//IdCounters    map[uint8]uint64
-	Pool          *FsConnectionPool
-	RequestBuffer *FastMap
+	Pools map[string]*FsConnectionPool
+	//Pool          *FsConnectionPool
+	RequestBuffer *FastMap // TODO Change To sync.Map
 	//RequestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
 	//egressRequestChannel chan *PacketChannelTuple
 }
@@ -24,18 +25,25 @@ func NewTalker(Ifs *Ifs) *Talker {
 	return &Talker{
 		Ifs:           Ifs,
 		RequestBuffer: NewFastMap(),
-		//IdCounters:    make(map[uint8]uint64),
-		Pool:          newFsConnectionPool(),
+		IdCounters:    make(map[string] *uint64),
+		Pools:         make(map[string]*FsConnectionPool),
 	}
 }
 
-func (t *Talker) Startup(address string, poolCount int) {
-	t.mountRemoteRoot(address, poolCount)
+func (t *Talker) Startup(remoteRoots []*RemoteRoot, poolCount int) {
+
+	for _, remoteRoot := range remoteRoots {
+
+		idCounter := uint64(0)
+		t.IdCounters[remoteRoot.Hostname] = &idCounter
+		t.Pools[remoteRoot.Hostname] = newFsConnectionPool()
+		t.mountRemoteRoot(remoteRoot, poolCount)
+	}
 }
 
-func (t *Talker) mountRemoteRoot(address string, poolCount int) {
+func (t *Talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 
-	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
+	u := url.URL{Scheme: "ws", Host: remoteRoot.Address(), Path: "/"}
 
 	for i := 0; i < poolCount; i++ {
 
@@ -45,16 +53,16 @@ func (t *Talker) mountRemoteRoot(address string, poolCount int) {
 			log.Fatal(err)
 		}
 
-		t.Pool.Append(c)
+		t.Pools[remoteRoot.Hostname].Append(c)
 
-		index := uint8(len(t.Pool.Connections) - 1)
-		go t.processSendingChannel(index)
-		go t.processIncomingMessages(index)
+		index := uint8(t.Pools[remoteRoot.Hostname].Len() - 1)
+		go t.processSendingChannel(remoteRoot.Hostname, index)
+		go t.processIncomingMessages(remoteRoot.Hostname, index)
 
 	}
 }
 
-func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
+func (t *Talker) sendRequest(opCode uint8, hostname string, payload Payload) *Packet {
 
 	respChannel := make(chan *Packet)
 
@@ -63,7 +71,7 @@ func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 		Data: payload,
 	}
 
-	t.Pool.SendingChannels[GetRandomIndex(len(t.Pool.Connections))] <- &PacketChannelTuple{
+	t.Pools[hostname].SendingChannels[GetRandomIndex(t.Pools[hostname].Len())] <- &PacketChannelTuple{
 		req,
 		respChannel,
 	}
@@ -71,33 +79,39 @@ func (t *Talker) sendRequest(opCode uint8, payload Payload) *Packet {
 	return <-respChannel
 }
 
-func GetMapKey(connId uint8, id uint64) string {
-	return strings.Join([]string{strconv.FormatInt(int64(connId), 10), strconv.FormatInt(int64(id), 10)},"_")
+func GetMapKey(hostname string, connId uint8, id uint64) string {
+	return strings.Join([]string{hostname, strconv.FormatInt(int64(connId), 10), strconv.FormatInt(int64(id), 10)}, "_")
 }
 
-func (t *Talker) processSendingChannel(index uint8) {
+func (t *Talker) processSendingChannel(hostname string, index uint8) {
 
 	log.Info("Starting Egress Channel Processor")
 
-	for req := range t.Pool.SendingChannels[index] {
+	log.WithFields(log.Fields{
+		"index": index,
+		"hostname": hostname,
+		"Pools": t.Pools,
+		"Pool": t.Pools[hostname].SendingChannels,
+	}).Debug("Info")
+	for req := range t.Pools[hostname].SendingChannels[index] {
 
 		pkt, _ := req.Packet, req.Channel
 
 		pkt.ConnId = index
-		pkt.Id = atomic.AddUint64(&t.IdCounter, 1)
+		pkt.Id = atomic.AddUint64(t.IdCounters[hostname], 1)
 		//pkt.Id = t.IdCounters[index]
 		//t.IdCounters[index]++
 
 		log.WithFields(log.Fields{
-			"op": strings.ToLower(ConvertOpCodeToString(pkt.Op)),
-			"id": pkt.Id,
+			"op":      strings.ToLower(ConvertOpCodeToString(pkt.Op)),
+			"id":      pkt.Id,
 			"conn_id": pkt.ConnId,
 		}).Debug("Sending Packet")
 
-		t.RequestBuffer.Set(GetMapKey(pkt.ConnId, pkt.Id), req)
+		t.RequestBuffer.Set(GetMapKey(hostname, pkt.ConnId, pkt.Id), req)
 
 		data, _ := pkt.Marshal()
-		err := t.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
+		err := t.Pools[hostname].Connections[index].WriteMessage(websocket.BinaryMessage, data)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -105,7 +119,7 @@ func (t *Talker) processSendingChannel(index uint8) {
 	}
 }
 
-func (t *Talker) processIncomingMessages(index uint8) {
+func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 	log.Info("Starting Incoming Message Processor")
 
 	for {
@@ -114,24 +128,25 @@ func (t *Talker) processIncomingMessages(index uint8) {
 
 		log.Debug("Listening for Packet")
 
-		_, data, err := t.Pool.Connections[index].ReadMessage()
+		_, data, err := t.Pools[hostname].Connections[index].ReadMessage()
 
 		if err != nil {
 			log.Fatal(err)
 			break
 		}
 
+
 		resp.Unmarshal(data)
 
 		log.WithFields(log.Fields{
-			"op": strings.ToLower(ConvertOpCodeToString(resp.Op)),
-			"id": resp.Id,
+			"op":      strings.ToLower(ConvertOpCodeToString(resp.Op)),
+			"id":      resp.Id,
 			"conn_id": resp.ConnId,
 		}).Debug("Received Packet")
 
 		var ch chan *Packet
 
-		req, _ := t.RequestBuffer.Load(GetMapKey(resp.ConnId, resp.Id))
+		req, _ := t.RequestBuffer.Load(GetMapKey(hostname, resp.ConnId, resp.Id))
 
 		ch = req.(*PacketChannelTuple).Channel
 
@@ -141,7 +156,7 @@ func (t *Talker) processIncomingMessages(index uint8) {
 		close(ch)
 		log.Debug("Closed Channel")
 
-		t.RequestBuffer.Delete(GetMapKey(resp.ConnId, resp.Id))
+		t.RequestBuffer.Delete(GetMapKey(hostname, resp.ConnId, resp.Id))
 
 	}
 

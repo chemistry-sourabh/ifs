@@ -29,7 +29,7 @@ type Hoarder struct {
 	//fetching       map[string]bool
 	opened *sync.Map
 	//openedFiles    map[uint64]*os.File
-	fetchQueue     chan *OpenInfo
+	fetchQueue     chan *FetchInfo
 	fileId         uint
 	fileDescriptor uint64
 }
@@ -38,7 +38,7 @@ func (h *Hoarder) Startup() {
 	h.fetching = &sync.Map{}
 	h.cached = &sync.Map{}
 	h.opened = &sync.Map{}
-	h.fetchQueue = make(chan *OpenInfo, ChannelLength)
+	h.fetchQueue = make(chan *FetchInfo, ChannelLength)
 	h.fileId = 0
 
 	h.DeleteCache()
@@ -132,13 +132,13 @@ func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags
 		h.openCacheFile(val.(string), fileDescriptor, flags)
 	} else {
 
-		openInfo := &OpenInfo{
+		fetchInfo := &FetchInfo{
 			RemotePath:     remotePath,
 			FileDescriptor: fileDescriptor,
 			Flags:          flags,
 		}
 
-		h.fetchQueue <- openInfo
+		h.fetchQueue <- fetchInfo
 	}
 }
 
@@ -171,7 +171,7 @@ func (h *Hoarder) cacheFile(remotePath *RemotePath) error {
 	// TODO Implement some form of cache management
 	h.fetching.Store(remotePath.String(), true)
 
-	resp := h.Ifs.Talker.sendRequest(FetchFileRequest, remotePath)
+	resp := h.Ifs.Talker.sendRequest(FetchFileRequest, remotePath.Hostname, remotePath)
 
 	// TODO Log Error
 	if err, ok := resp.Data.(Error); ok {
@@ -192,14 +192,14 @@ func (h *Hoarder) cacheFile(remotePath *RemotePath) error {
 	return err
 }
 
-func (h *Hoarder) SendWrite(writeInfo *WriteInfo) error {
+func (h *Hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
 	// TODO Log the error if any ?
-	h.Ifs.Talker.sendRequest(WriteFileRequest, writeInfo)
+	h.Ifs.Talker.sendRequest(WriteFileRequest, hostname, writeInfo)
 	return nil
 }
 
-func (h *Hoarder) CacheTrunc(truncInfo *AttrInfo) error {
-	if fname, ok := h.cached.Load(truncInfo.RemotePath.String()); ok {
+func (h *Hoarder) CacheTrunc(remotePath *RemotePath, truncInfo *AttrInfo) error {
+	if fname, ok := h.cached.Load(remotePath.String()); ok {
 		err := os.Truncate(path.Join(h.Path, fname.(string)), int64(truncInfo.Size))
 		return err
 	}

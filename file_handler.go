@@ -25,7 +25,7 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags int, isDir bool) (
 
 	openInfo := &OpenInfo{
 		FileDescriptor: fd,
-		RemotePath:     remotePath,
+		Path:     remotePath.Path,
 		Flags:          flags,
 	}
 
@@ -33,7 +33,7 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags int, isDir bool) (
 		go fh.Ifs.Hoarder.CacheOpen(remotePath, fd, flags)
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(OpenRequest, openInfo)
+	resp := fh.Ifs.Talker.sendRequest(OpenRequest, remotePath.Hostname, openInfo)
 
 	if err, ok := resp.Data.(Error); ok {
 		return 0, err.Err
@@ -43,7 +43,6 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags int, isDir bool) (
 
 	return fd, nil
 }
-
 
 // TODO Skip Cache if io op fails
 func (fh *FileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]byte, error) {
@@ -56,13 +55,13 @@ func (fh *FileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]b
 		if err != nil {
 			// Should Ask Agent for bytes
 			fileReadInfo := &ReadInfo{
-				RemotePath:     handle.RemoteNode.RemotePath,
+				Path:           handle.RemoteNode.RemotePath.Path,
 				FileDescriptor: handle.FileDescriptor,
 				Offset:         offset,
 				Size:           size,
 			}
 
-			resp := fh.Ifs.Talker.sendRequest(ReadFileRequest, fileReadInfo)
+			resp := fh.Ifs.Talker.sendRequest(ReadFileRequest, handle.RemoteNode.RemotePath.Hostname, fileReadInfo)
 
 			if err, ok := resp.Data.(Error); ok {
 				return nil, err.Err
@@ -86,12 +85,12 @@ func (fh *FileHandler) WriteData(handle *FileHandle, data []byte, offset int64) 
 
 		// Send Bytes to Agent
 		writeInfo := &WriteInfo{
-			RemotePath:     handle.RemoteNode.RemotePath,
+			Path:           handle.RemoteNode.RemotePath.Path,
 			FileDescriptor: handle.FileDescriptor,
 			Offset:         offset,
 			Data:           data,
 		}
-		resp := fh.Ifs.Talker.sendRequest(WriteFileRequest, writeInfo)
+		resp := fh.Ifs.Talker.sendRequest(WriteFileRequest, handle.RemoteNode.RemotePath.Hostname, writeInfo)
 		if err, ok := resp.Data.(Error); ok {
 			return 0, err.Err
 		}
@@ -107,15 +106,15 @@ func (fh *FileHandler) WriteData(handle *FileHandle, data []byte, offset int64) 
 	return 0, os.ErrNotExist
 }
 
-func (fh *FileHandler) Truncate(attrInfo *AttrInfo) error {
+func (fh *FileHandler) Truncate(remotePath *RemotePath, attrInfo *AttrInfo) error {
 
-	resp := fh.Ifs.Talker.sendRequest(SetAttrRequest, attrInfo)
+	resp := fh.Ifs.Talker.sendRequest(SetAttrRequest, remotePath.Hostname, attrInfo)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err
 	}
 
-	fh.Ifs.Hoarder.CacheTrunc(attrInfo)
+	fh.Ifs.Hoarder.CacheTrunc(remotePath, attrInfo)
 
 	return nil
 }
@@ -125,10 +124,10 @@ func (fh *FileHandler) Release(handle *FileHandle) error {
 
 		closeInfo := &CloseInfo{
 			FileDescriptor: handle.FileDescriptor,
-			RemotePath:     handle.RemoteNode.RemotePath,
+			Path:           handle.RemoteNode.RemotePath.Path,
 		}
 
-		resp := fh.Ifs.Talker.sendRequest(CloseRequest, closeInfo)
+		resp := fh.Ifs.Talker.sendRequest(CloseRequest, handle.RemoteNode.RemotePath.Hostname, closeInfo)
 
 		if err, ok := resp.Data.(Error); ok {
 			return err.Err
@@ -149,13 +148,13 @@ func (fh *FileHandler) Create(remotePath *RemotePath, name string) (uint64, erro
 	fd := atomic.AddUint64(&fh.FileDescriptor, 1)
 
 	req := &CreateInfo{
-		BaseDir:        remotePath,
+		BaseDir:        remotePath.Path,
 		Name:           name,
 		IsDir:          false,
 		FileDescriptor: fd,
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(CreateRequest, req)
+	resp := fh.Ifs.Talker.sendRequest(CreateRequest, remotePath.Hostname, req)
 
 	if err, ok := resp.Data.(Error); ok {
 		return 0, err.Err
@@ -176,12 +175,12 @@ func (fh *FileHandler) Create(remotePath *RemotePath, name string) (uint64, erro
 
 func (fh *FileHandler) Mkdir(remotePath *RemotePath, name string) error {
 	req := &CreateInfo{
-		BaseDir: remotePath,
+		BaseDir: remotePath.Path,
 		Name:    name,
 		IsDir:   true,
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(CreateRequest, req)
+	resp := fh.Ifs.Talker.sendRequest(CreateRequest, remotePath.Hostname, req)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err
@@ -198,7 +197,7 @@ func (fh *FileHandler) Remove(remotePath *RemotePath, name string) error {
 		Path:     path.Join(remotePath.Path, name),
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(RemoveRequest, newRemotePath)
+	resp := fh.Ifs.Talker.sendRequest(RemoveRequest, remotePath.Hostname, newRemotePath)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err
@@ -211,11 +210,11 @@ func (fh *FileHandler) Remove(remotePath *RemotePath, name string) error {
 func (fh *FileHandler) Rename(remotePath *RemotePath, destPath string) error {
 
 	req := &RenameInfo{
-		RemotePath: remotePath,
-		DestPath:   destPath,
+		Path:     remotePath.Path,
+		DestPath: destPath,
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(RenameRequest, req)
+	resp := fh.Ifs.Talker.sendRequest(RenameRequest, remotePath.Hostname, req)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err

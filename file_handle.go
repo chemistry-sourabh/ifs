@@ -74,11 +74,11 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	log.WithFields(fields).Debug("ReadDir FS Request")
 
 	req := &ReadDirInfo{
-		RemotePath:     rn.RemotePath,
+		Path:     rn.RemotePath.Path,
 		FileDescriptor: fh.FileDescriptor,
 	}
 
-	resp := rn.Ifs.Talker.sendRequest(ReadDirRequest, req)
+	resp := rn.Ifs.Talker.sendRequest(ReadDirRequest, rn.RemotePath.Hostname, req)
 
 	var children []fuse.Dirent
 	rn.RemoteNodes = make(map[string]*RemoteNode)
