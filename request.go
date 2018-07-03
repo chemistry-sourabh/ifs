@@ -69,8 +69,12 @@ type FetchInfo struct {
 }
 
 type AttrUpdateInfo struct {
-	RemotePath *RemotePath
-	Size       int64
-	Mode       os.FileMode
-	ModTime    int64
+	Path    string
+	Size    int64
+	Mode    os.FileMode
+	ModTime int64
+}
+
+type WatchInfo struct {
+	Paths []string
 }

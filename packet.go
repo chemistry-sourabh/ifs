@@ -76,6 +76,12 @@ func (pkt *Packet) Unmarshal(data []byte) {
 		struc = &OpenInfo{}
 	case CloseRequest:
 		struc = &CloseInfo{}
+	case WatchDirRequest:
+		struc = &WatchInfo{}
+
+	case AttrUpdateRequest:
+		struc = &AttrUpdateInfo{}
+
 	case StatResponse:
 		struc = &Stat{}
 	case StatsResponse:

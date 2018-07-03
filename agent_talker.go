@@ -5,9 +5,11 @@ import (
 	"strconv"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"sync/atomic"
 )
 
 type AgentTalker struct {
+	IdCounter uint64
 	Agent *Agent
 	Pool *AgentConnectionPool
 }
@@ -23,20 +25,27 @@ func (t *AgentTalker) Startup(address string, port uint16) {
 
 }
 
-func (t *AgentTalker) processSendingChannel(index int) {
+func (t *AgentTalker) processSendingChannel(index uint8) {
 	log.WithFields(log.Fields{
 		"index": index,
 	}).Info("Starting Response Processor")
 
-	respChan := t.Pool.SendingChannels[index]
-	for resp := range respChan {
-		data, _ := resp.Marshal()
+	pktChan := t.Pool.SendingChannels[index]
+	for pkt := range pktChan {
+
+		if pkt.IsRequest() {
+			pkt.Id = atomic.AddUint64(&t.IdCounter, 1)
+			pkt.ConnId = index
+		}
+
+		data, _ := pkt.Marshal()
 		err := t.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
 		log.WithFields(log.Fields{
-			"conn_id": resp.ConnId,
-			"id": resp.Id,
-			"op": ConvertOpCodeToString(resp.Op),
-			"index": index,
+			"conn_id": pkt.ConnId,
+			"request": pkt.IsRequest(),
+			"id":      pkt.Id,
+			"op":      ConvertOpCodeToString(pkt.Op),
+			"index":   index,
 		}).Debug("Sent Packet")
 		if err != nil {
 			log.Fatal(err)
@@ -44,7 +53,7 @@ func (t *AgentTalker) processSendingChannel(index int) {
 	}
 }
 
-func (t *AgentTalker) Listen(index int) {
+func (t *AgentTalker) Listen(index uint8) {
 
 	conn := t.Pool.Connections[index]
 
@@ -89,12 +98,12 @@ func (t *AgentTalker) HandleRequests(w http.ResponseWriter, r *http.Request) {
 
 	t.Pool.Append(conn)
 
-	i := len(t.Pool.Connections) - 1
+	i := uint8(len(t.Pool.Connections) - 1)
 	go t.Listen(i)
 	go t.processSendingChannel(i)
 }
 
-func (t *AgentTalker) SendResponse(resp *Packet) {
-	t.Pool.SendingChannels[GetRandomIndex(len(t.Pool.Connections))] <- resp
+func (t *AgentTalker) SendPacket(pkt *Packet) {
+	t.Pool.SendingChannels[GetRandomIndex(len(t.Pool.Connections))] <- pkt
 }
 

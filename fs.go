@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"strconv"
 	"os"
+	"time"
 )
 
 type Ifs struct {
@@ -15,8 +16,6 @@ type Ifs struct {
 	FileHandler *FileHandler
 	Hoarder     *Hoarder
 	RemoteRoots map[string] fs.Node
-
-	CachedStats map[string]*Stat
 }
 
 // TODO All Errors should be resolved here
@@ -65,5 +64,49 @@ func (root *Ifs) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	} else {
 		return nil, fuse.ENOENT
 	}
+}
+
+// TODO Should Return Error
+func (root *Ifs) UpdateAttr(hostname string, info *AttrUpdateInfo) error {
+	remoteRoot := root.RemoteRoots[hostname].(*VirtualNode)
+
+	rn := findNode(remoteRoot, info.Path)
+
+	rn.Size = uint64(info.Size)
+	rn.Mode = info.Mode
+	rn.Mtime = time.Unix(0, info.ModTime)
+
+	log.WithFields(log.Fields{
+		"hostname": hostname,
+		"path": info.Path,
+		"node_path": rn.RemotePath.String(),
+		"size": rn.Size,
+		"mode": rn.Mode,
+		"mtime": rn.Mtime,
+	}).Debug("Updated Remote Node")
+
+	return nil
+}
+
+func findNode(node fs.Node, nodePath string) *RemoteNode {
+
+	if nodePath == "" {
+		return node.(*RemoteNode)
+	}
+
+	firstDir := FirstDir(nodePath)
+	restPath := RemoveFirstDir(nodePath)
+
+	switch n := node.(type) {
+	case *VirtualNode:
+		newNode := n.Nodes[firstDir]
+		return findNode(newNode, restPath)
+	case *RemoteNode:
+		newNode := n.RemoteNodes[firstDir]
+		return findNode(newNode, restPath)
+	}
+
+	//child := vn.Nodes[path]
+	return nil
 }
 

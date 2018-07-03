@@ -26,8 +26,9 @@ func populateResponse(resp *Packet, data Payload, err error) {
 func (a *Agent) ProcessRequest(req *Packet) {
 
 	resp := &Packet{
+		Id:    req.Id,
 		ConnId: req.ConnId,
-		Id:     req.Id,
+		Flags: 1,
 	}
 
 	var data Payload
@@ -80,11 +81,15 @@ func (a *Agent) ProcessRequest(req *Packet) {
 		resp.Op = ErrorResponse
 		err = a.FileHandler.CloseFile(req)
 
+	case WatchDirRequest:
+		resp.Op = ErrorResponse
+		err = a.Watcher.WatchPaths(req)
+
 	}
 
 	populateResponse(resp, data, err)
 
-	a.Talker.SendResponse(resp)
+	a.Talker.SendPacket(resp)
 
 }
 
@@ -110,12 +115,13 @@ func StartAgent(address string, port uint16) {
 	agent.Talker = talker
 	agent.Watcher = watcher
 
-	agent.Talker.Startup(address, port)
-
 	err := agent.Watcher.Startup()
 
 	if err != nil {
 		log.Fatal("Watcher Failed")
 	}
+
+	agent.Talker.Startup(address, port)
+
 
 }

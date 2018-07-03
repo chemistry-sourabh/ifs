@@ -4,16 +4,20 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"io/ioutil"
 	"path"
-	"fmt"
+	"os"
+	log "github.com/sirupsen/logrus"
 )
 
 type Watcher struct {
 	Agent   *Agent
-	Paths   []string
+	Paths   map[string]bool
 	watcher *fsnotify.Watcher
 }
 
 func (w *Watcher) Startup() error {
+
+	w.Paths = make(map[string]bool)
+
 	watcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
@@ -41,7 +45,6 @@ func (w *Watcher) processEvents() {
 
 func (w *Watcher) processEvent(event fsnotify.Event) {
 
-	fmt.Println(event.String())
 	// If folder is created should be added to watch list
 	// Will need to send attr back
 	if event.Op&fsnotify.Create == fsnotify.Create {
@@ -54,15 +57,35 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 	} else if event.Op&fsnotify.Chmod == fsnotify.Chmod {
 		// Simple Attr Update
 
-		//payload := &AttrUpdateInfo{}
-		//
-		//info, err := os.Stat(event.Name)
-		//
-		//payload.RemotePath = event.Name
-		//payload.Size = info.Size()
-		//payload.Mode = info.Mode()
-		//payload.ModTime = info.ModTime().UnixNano()
+		payload := &AttrUpdateInfo{}
 
+		info, err := os.Stat(event.Name)
+
+		// TODO Log Error
+		if err == nil {
+
+			log.WithFields(log.Fields{
+				"op":    "chmod",
+				"path":  event.Name,
+				"size":  info.Size(),
+				"mode":  info.Mode(),
+				"mtime": info.ModTime(),
+			}).Debug("Got Watch Event")
+
+			payload.Path = event.Name
+			payload.Size = info.Size()
+			payload.Mode = info.Mode()
+			payload.ModTime = info.ModTime().UnixNano()
+
+			pkt := &Packet{
+				Op:    AttrUpdateRequest,
+				Flags: 0,
+				Data:  payload,
+			}
+
+			w.Agent.Talker.SendPacket(pkt)
+
+		}
 	}
 
 }
@@ -96,8 +119,25 @@ func (w *Watcher) watchDir(dirPath string) error {
 	}
 
 	for _, dir := range allDirs {
-		w.Paths = append(w.Paths, dir)
+		w.Paths[dir] = true
 		w.watcher.Add(dir)
+	}
+
+	return nil
+}
+
+func (w *Watcher) WatchPaths(request *Packet) error {
+
+	watchInfo := request.Data.(*WatchInfo)
+
+	var err error
+
+	for _, p := range watchInfo.Paths {
+		err = w.watchDir(p)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

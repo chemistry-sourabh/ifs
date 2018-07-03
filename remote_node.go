@@ -77,6 +77,14 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Mode = rn.Mode
 	attr.Mtime = rn.Mtime
 
+	log.WithFields(log.Fields{
+		"op":       "attr",
+		"address":  rn.RemotePath.Address(),
+		"path":     rn.RemotePath.Path,
+		"mode":     rn.Mode,
+		"size":     rn.Size,
+		"mod_time": rn.Mtime}).Debug("Attr Response")
+
 	return nil
 }
 
@@ -113,7 +121,15 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 
 		for _, file := range files {
 			s := file
-			rn.RemoteNodes[s.Name] = rn.generateChildRemoteNode(s.Name, s.IsDir)
+
+			newRn := rn.generateChildRemoteNode(s.Name, s.IsDir)
+
+			newRn.Size = uint64(s.Size)
+			newRn.Mode = s.Mode
+			newRn.Mtime = time.Unix(0, s.ModTime)
+			newRn.IsCached = true
+
+			rn.RemoteNodes[s.Name] = newRn
 		}
 
 	} else {

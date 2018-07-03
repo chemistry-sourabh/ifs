@@ -1,22 +1,23 @@
 package ifs
 
-const RequestBase = 0
-const AttrRequest = RequestBase + 0
-const ReadDirRequest = RequestBase + 1
-const FetchFileRequest = RequestBase + 2
-const ReadFileRequest = RequestBase + 3
-const WriteFileRequest = RequestBase + 4
-const SetAttrRequest = RequestBase + 5
-const CreateRequest = RequestBase + 6
-const RemoveRequest = RequestBase + 7
-const RenameRequest = RequestBase + 8
-const OpenRequest = RequestBase + 9
-const CloseRequest = RequestBase + 10
-const FlushRequest  = RequestBase + 11
-const ReadDirAllRequest = RequestBase + 12
+const FileOpBase = 0
+const AttrRequest = FileOpBase + 0
+const ReadDirRequest = FileOpBase + 1
+const FetchFileRequest = FileOpBase + 2
+const ReadFileRequest = FileOpBase + 3
+const WriteFileRequest = FileOpBase + 4
+const SetAttrRequest = FileOpBase + 5
+const CreateRequest = FileOpBase + 6
+const RemoveRequest = FileOpBase + 7
+const RenameRequest = FileOpBase + 8
+const OpenRequest = FileOpBase + 9
+const CloseRequest = FileOpBase + 10
+const FlushRequest  = FileOpBase + 11
+const ReadDirAllRequest = FileOpBase + 12
 
-const UpdateBase = 20
-const AttrUpdateRequest = UpdateBase + 0
+const WatcherBase = 20
+const WatchDirRequest = WatcherBase + 0
+const AttrUpdateRequest = WatcherBase + 1
 
 const ResponseBase = 30
 const StatResponse = ResponseBase + 0

@@ -100,7 +100,6 @@ func MountRemoteRoots(cfg *FsConfig) {
 	server := fs.New(c, nil)
 
 	fileSystem := &Ifs{
-		CachedStats: make(map[string]*Stat),
 	}
 
 	remoteRootNodes := generateRemoteRoots(fileSystem, cfg.RemoteRoots)

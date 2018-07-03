@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"time"
 	"os"
+	"strings"
 )
 
 func ConvertOpCodeToString(opCode uint8) string {
@@ -34,6 +35,8 @@ func ConvertOpCodeToString(opCode uint8) string {
 		return "Open Request"
 	case CloseRequest:
 		return "Close Request"
+	case WatchDirRequest:
+		return "Watch Dir Request"
 
 	case StatResponse:
 		return "Stat Response"
@@ -69,4 +72,30 @@ func ConvertErr(err error) error {
 		return err
 
 	}
+}
+
+func FirstDir(path string) string {
+	parts := strings.Split(path, "/")
+
+	firstDir := parts[0]
+
+	if firstDir == "" {
+		firstDir = parts[1]
+	}
+
+	return firstDir
+}
+
+func RemoveFirstDir(filePath string) string {
+	parts := strings.Split(filePath, "/")
+
+	index := 0
+
+	if parts[index] == "" {
+		index = 2
+	} else {
+		index = 1
+	}
+
+	return path.Join(parts[index:]...)
 }

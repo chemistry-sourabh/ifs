@@ -12,7 +12,7 @@ import (
 type Talker struct {
 	// Should be map of hostname and port
 	Ifs        *Ifs
-	IdCounters map[string] *uint64
+	IdCounters map[string]*uint64
 	//IdCounters    map[uint8]uint64
 	Pools map[string]*FsConnectionPool
 	//Pool          *FsConnectionPool
@@ -25,7 +25,7 @@ func NewTalker(Ifs *Ifs) *Talker {
 	return &Talker{
 		Ifs:           Ifs,
 		RequestBuffer: NewFastMap(),
-		IdCounters:    make(map[string] *uint64),
+		IdCounters:    make(map[string]*uint64),
 		Pools:         make(map[string]*FsConnectionPool),
 	}
 }
@@ -60,6 +60,13 @@ func (t *Talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 		go t.processIncomingMessages(remoteRoot.Hostname, index)
 
 	}
+
+	payload := &WatchInfo{
+		Paths: remoteRoot.Paths,
+	}
+
+	t.sendRequest(WatchDirRequest, remoteRoot.Hostname, payload)
+
 }
 
 func (t *Talker) sendRequest(opCode uint8, hostname string, payload Payload) *Packet {
@@ -88,10 +95,10 @@ func (t *Talker) processSendingChannel(hostname string, index uint8) {
 	log.Info("Starting Egress Channel Processor")
 
 	log.WithFields(log.Fields{
-		"index": index,
+		"index":    index,
 		"hostname": hostname,
-		"Pools": t.Pools,
-		"Pool": t.Pools[hostname].SendingChannels,
+		"Pools":    t.Pools,
+		"Pool":     t.Pools[hostname].SendingChannels,
 	}).Debug("Info")
 	for req := range t.Pools[hostname].SendingChannels[index] {
 
@@ -161,11 +168,17 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 			t.RequestBuffer.Delete(GetMapKey(hostname, packet.ConnId, packet.Id))
 
 		} else {
-			go t.processRequest(packet)
+			go t.processRequest(hostname, packet)
 		}
 	}
 }
 
-func (t *Talker) processRequest(packet *Packet) {
+func (t *Talker) processRequest(hostname string, packet *Packet) {
 	// Blah Blah
+
+	switch packet.Op {
+	case AttrUpdateRequest:
+		attrUpdateInfo := packet.Data.(*AttrUpdateInfo)
+		t.Ifs.UpdateAttr(hostname, attrUpdateInfo)
+	}
 }
