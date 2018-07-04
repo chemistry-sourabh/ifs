@@ -36,7 +36,7 @@ func (root *Ifs) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Uid = uint32(uid)
 	attr.Gid = uint32(gid)
 	//attr.Size = uint64(10)
-	attr.Mode = os.FileMode(os.ModeDir | 0666)
+	attr.Mode = os.FileMode(os.ModeDir | 0755)
 	//attr.Mtime = s.ModTime
 
 	return nil
