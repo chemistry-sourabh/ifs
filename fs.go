@@ -12,6 +12,7 @@ import (
 )
 
 type Ifs struct {
+	Server      *fs.Server
 	Talker      *Talker
 	FileHandler *FileHandler
 	Hoarder     *Hoarder
@@ -71,6 +72,12 @@ func (root *Ifs) UpdateAttr(hostname string, info *AttrUpdateInfo) error {
 	remoteRoot := root.RemoteRoots[hostname].(*VirtualNode)
 
 	rn := findNode(remoteRoot, info.Path)
+
+	err := root.Server.InvalidateNodeData(rn)
+
+	if err == fuse.ErrNotCached {
+		log.Fatal("Not Cached")
+	}
 
 	rn.Size = uint64(info.Size)
 	rn.Mode = info.Mode

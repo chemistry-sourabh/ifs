@@ -99,7 +99,9 @@ func MountRemoteRoots(cfg *FsConfig) {
 
 	server := fs.New(c, nil)
 
+
 	fileSystem := &Ifs{
+		Server: server,
 	}
 
 	remoteRootNodes := generateRemoteRoots(fileSystem, cfg.RemoteRoots)

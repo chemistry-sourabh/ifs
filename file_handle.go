@@ -5,6 +5,7 @@ import log "github.com/sirupsen/logrus"
 import (
 	"golang.org/x/net/context"
 	"time"
+	"path"
 )
 
 type FileHandle struct {
@@ -81,7 +82,7 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	resp := rn.Ifs.Talker.sendRequest(ReadDirRequest, rn.RemotePath.Hostname, req)
 
 	var children []fuse.Dirent
-	rn.RemoteNodes = make(map[string]*RemoteNode)
+	//rn.RemoteNodes = make(map[string] *RemoteNode)
 
 	var err error
 	if respError, ok := resp.Data.(Error); !ok {
@@ -100,6 +101,15 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 			s := file
 
+			log.WithFields(log.Fields{
+				"op":      "readdir",
+				"address": rn.RemotePath.Address(),
+				"path":    path.Join(rn.RemotePath.Path, s.Name),
+				"size":    s.Size,
+				"mode":    s.Mode,
+				"mtime":   s.ModTime,
+			}).Debug("ReadDir File Response")
+
 			var child fuse.Dirent
 			if s.IsDir {
 				child = fuse.Dirent{Type: fuse.DT_Dir, Name: s.Name}
@@ -107,14 +117,20 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 				child = fuse.Dirent{Type: fuse.DT_File, Name: s.Name}
 			}
 			children = append(children, child)
-			newRn := rn.generateChildRemoteNode(s.Name, s.IsDir)
+
+			newRn, ok := rn.RemoteNodes[s.Name]
+
+			if !ok {
+				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
+				rn.RemoteNodes[s.Name] = newRn
+			}
 
 			newRn.Size = uint64(s.Size)
 			newRn.Mode = s.Mode
 			newRn.Mtime = time.Unix(0, s.ModTime)
 			newRn.IsCached = true
 
-			rn.RemoteNodes[s.Name] = newRn
+			//rn.RemoteNodes[s.Name] = newRn
 
 		}
 

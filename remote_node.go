@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"os"
+	"strings"
 )
 
 type RemoteNode struct {
@@ -76,6 +77,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Size = rn.Size
 	attr.Mode = rn.Mode
 	attr.Mtime = rn.Mtime
+	//attr.Valid = time.Duration(1)
 
 	log.WithFields(log.Fields{
 		"op":       "attr",
@@ -105,7 +107,7 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 func (rn *RemoteNode) updateChildrenRemoteNodes() {
 	resp := rn.Ifs.Talker.sendRequest(ReadDirAllRequest, rn.RemotePath.Hostname, rn.RemotePath)
 
-	rn.RemoteNodes = make(map[string]*RemoteNode)
+	//rn.RemoteNodes = make(map[string]*RemoteNode)
 
 	var err error
 	if respError, ok := resp.Data.(Error); !ok {
@@ -114,6 +116,7 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 
 		log.WithFields(log.Fields{
 			"op":      "readdirall",
+			"real_address": rn,
 			"address": rn.RemotePath.Address(),
 			"path":    rn.RemotePath.Path,
 			"size":    len(files),
@@ -122,14 +125,29 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 		for _, file := range files {
 			s := file
 
-			newRn := rn.generateChildRemoteNode(s.Name, s.IsDir)
+			log.WithFields(log.Fields{
+				"op":      "readdirall",
+				"address": rn.RemotePath.Address(),
+				"path":    path.Join(rn.RemotePath.Path, s.Name),
+				"size":    s.Size,
+				"mode":    s.Mode,
+				"mtime":   s.ModTime,
+			}).Debug("ReadDirAll File Response")
+
+			newRn, ok := rn.RemoteNodes[s.Name]
+
+			if !ok {
+				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
+				rn.RemoteNodes[s.Name] = newRn
+			}
+
 
 			newRn.Size = uint64(s.Size)
 			newRn.Mode = s.Mode
 			newRn.Mtime = time.Unix(0, s.ModTime)
 			newRn.IsCached = true
 
-			rn.RemoteNodes[s.Name] = newRn
+			//rn.RemoteNodes[s.Name] = newRn
 		}
 
 	} else {
@@ -149,6 +167,10 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 		"path":    rn.RemotePath.Path,
 		"name":    name,
 	}).Debug("Lookup FS Request")
+
+	if strings.HasPrefix(name, "._") {
+		return nil, fuse.ENOENT
+	}
 
 	val, ok := rn.RemoteNodes[name]
 
