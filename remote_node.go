@@ -10,7 +10,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"os"
-	"strings"
 )
 
 type RemoteNode struct {
@@ -167,10 +166,6 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 		"path":    rn.RemotePath.Path,
 		"name":    name,
 	}).Debug("Lookup FS Request")
-
-	if strings.HasPrefix(name, "._") {
-		return nil, fuse.ENOENT
-	}
 
 	val, ok := rn.RemoteNodes[name]
 
