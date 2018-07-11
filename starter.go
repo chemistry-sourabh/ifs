@@ -13,13 +13,12 @@ import (
 func generateVirtualNodes(ifs *Ifs, paths []string, remotePaths []*RemotePath) (map[string]fs.Node) {
 
 	aggPaths := make(map[string][]string)
-	aggRemotePaths := make(map[string] []*RemotePath)
+	aggRemotePaths := make(map[string][]*RemotePath)
 	virtualNodes := make(map[string]fs.Node)
 
 	for i, p := range paths {
 
-
-		l := strings.Split(strings.Trim(p, "/") , "/")
+		l := strings.Split(strings.Trim(p, "/"), "/")
 
 		if l[0] != "" {
 			firstDir := l[0]
@@ -31,17 +30,17 @@ func generateVirtualNodes(ifs *Ifs, paths []string, remotePaths []*RemotePath) (
 
 	for k, v := range aggPaths {
 
-		if len(v) > 1 || (len(v) == 1 && v[0] != "" ){
+		if len(v) > 1 || (len(v) == 1 && v[0] != "") {
 			virtualNodes[k] = &VirtualNode{
 				Ifs:   ifs,
 				Nodes: generateVirtualNodes(ifs, v, aggRemotePaths[k]),
 			}
 		} else {
 			virtualNodes[k] = &RemoteNode{
-				Ifs: ifs,
-				IsDir: true,
-				RemotePath: aggRemotePaths[k][0],
-				RemoteNodes: make(map[string] *RemoteNode),
+				Ifs:         ifs,
+				IsDir:       true,
+				RemotePath:  aggRemotePaths[k][0],
+				RemoteNodes: make(map[string]*RemoteNode),
 			}
 		}
 	}
@@ -57,9 +56,9 @@ func generateRemoteRoot(ifs *Ifs, paths []string, remotePaths []*RemotePath) *Vi
 	}
 }
 
-func generateRemoteRoots(ifs *Ifs, remoteRoots []*RemoteRoot) map[string] fs.Node {
+func generateRemoteRoots(ifs *Ifs, remoteRoots []*RemoteRoot) map[string]fs.Node {
 
-	virtualNodes := make(map[string] fs.Node)
+	virtualNodes := make(map[string]fs.Node)
 
 	for _, remoteRoot := range remoteRoots {
 		vn := generateRemoteRoot(ifs, remoteRoot.Paths, remoteRoot.RemotePaths())
@@ -92,13 +91,20 @@ func SetupLogger(cfg *LogConfig) {
 }
 
 func MountRemoteRoots(cfg *FsConfig) {
-	c, err := fuse.Mount(cfg.MountPoint)
+
+	// TODO Figure out more options to add
+	options := []fuse.MountOption{
+		fuse.NoAppleDouble(),
+		fuse.NoAppleXattr(),
+		fuse.VolumeName("IFS Volume"),
+	}
+
+	c, err := fuse.Mount(cfg.MountPoint, options...)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	server := fs.New(c, nil)
-
 
 	fileSystem := &Ifs{
 		Server: server,
