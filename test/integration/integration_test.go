@@ -1,6 +1,6 @@
 // +build integration
 
-package ifs
+package integration
 
 import (
 	"testing"
@@ -10,7 +10,10 @@ import (
 	"strconv"
 	"syscall"
 	"io/ioutil"
+	"ifs"
+	"ifs/test"
 )
+
 
 const TestRoot = "/tmp/test_root"
 const TestCache = "/tmp/test_cache"
@@ -20,28 +23,28 @@ const SmallFileCount = 10
 
 func StartAgentProcess() {
 	go func() {
-		StartAgent("0.0.0.0", 8000)
+		ifs.StartAgent("0.0.0.0", 8000)
 	}()
 }
 
-func StartFsProcess(cfg *FsConfig) {
+func StartFsProcess(cfg *ifs.FsConfig) {
 	go func() {
-		MountRemoteRoots(cfg)
+		ifs.MountRemoteRoots(cfg)
 	}()
 }
 
-func CreateConfig() *FsConfig {
-	return &FsConfig{
+func CreateConfig() *ifs.FsConfig {
+	return &ifs.FsConfig{
 		MountPoint:    TestRoot,
 		CacheLocation: TestCache,
-		RemoteRoots: []*RemoteRoot{
-			&RemoteRoot{
+		RemoteRoots: []*ifs.RemoteRoot{
+			&ifs.RemoteRoot{
 				Hostname: "localhost",
 				Port: 8000,
 				Paths:   []string{TestRemoteRoot},
 			},
 		},
-		Log: &LogConfig{
+		Log: &ifs.LogConfig{
 			Logging: false,
 		},
 
@@ -105,7 +108,7 @@ func GetDirName(i int) string {
 func Setup() {
 	CreateTestDirs()
 	cfg := CreateConfig()
-	SetupLogger(cfg.Log)
+	ifs.SetupLogger(cfg.Log)
 	StartAgentProcess()
 	time.Sleep(1 * time.Second)
 	StartFsProcess(cfg)
@@ -131,12 +134,12 @@ func TestCreateAndRemove(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestFile(GetFileName(i))
-		IsError(t, "Create file failed "+GetFileName(i), err)
+		test.Ok(t, err)
 	}
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := RemoveTestFile(GetFileName(i))
-		IsError(t, "Remove file failed "+GetFileName(i), err)
+		test.Ok(t, err)
 	}
 
 }
@@ -145,12 +148,12 @@ func TestMkdirAndRemove(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestDir(GetDirName(i))
-		IsError(t, "Create file failed "+GetDirName(i), err)
+		test.Ok(t, err)
 	}
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := RemoveTestFile(GetDirName(i))
-		IsError(t, "Remove file failed "+GetDirName(i), err)
+		test.Ok(t, err)
 	}
 
 }
@@ -163,9 +166,11 @@ func TestReadDirAll(t *testing.T) {
 	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot)
 	files, err := ioutil.ReadDir(fullPath)
 
-	IsError(t, "ReadDir gave error", err)
+	// No Error After Read
+	test.Ok(t, err)
 
-	Compare(t, "File Count", len(files), SmallFileCount)
+	// checking number of fikes
+	test.Compare(t, len(files), SmallFileCount)
 
 	var names []string
 	for _, file := range files {
@@ -179,7 +184,7 @@ func TestReadDirAll(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		if !ContainsInArray(names, GetFileName(i)) {
-			PrintTestError(t, "Flags content is wrong", names, actNames)
+			test.PrintTestError(t, "Flags content is wrong", names, actNames)
 		}
 	}
 
@@ -193,15 +198,17 @@ func TestSetAttr(t *testing.T) {
 	defer RemoveTestFile(GetFileName(0))
 
 	fullPath := path.Join(TestRemoteRoot, GetFileName(0))
-	WriteDummyData(fullPath, 100)
+	test.WriteDummyData(fullPath, 100)
 
 	err := os.Truncate(fullPath, 10)
 
-	IsError(t, "Got error in setattr", err)
+	// checking no error
+	test.Ok(t, err)
 
 	f, _ := os.Lstat(fullPath)
 
-	Compare(t, "size", int(f.Size()), 10)
+	// checking new size
+	test.Compare(t, int(f.Size()), 10)
 }
 
 func TestMain(m *testing.M) {

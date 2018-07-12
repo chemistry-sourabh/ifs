@@ -1,9 +1,11 @@
 // +build unit
 
-package ifs
+package unit
 
 import (
 	"testing"
+	"ifs"
+	"ifs/test"
 )
 
 func TestFileChunk_Compress_Decompress(t *testing.T) {
@@ -11,7 +13,7 @@ func TestFileChunk_Compress_Decompress(t *testing.T) {
 
 	bytes := []byte(str)
 
-	fileChunk := &FileChunk{
+	fileChunk := &ifs.FileChunk{
 		Chunk: bytes,
 		Size:  len(str),
 	}
@@ -21,6 +23,6 @@ func TestFileChunk_Compress_Decompress(t *testing.T) {
 
 	decompressed := string(fileChunk.Chunk)
 	if str != decompressed {
-		PrintTestError(t, "strings not matching", decompressed, str)
+		test.PrintTestError(t, "strings not matching", decompressed, str)
 	}
 }
