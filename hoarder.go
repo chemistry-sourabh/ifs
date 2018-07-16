@@ -94,7 +94,7 @@ func (h *Hoarder) DeleteCache() {
 //	h.ingress <- req
 //}
 
-func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) {
+func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) error {
 	if val, ok := h.cached.Load(remotePath.String()); ok {
 
 		fname := val.(string)
@@ -107,7 +107,11 @@ func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) {
 
 		h.cached.Store(newRemotePath.String(), fname)
 		h.cached.Delete(remotePath.String())
+
+		return nil
 	}
+
+	return os.ErrInvalid
 }
 
 func (h *Hoarder) IsCached(rp *RemotePath) bool {

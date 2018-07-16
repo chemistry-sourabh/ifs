@@ -27,7 +27,7 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags fuse.OpenFlags, is
 
 	openInfo := &OpenInfo{
 		FileDescriptor: fd,
-		Path:     remotePath.Path,
+		Path:           remotePath.Path,
 		Flags:          flags,
 	}
 
@@ -99,8 +99,13 @@ func (fh *FileHandler) WriteData(handle *FileHandle, data []byte, offset int64) 
 
 		writeResult := resp.Data.(*WriteResult)
 
-		// TODO Log Error
-		fh.Ifs.Hoarder.WriteCache(handle.FileDescriptor, offset, data)
+		_, err := fh.Ifs.Hoarder.WriteCache(handle.FileDescriptor, offset, data)
+
+		if err != nil {
+			zap.L().Warn("Write Cache Failed",
+				zap.Error(err),
+			)
+		}
 
 		return writeResult.Size, nil
 	}
@@ -135,7 +140,13 @@ func (fh *FileHandler) Release(handle *FileHandle) error {
 			return err.Err
 		}
 
-		fh.Ifs.Hoarder.CacheClose(handle.FileDescriptor)
+		err := fh.Ifs.Hoarder.CacheClose(handle.FileDescriptor)
+
+		if err != nil {
+			zap.L().Warn("Cache Close Failed",
+				zap.Error(err),
+			)
+		}
 
 		fh.Opened.Delete(handle.FileDescriptor)
 
@@ -168,7 +179,13 @@ func (fh *FileHandler) Create(remotePath *RemotePath, name string) (uint64, erro
 		Path:     path.Join(remotePath.Path, name),
 	}
 
-	fh.Ifs.Hoarder.CacheCreate(newRemotePath, fd)
+	err := fh.Ifs.Hoarder.CacheCreate(newRemotePath, fd)
+
+	if err != nil {
+		zap.L().Warn("Cache Create Failed",
+			zap.Error(err),
+		)
+	}
 
 	fh.Opened.Store(fd, req)
 
@@ -205,7 +222,13 @@ func (fh *FileHandler) Remove(remotePath *RemotePath, name string) error {
 		return err.Err
 	}
 
-	fh.Ifs.Hoarder.CacheDelete(remotePath)
+	err := fh.Ifs.Hoarder.CacheDelete(remotePath)
+
+	if err != nil {
+		zap.L().Warn("Cache Remove Failed",
+			zap.Error(err),
+		)
+	}
 
 	return nil
 }
@@ -222,7 +245,13 @@ func (fh *FileHandler) Rename(remotePath *RemotePath, destPath string) error {
 		return err.Err
 	}
 
-	fh.Ifs.Hoarder.CacheRename(remotePath, destPath)
+	err := fh.Ifs.Hoarder.CacheRename(remotePath, destPath)
+
+	if err != nil {
+		zap.L().Warn("Cache Rename Failed",
+			zap.Error(err),
+		)
+	}
 
 	return nil
 }
