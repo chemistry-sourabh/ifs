@@ -48,7 +48,7 @@ type RenameInfo struct {
 type OpenInfo struct {
 	Path           string
 	FileDescriptor uint64
-	Flags          int
+	Flags          fuse.OpenFlags
 	//Perm           int
 }
 
@@ -65,7 +65,7 @@ type FlushInfo struct {
 type FetchInfo struct {
 	RemotePath     *RemotePath
 	FileDescriptor uint64
-	Flags          int
+	Flags          fuse.OpenFlags
 }
 
 type AttrUpdateInfo struct {

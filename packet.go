@@ -2,9 +2,9 @@ package ifs
 
 import (
 	"github.com/vmihailenco/msgpack"
-	log "github.com/sirupsen/logrus"
 	"encoding/binary"
 	"fmt"
+	"go.uber.org/zap"
 )
 
 type Payload interface {
@@ -41,11 +41,6 @@ func (pkt *Packet) Unmarshal(data []byte) {
 	pkt.Op = data[8]
 	pkt.ConnId = data[9]
 	pkt.Flags = data[10]
-
-	log.WithFields(log.Fields{
-		"id": pkt.Id,
-		"op": ConvertOpCodeToString(pkt.Op),
-	}).Debug("Unmarshling Packet")
 
 	payload := data[11:]
 
@@ -96,7 +91,9 @@ func (pkt *Packet) Unmarshal(data []byte) {
 
 	err := msgpack.Unmarshal(payload, struc)
 	if err != nil {
-		log.Fatal(err)
+		zap.L().Fatal("Unmarshalling Packet Failed",
+			zap.Error(err),
+		)
 	}
 
 	pkt.Data = struc

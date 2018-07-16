@@ -2,12 +2,12 @@ package ifs
 
 import (
 	"os"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 
 	"time"
 	"sync"
 	"path"
+	"go.uber.org/zap"
 )
 
 type AgentFileHandler struct {
@@ -25,12 +25,13 @@ func (fh *AgentFileHandler) Attr(request *Packet) (*Stat, error) {
 
 	filePath := request.Data.(*RemotePath).Path
 
-	fields := log.Fields{
-		"op":   "attr",
-		"id":   request.Id,
-		"path": filePath,
-	}
-	log.WithFields(fields).Debug("Processing Attr Request")
+	zap.L().Debug("Processing Attr Request",
+		zap.String("op", "attr"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+	)
 
 	info, err := os.Lstat(filePath)
 
@@ -42,19 +43,29 @@ func (fh *AgentFileHandler) Attr(request *Packet) (*Stat, error) {
 		s.ModTime = info.ModTime().UnixNano()
 		s.IsDir = info.IsDir()
 
-		log.WithFields(log.Fields{
-			"op":       "attr",
-			"id":       request.Id,
-			"path":     filePath,
-			"mode":     s.Mode,
-			"size":     s.Size,
-			"mod_time": time.Unix(0, s.ModTime),
-		}).Debug("Attr Response")
+		zap.L().Debug("Attr Response",
+			zap.String("op", "attr"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", filePath),
+			zap.String("mode", s.Mode.String()),
+			zap.Int64("size", s.Size),
+			zap.Time("mtime", time.Unix(0, s.ModTime)),
+		)
 
 		return s, nil
 	} else {
 		err = ConvertErr(err)
-		log.WithFields(fields).Error("Attr Error Response:", err)
+
+		zap.L().Warn("Attr Error Response",
+			zap.String("op", "attr"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", filePath),
+			zap.Error(err),
+		)
 	}
 
 	return nil, err
@@ -97,13 +108,13 @@ func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 
 	filePath := readDirInfo.Path
 
-	fields := log.Fields{
-		"op":   "readdir",
-		"id":   request.Id,
-		"path": filePath,
-	}
-
-	log.WithFields(fields).Debug("Processing Readdir Request")
+	zap.L().Debug("Processing ReadDir Request",
+		zap.String("op", "readdir"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+	)
 
 	val, ok := fh.Opened.Load(readDirInfo.FileDescriptor)
 
@@ -116,14 +127,26 @@ func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 		dirInfo, err := fh.convertReadDirOutput(files, err)
 
 		if err == nil {
-			log.WithFields(log.Fields{
-				"op":   "readdir",
-				"id":   request.Id,
-				"path": filePath,
-				"size": len(dirInfo.Stats),
-			}).Debug("Readdir Response")
+
+			zap.L().Debug("ReadDir Response",
+				zap.String("op", "attr"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.Int("size", len(dirInfo.Stats)),
+			)
+
 		} else {
-			log.WithFields(fields).Error("Readdir Error Response:", err)
+
+			zap.L().Warn("ReadDir Error Response",
+				zap.String("op", "attr"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.Error(err),
+			)
 		}
 
 		return dirInfo, err
@@ -138,28 +161,40 @@ func (fh *AgentFileHandler) ReadDirAll(request *Packet) (*DirInfo, error) {
 
 	filePath := remotePath.Path
 
-	fields := log.Fields{
-		"op":   "readdirall",
-		"id":   request.Id,
-		"path": filePath,
-	}
-
-	log.WithFields(fields).Debug("Processing ReadDirAll Request")
+	zap.L().Debug("Processing ReadDirAll Request",
+		zap.String("op", "readdirall"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+	)
 
 	files, err := ioutil.ReadDir(filePath)
 
 	dirInfo, err := fh.convertReadDirOutput(files, err)
 
 	if err == nil {
-		log.WithFields(log.Fields{
-			"op":   "readdirall",
-			"id":   request.Id,
-			"path": filePath,
-			"size": len(dirInfo.Stats),
-		}).Debug("ReadDirAll Response")
+
+		zap.L().Debug("ReadDirAll Response",
+			zap.String("op", "readdirall"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", filePath),
+			zap.Int("size", len(dirInfo.Stats)),
+		)
 
 	} else {
-		log.WithFields(fields).Error("ReadDir Error Response:", err)
+
+		zap.L().Warn("ReadDirAll Error Response",
+			zap.String("op", "readdirall"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", filePath),
+			zap.Error(err),
+		)
+
 	}
 
 	return dirInfo, err
@@ -169,13 +204,13 @@ func (fh *AgentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
 
 	filePath := request.Data.(*RemotePath).Path
 
-	fields := log.Fields{
-		"op":   "fetch",
-		"id":   request.Id,
-		"path": filePath,
-	}
-
-	log.WithFields(fields).Debug("Processing FetchFile Request")
+	zap.L().Debug("Processing Fetch Request",
+		zap.String("op", "fetch"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+	)
 
 	data, err := ioutil.ReadFile(filePath)
 
@@ -188,18 +223,30 @@ func (fh *AgentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
 
 		fileChunk.Compress()
 
-		log.WithFields(log.Fields{
-			"id":              request.Id,
-			"path":            filePath,
-			"size":            len(data),
-			"compressed_size": len(fileChunk.Chunk),
-		}).Debug(" FetchFile Response")
+		zap.L().Debug("Fetch Response",
+			zap.String("op", "fetch"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", filePath),
+			zap.Int("size", len(data)),
+			zap.Int("compressed_size", len(fileChunk.Chunk)),
+		)
 
 		return fileChunk, err
 
 	} else {
 		err = ConvertErr(err)
-		log.WithFields(fields).Warnf("FetchFile Error Response:", err)
+
+		zap.L().Warn("Fetch Error Response",
+			zap.String("op", "fetch"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", filePath),
+			zap.Error(err),
+		)
+
 	}
 
 	return nil, err
@@ -209,16 +256,16 @@ func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 	readInfo := request.Data.(*ReadInfo)
 	filePath := readInfo.Path
 
-	fields := log.Fields{
-		"op":     "read",
-		"id":     request.Id,
-		"path":   filePath,
-		"fd":     readInfo.FileDescriptor,
-		"size":   readInfo.Size,
-		"offset": readInfo.Offset,
-	}
-
-	log.WithFields(fields).Debug("Processing Read Request")
+	zap.L().Debug("Processing Read Request",
+		zap.String("op", "read"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+		zap.Uint64("fd", readInfo.FileDescriptor),
+		zap.Int("size", readInfo.Size),
+		zap.Int64("offset", readInfo.Offset),
+	)
 
 	val, ok := fh.Opened.Load(readInfo.FileDescriptor)
 
@@ -237,24 +284,51 @@ func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 
 			fileChunk.Compress()
 
-			log.WithFields(log.Fields{
-				"op":              "read",
-				"id":              request.Id,
-				"path":            filePath,
-				"size":            readInfo.Size,
-				"offset":          readInfo.Offset,
-				"chunk_size":      n,
-				"compressed_size": len(fileChunk.Chunk),
-			}).Debug("Read Response")
+			zap.L().Debug("Read Response",
+				zap.String("op", "read"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.Uint64("fd", readInfo.FileDescriptor),
+				zap.Int("size", readInfo.Size),
+				zap.Int64("offset", readInfo.Offset),
+				zap.Int("chunk_size", n),
+				zap.Int("compressed_size", len(fileChunk.Chunk)),
+			)
 
 			return fileChunk, nil
 		} else {
 			err = ConvertErr(err)
-			log.WithFields(fields).Warnf("Read Error Response:", err)
+
+			zap.L().Warn("Read Error Response",
+				zap.String("op", "read"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.Uint64("fd", readInfo.FileDescriptor),
+				zap.Int("size", readInfo.Size),
+				zap.Int64("offset", readInfo.Offset),
+				zap.Error(err),
+			)
+
 		}
 
 		return nil, err
 	}
+
+	zap.L().Warn("Read Error Response",
+		zap.String("op", "read"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+		zap.Uint64("fd", readInfo.FileDescriptor),
+		zap.Int("size", readInfo.Size),
+		zap.Int64("offset", readInfo.Offset),
+		zap.Error(os.ErrInvalid),
+	)
 
 	return nil, os.ErrInvalid
 }
@@ -263,16 +337,16 @@ func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 	writeInfo := request.Data.(*WriteInfo)
 	filePath := writeInfo.Path
 
-	fields := log.Fields{
-		"op":     "write",
-		"id":     request.Id,
-		"path":   filePath,
-		"fd":     writeInfo.FileDescriptor,
-		"offset": writeInfo.Offset,
-		"size":   len(writeInfo.Data),
-	}
-
-	log.WithFields(fields).Debug("Processing Write Request")
+	zap.L().Debug("Processing Write Request",
+		zap.String("op", "write"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+		zap.Uint64("fd", writeInfo.FileDescriptor),
+		zap.Int64("offset", writeInfo.Offset),
+		zap.Int("size", len(writeInfo.Data)),
+	)
 
 	val, ok := fh.Opened.Load(writeInfo.FileDescriptor)
 
@@ -288,23 +362,49 @@ func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 				Size: n,
 			}
 
-			log.WithFields(log.Fields{
-				"op":         "write",
-				"id":         request.Id,
-				"path":       filePath,
-				"offset":     writeInfo.Offset,
-				"chunk_size": len(writeInfo.Data),
-				"size":       n,
-			}).Debug("Write Response")
+			zap.L().Debug("Write Response",
+				zap.String("op", "write"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.Uint64("fd", writeInfo.FileDescriptor),
+				zap.Int64("offset", writeInfo.Offset),
+				zap.Int("size", len(writeInfo.Data)),
+				zap.Int("written", n),
+			)
 
 			return result, nil
 		} else {
 			err = ConvertErr(err)
-			log.WithFields(fields).Warnf("Write Error Response")
+
+			zap.L().Warn("Write Error Response",
+				zap.String("op", "write"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.Uint64("fd", writeInfo.FileDescriptor),
+				zap.Int64("offset", writeInfo.Offset),
+				zap.Int("size", len(writeInfo.Data)),
+				zap.Error(err),
+			)
 		}
 
 		return nil, err
 	}
+
+	zap.L().Warn("Write Error Response",
+		zap.String("op", "write"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+		zap.Uint64("fd", writeInfo.FileDescriptor),
+		zap.Int64("offset", writeInfo.Offset),
+		zap.Int("size", len(writeInfo.Data)),
+		zap.Error(os.ErrInvalid),
+	)
 
 	return nil, os.ErrInvalid
 }
@@ -313,18 +413,18 @@ func (fh *AgentFileHandler) SetAttr(request *Packet) error {
 	attrInfo := request.Data.(*AttrInfo)
 	filePath := attrInfo.Path
 
-	fields := log.Fields{
-		"op":    "setattr",
-		"id":    request.Id,
-		"path":  filePath,
-		"valid": attrInfo.Valid.String(),
-		"size":  attrInfo.Size,
-		"mtime": attrInfo.MTime,
-		"atime": attrInfo.ATime,
-		"mode":  attrInfo.Mode,
-	}
-
-	log.WithFields(fields).Debug("Processing SetAttr Request")
+	zap.L().Debug("Processing SetAttr Request",
+		zap.String("op", "setattr"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+		zap.String("valid", attrInfo.Valid.String()),
+		zap.Uint64("size", attrInfo.Size),
+		zap.Time("mtime", time.Unix(0, attrInfo.MTime)),
+		zap.Time("atime", time.Unix(0, attrInfo.ATime)),
+		zap.String("mode", attrInfo.Mode.String()),
+	)
 
 	var err error
 	if attrInfo.Valid.Size() {
@@ -342,7 +442,21 @@ func (fh *AgentFileHandler) SetAttr(request *Packet) error {
 
 	if err != nil {
 		err = ConvertErr(err)
-		log.WithFields(fields).Warnf("SetAttr Error Response:", err)
+
+		zap.L().Warn("SetAttr Error Response",
+			zap.String("op", "setattr"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", filePath),
+			zap.String("valid", attrInfo.Valid.String()),
+			zap.Uint64("size", attrInfo.Size),
+			zap.Time("mtime", time.Unix(0, attrInfo.MTime)),
+			zap.Time("atime", time.Unix(0, attrInfo.ATime)),
+			zap.String("mode", attrInfo.Mode.String()),
+			zap.Error(err),
+		)
+
 	}
 
 	return err
@@ -352,22 +466,34 @@ func (fh *AgentFileHandler) CreateFile(request *Packet) error {
 	createInfo := request.Data.(*CreateInfo)
 	filePath := path.Join(createInfo.BaseDir, createInfo.Name)
 
-	fields := log.Fields{
-		"op":       "create",
-		"id":       request.Id,
-		"path":     filePath,
-		"name":     createInfo.Name,
-		"base_dir": createInfo.BaseDir,
-		"is_dir":   createInfo.IsDir,
-	}
-
-	log.WithFields(fields).Debug("Processing Create Request")
+	zap.L().Debug("Processing Create Request",
+		zap.String("op", "create"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", filePath),
+		zap.String("name", createInfo.Name),
+		zap.String("base_dir", createInfo.BaseDir),
+		zap.Bool("is_dir", createInfo.IsDir),
+	)
 
 	if !createInfo.IsDir {
 		f, err := os.Create(filePath)
 		if err != nil {
 			err = ConvertErr(err)
-			log.WithFields(fields).Warnf("Create Error Response:", err)
+
+			zap.L().Warn("Create Error Response",
+				zap.String("op", "create"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.String("name", createInfo.Name),
+				zap.String("base_dir", createInfo.BaseDir),
+				zap.Bool("is_dir", createInfo.IsDir),
+				zap.Error(err),
+			)
+
 		}
 
 		fh.Opened.Store(createInfo.FileDescriptor, f)
@@ -378,7 +504,19 @@ func (fh *AgentFileHandler) CreateFile(request *Packet) error {
 
 		if err != nil {
 			err = ConvertErr(err)
-			log.WithFields(fields).Warnf("Create Error Response:", err)
+
+			zap.L().Warn("Create Error Response",
+				zap.String("op", "create"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.String("path", filePath),
+				zap.String("name", createInfo.Name),
+				zap.String("base_dir", createInfo.BaseDir),
+				zap.Bool("is_dir", createInfo.IsDir),
+				zap.Error(err),
+			)
+
 		}
 
 		return err
@@ -388,19 +526,28 @@ func (fh *AgentFileHandler) CreateFile(request *Packet) error {
 func (fh *AgentFileHandler) RemoveFile(request *Packet) error {
 	remotePath := request.Data.(*RemotePath)
 
-	fields := log.Fields{
-		"op":   "remove",
-		"id":   request.Id,
-		"path": remotePath.Path,
-	}
-
-	log.WithFields(fields).Debug("Processing Remove Request")
+	zap.L().Debug("Processing Remove Request",
+		zap.String("op", "remove"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", remotePath.Path),
+	)
 
 	err := os.Remove(remotePath.Path)
 
 	if err != nil {
 		err = ConvertErr(err)
-		log.WithFields(fields).Warnf("Remove Error Response:", err)
+
+		zap.L().Warn("Remove Error Response",
+			zap.String("op", "remove"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", remotePath.Path),
+			zap.Error(err),
+		)
+
 	}
 
 	return err
@@ -409,20 +556,30 @@ func (fh *AgentFileHandler) RemoveFile(request *Packet) error {
 func (fh *AgentFileHandler) RenameFile(request *Packet) error {
 	renameInfo := request.Data.(*RenameInfo)
 
-	fields := log.Fields{
-		"op":       "rename",
-		"id":       request.Id,
-		"path":     renameInfo.Path,
-		"new_path": renameInfo.DestPath,
-	}
-
-	log.WithFields(fields).Debug("Processing Rename Request")
+	zap.L().Debug("Processing Rename Request",
+		zap.String("op", "rename"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", renameInfo.Path),
+		zap.String("dest_path", renameInfo.DestPath),
+	)
 
 	err := os.Rename(renameInfo.Path, renameInfo.DestPath)
 
 	if err != nil {
 		err = ConvertErr(err)
-		log.WithFields(fields).Warnf("Rename Error Response:", err)
+
+		zap.L().Warn("Rename Error Response",
+			zap.String("op", "rename"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", renameInfo.Path),
+			zap.String("dest_path", renameInfo.DestPath),
+			zap.Error(err),
+		)
+
 	}
 
 	return err
@@ -431,20 +588,31 @@ func (fh *AgentFileHandler) RenameFile(request *Packet) error {
 func (fh *AgentFileHandler) OpenFile(request *Packet) error {
 	openInfo := request.Data.(*OpenInfo)
 
-	fields := log.Fields{
-		"op":              "open",
-		"id":              request.Id,
-		"path":            openInfo.Path,
-		"file_descriptor": openInfo.FileDescriptor,
-		"flags":           openInfo.Flags,
-	}
+	zap.L().Debug("Processing Open Request",
+		zap.String("op", "open"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", openInfo.Path),
+		zap.Uint64("fd", openInfo.FileDescriptor),
+		zap.String("flags", openInfo.Flags.String()),
+	)
 
-	log.WithFields(fields).Debug("Processing Open Request")
-
-	f, err := os.OpenFile(openInfo.Path, openInfo.Flags, 0666)
+	f, err := os.OpenFile(openInfo.Path, int(openInfo.Flags), 0666)
 
 	if err != nil {
-		log.WithFields(fields).Warnf("Open Error Response:", err)
+
+		zap.L().Warn("Open Error Response",
+			zap.String("op", "open"),
+			zap.Uint8("conn_id", request.ConnId),
+			zap.Bool("request", request.IsRequest()),
+			zap.Uint64("id", request.Id),
+			zap.String("path", openInfo.Path),
+			zap.Uint64("fd", openInfo.FileDescriptor),
+			zap.String("flags", openInfo.Flags.String()),
+			zap.Error(err),
+		)
+
 		return err
 	}
 
@@ -457,14 +625,14 @@ func (fh *AgentFileHandler) CloseFile(request *Packet) error {
 
 	closeInfo := request.Data.(*CloseInfo)
 
-	fields := log.Fields{
-		"op":              "close",
-		"id":              request.Id,
-		"path":            closeInfo.Path,
-		"file_descriptor": closeInfo.FileDescriptor,
-	}
-
-	log.WithFields(fields).Debug("Processing Close Request")
+	zap.L().Debug("Processing Close Request",
+		zap.String("op", "close"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", closeInfo.Path),
+		zap.Uint64("fd", closeInfo.FileDescriptor),
+	)
 
 	if val, ok := fh.Opened.Load(closeInfo.FileDescriptor); ok {
 		f := val.(*os.File)
@@ -472,6 +640,16 @@ func (fh *AgentFileHandler) CloseFile(request *Packet) error {
 		fh.Opened.Delete(closeInfo.FileDescriptor)
 		return nil
 	}
+
+	zap.L().Debug("Close Error Response",
+		zap.String("op", "close"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.String("path", closeInfo.Path),
+		zap.Uint64("fd", closeInfo.FileDescriptor),
+		zap.Error(os.ErrInvalid),
+	)
 
 	return os.ErrInvalid
 }

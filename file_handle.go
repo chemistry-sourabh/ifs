@@ -1,11 +1,10 @@
 package ifs
 
 import "bazil.org/fuse"
-import log "github.com/sirupsen/logrus"
 import (
 	"golang.org/x/net/context"
 	"time"
-	"path"
+	"go.uber.org/zap"
 )
 
 type FileHandle struct {
@@ -17,22 +16,31 @@ func (fh *FileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fus
 
 	rn := fh.RemoteNode
 
-	fields := log.Fields{
-		"op":      "read",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"offset":  req.Offset,
-		"size":    req.Size,
-		"fd":      fh.FileDescriptor,
-	}
-	log.WithFields(fields).Debug("Read FS Request")
+	zap.L().Debug("Read FS Request",
+		zap.String("op", "read"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.Int64("offset", req.Offset),
+		zap.Int("size", req.Size),
+		zap.Uint64("fd", fh.FileDescriptor),
+	)
 
 	b, err := rn.Ifs.FileHandler.ReadData(fh, req.Offset, req.Size)
 
 	resp.Data = b
 
 	if err != nil {
-		log.WithFields(fields).Warn("Read Error Response:", err)
+
+		zap.L().Warn("Read Error Response",
+			zap.String("op", "read"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.Int64("offset", req.Offset),
+			zap.Int("size", req.Size),
+			zap.Uint64("fd", fh.FileDescriptor),
+			zap.Error(err),
+		)
+
 	}
 
 	return err
@@ -42,20 +50,28 @@ func (fh *FileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *f
 
 	rn := fh.RemoteNode
 
-	fields := log.Fields{
-		"op":      "write",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"offset":  req.Offset,
-		"size":    len(req.Data),
-	}
-	log.WithFields(fields).Debug("Write FS Request")
+	zap.L().Debug("Write FS Request",
+		zap.String("op", "write"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.Int64("offset", req.Offset),
+		zap.Int("size", len(req.Data)),
+	)
 
 	n, err := rn.Ifs.FileHandler.WriteData(fh, req.Data, req.Offset)
 	resp.Size = n
 
 	if err != nil {
-		log.WithFields(fields).Warn("Write Error Response:", err)
+
+		zap.L().Warn("Write Error Response",
+			zap.String("op", "write"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.Int64("offset", req.Offset),
+			zap.Int("size", len(req.Data)),
+			zap.Error(err),
+		)
+
 	}
 
 	return err
@@ -65,17 +81,17 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	rn := fh.RemoteNode
 
+	zap.L().Debug("ReadDir FS Request",
+		zap.String("op", "readdir"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+	)
+
 	// Get Files from Remote Directory
 	// Populate Directory Accordingly
-	fields := log.Fields{
-		"op":      "readdir",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-	}
-	log.WithFields(fields).Debug("ReadDir FS Request")
 
 	req := &ReadDirInfo{
-		Path:     rn.RemotePath.Path,
+		Path:           rn.RemotePath.Path,
 		FileDescriptor: fh.FileDescriptor,
 	}
 
@@ -87,28 +103,27 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	var err error
 	if respError, ok := resp.Data.(Error); !ok {
 
-		// TODO Cache these for future Attr Requests!!
 		files := resp.Data.(*DirInfo).Stats
 
-		log.WithFields(log.Fields{
-			"op":      "readdir",
-			"address": rn.RemotePath.Address(),
-			"path":    rn.RemotePath.Path,
-			"size":    len(files),
-		}).Debug("ReadDir Response from Agent")
+		zap.L().Debug("ReadDir Response From Agent",
+			zap.String("op", "readdir"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.Int("size", len(files)),
+		)
 
 		for _, file := range files {
 
 			s := file
 
-			log.WithFields(log.Fields{
-				"op":      "readdir",
-				"address": rn.RemotePath.Address(),
-				"path":    path.Join(rn.RemotePath.Path, s.Name),
-				"size":    s.Size,
-				"mode":    s.Mode,
-				"mtime":   s.ModTime,
-			}).Debug("ReadDir File Response")
+			zap.L().Debug("ReadDir File Response",
+				zap.String("op", "readdir"),
+				zap.String("address", rn.RemotePath.Address()),
+				zap.String("path", rn.RemotePath.Path),
+				zap.Int64("size", s.Size),
+				zap.String("mode", s.Mode.String()),
+				zap.Time("mtime", time.Unix(0, s.ModTime)),
+			)
 
 			var child fuse.Dirent
 			if s.IsDir {
@@ -138,7 +153,14 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	} else {
 		err = respError.Err
-		log.WithFields(fields).Warn("ReadDir Error Response:", err)
+
+		zap.L().Warn("ReadDir Error Response",
+			zap.String("op", "readdir"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.Error(err),
+		)
+
 	}
 	return nil, err
 }
@@ -147,11 +169,11 @@ func (fh *FileHandle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
 
 	rn := fh.RemoteNode
 
-	log.WithFields(log.Fields{
-		"op":      "flush",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-	}).Debug("Flush FS Request")
+	zap.L().Debug("Flush FS Request",
+		zap.String("op", "flush"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+	)
 
 	//rn.Ifs.FileHandler.Flush(fh)
 
@@ -162,11 +184,11 @@ func (fh *FileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) err
 
 	rn := fh.RemoteNode
 
-	log.WithFields(log.Fields{
-		"op":      "release",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-	}).Debug("Release FS Request")
+	zap.L().Debug("Release FS Request",
+		zap.String("op", "release"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+	)
 
 	rn.Ifs.FileHandler.Release(fh)
 	return nil

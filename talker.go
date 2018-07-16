@@ -3,28 +3,25 @@ package ifs
 import (
 	"net/url"
 	"github.com/gorilla/websocket"
-	log "github.com/sirupsen/logrus"
 	"strings"
 	"strconv"
 	"sync/atomic"
+	"sync"
+	"go.uber.org/zap"
 )
 
 type Talker struct {
 	// Should be map of hostname and port
-	Ifs        *Ifs
-	IdCounters map[string]*uint64
-	//IdCounters    map[uint8]uint64
-	Pools map[string]*FsConnectionPool
-	//Pool          *FsConnectionPool
-	RequestBuffer *FastMap // TODO Change To sync.Map
-	//RequestBuffer        chan *PacketChannelTuple // One Receiver for each pool ?
-	//egressRequestChannel chan *PacketChannelTuple
+	Ifs           *Ifs
+	IdCounters    map[string]*uint64
+	Pools         map[string]*FsConnectionPool
+	RequestBuffer *sync.Map
 }
 
 func NewTalker(Ifs *Ifs) *Talker {
 	return &Talker{
 		Ifs:           Ifs,
-		RequestBuffer: NewFastMap(),
+		RequestBuffer: &sync.Map{},
 		IdCounters:    make(map[string]*uint64),
 		Pools:         make(map[string]*FsConnectionPool),
 	}
@@ -50,7 +47,9 @@ func (t *Talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 
 		if err != nil {
-			log.Fatal(err)
+			zap.L().Fatal("Connection Handshake Failed",
+				zap.Error(err),
+			)
 		}
 
 		t.Pools[remoteRoot.Hostname].Append(c)
@@ -92,64 +91,74 @@ func GetMapKey(hostname string, connId uint8, id uint64) string {
 
 func (t *Talker) processSendingChannel(hostname string, index uint8) {
 
-	log.Info("Starting Egress Channel Processor")
+	zap.L().Info("Starting Egress Channel Processor",
+		zap.String("hostname", hostname),
+		zap.Uint8("index", index),
+	)
 
-	log.WithFields(log.Fields{
-		"index":    index,
-		"hostname": hostname,
-		"Pools":    t.Pools,
-		"Pool":     t.Pools[hostname].SendingChannels,
-	}).Debug("Info")
 	for req := range t.Pools[hostname].SendingChannels[index] {
 
 		pkt, _ := req.Packet, req.Channel
 
 		pkt.ConnId = index
 		pkt.Id = atomic.AddUint64(t.IdCounters[hostname], 1)
-		//pkt.Id = t.IdCounters[index]
-		//t.IdCounters[index]++
 
-		log.WithFields(log.Fields{
-			"op":      strings.ToLower(ConvertOpCodeToString(pkt.Op)),
-			"id":      pkt.Id,
-			"conn_id": pkt.ConnId,
-		}).Debug("Sending Packet")
+		zap.L().Debug("Sending Packet",
+			zap.String("hostname", hostname),
+			zap.Uint8("index", index),
+			zap.String("op", strings.ToLower(ConvertOpCodeToString(pkt.Op))),
+			zap.Uint8("conn_id", pkt.ConnId),
+			zap.Uint64("id", pkt.Id),
+		)
 
-		t.RequestBuffer.Set(GetMapKey(hostname, pkt.ConnId, pkt.Id), req)
+		t.RequestBuffer.Store(GetMapKey(hostname, pkt.ConnId, pkt.Id), req)
 
 		data, _ := pkt.Marshal()
 		err := t.Pools[hostname].Connections[index].WriteMessage(websocket.BinaryMessage, data)
 		if err != nil {
-			log.Fatal(err)
+			zap.L().Fatal("Write Message Failed",
+				zap.Error(err),
+			)
 		}
 
 	}
 }
 
 func (t *Talker) processIncomingMessages(hostname string, index uint8) {
-	log.Info("Starting Incoming Message Processor")
+
+	zap.L().Info("Starting Ingress Message Processor",
+		zap.String("hostname", hostname),
+		zap.Uint8("index", index),
+	)
 
 	for {
 
 		packet := &Packet{}
 
-		log.Debug("Listening for Packet")
+		zap.L().Debug("Listening For Packet",
+			zap.String("hostname", hostname),
+			zap.Uint8("index", index),
+		)
 
 		_, data, err := t.Pools[hostname].Connections[index].ReadMessage()
 
 		if err != nil {
-			log.Fatal(err)
+			zap.L().Fatal("Read Message Failed",
+				zap.Error(err),
+			)
 			break
 		}
 
 		packet.Unmarshal(data)
 
-		log.WithFields(log.Fields{
-			"op":      strings.ToLower(ConvertOpCodeToString(packet.Op)),
-			"request": packet.IsRequest(),
-			"id":      packet.Id,
-			"conn_id": packet.ConnId,
-		}).Debug("Received Packet")
+		zap.L().Debug("Received Packet",
+			zap.String("hostname", hostname),
+			zap.Uint8("index", index),
+			zap.String("op", strings.ToLower(ConvertOpCodeToString(packet.Op))),
+			zap.Uint8("conn_id", packet.ConnId),
+			zap.Bool("request", packet.IsRequest()),
+			zap.Uint64("id", packet.Id),
+		)
 
 		if !packet.IsRequest() {
 
@@ -159,11 +168,8 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 
 			ch = req.(*PacketChannelTuple).Channel
 
-			log.Debug("Sending Response to Channel")
 			ch <- packet
-			log.Debug("Closing Channel")
 			close(ch)
-			log.Debug("Closed Channel")
 
 			t.RequestBuffer.Delete(GetMapKey(hostname, packet.ConnId, packet.Id))
 
@@ -174,7 +180,6 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 }
 
 func (t *Talker) processRequest(hostname string, packet *Packet) {
-	// Blah Blah
 
 	switch packet.Op {
 	case AttrUpdateRequest:

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"path"
 	"os"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type Watcher struct {
@@ -61,16 +61,15 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 
 		info, err := os.Stat(event.Name)
 
-		// TODO Log Error
 		if err == nil {
 
-			log.WithFields(log.Fields{
-				"op":    "chmod",
-				"path":  event.Name,
-				"size":  info.Size(),
-				"mode":  info.Mode(),
-				"mtime": info.ModTime(),
-			}).Debug("Got Watch Event")
+			zap.L().Debug("Got Watch Event",
+				zap.String("op", "chmod"),
+				zap.String("path", event.Name),
+				zap.Int64("size", info.Size()),
+				zap.String("mode", info.Mode().String()),
+				zap.Time("mtime", info.ModTime()),
+			)
 
 			payload.Path = event.Name
 			payload.Size = info.Size()
@@ -85,6 +84,11 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 
 			w.Agent.Talker.SendPacket(pkt)
 
+		} else {
+			zap.L().Warn("Stat Failed",
+				zap.String("op", "chmod"),
+				zap.String("path", event.Name),
+			)
 		}
 	}
 
@@ -120,6 +124,11 @@ func (w *Watcher) watchDir(dirPath string) error {
 
 	for _, dir := range allDirs {
 		w.Paths[dir] = true
+
+		zap.L().Debug("Watching Dir",
+			zap.String("dir", dir),
+		)
+
 		w.watcher.Add(dir)
 	}
 
@@ -130,12 +139,28 @@ func (w *Watcher) WatchPaths(request *Packet) error {
 
 	watchInfo := request.Data.(*WatchInfo)
 
+	zap.L().Debug("Processing Watch Request",
+		zap.String("op", "watchdir"),
+		zap.Uint8("conn_id", request.ConnId),
+		zap.Bool("request", request.IsRequest()),
+		zap.Uint64("id", request.Id),
+		zap.Strings("paths", watchInfo.Paths),
+	)
+
 	var err error
 
 	for _, p := range watchInfo.Paths {
 		err = w.watchDir(p)
 
 		if err != nil {
+			zap.L().Debug("Watch Error Response",
+				zap.String("op", "watchdir"),
+				zap.Uint8("conn_id", request.ConnId),
+				zap.Bool("request", request.IsRequest()),
+				zap.Uint64("id", request.Id),
+				zap.Strings("paths", watchInfo.Paths),
+				zap.Error(err),
+			)
 			return err
 		}
 	}

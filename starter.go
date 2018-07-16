@@ -2,12 +2,11 @@ package ifs
 
 import (
 	"bazil.org/fuse"
-	log "github.com/sirupsen/logrus"
 	"bazil.org/fuse/fs"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func generateVirtualNodes(ifs *Ifs, paths []string, remotePaths []*RemotePath) (map[string]fs.Node) {
@@ -69,24 +68,27 @@ func generateRemoteRoots(ifs *Ifs, remoteRoots []*RemoteRoot) map[string]fs.Node
 }
 
 func SetupLogger(cfg *LogConfig) {
+
+	loggerCfg := zap.NewDevelopmentConfig()
+
 	if !cfg.Logging {
-		log.SetOutput(ioutil.Discard)
+		logger := zap.NewNop()
+		zap.ReplaceGlobals(logger)
+		return
 	} else if !cfg.Console {
-		f, _ := os.Create(cfg.Path)
-		//defer f.Close()
-		log.SetOutput(f)
+		loggerCfg.OutputPaths = []string{cfg.Path}
+		loggerCfg.ErrorOutputPaths = []string{cfg.Path}
 	}
-
-	formatter := &log.TextFormatter{}
-	formatter.DisableColors = true
-
-	log.SetFormatter(formatter)
 
 	if cfg.Debug {
-		log.SetLevel(log.DebugLevel)
+		loggerCfg.Level.SetLevel(zapcore.DebugLevel)
 	} else {
-		log.SetLevel(log.InfoLevel)
+		loggerCfg.Level.SetLevel(zapcore.InfoLevel)
 	}
+
+	logger, _ := loggerCfg.Build()
+
+	zap.ReplaceGlobals(logger)
 
 }
 
@@ -101,7 +103,9 @@ func MountRemoteRoots(cfg *FsConfig) {
 
 	c, err := fuse.Mount(cfg.MountPoint, options...)
 	if err != nil {
-		log.Fatal(err)
+		zap.L().Fatal("Mount Failed",
+			zap.Error(err),
+		)
 	}
 
 	server := fs.New(c, nil)
@@ -137,7 +141,9 @@ func MountRemoteRoots(cfg *FsConfig) {
 
 	<-c.Ready
 	if err := c.MountError; err != nil {
-		log.Panicln(err)
+		zap.L().Fatal("Mount Failed",
+			zap.Error(err),
+		)
 	}
 
 	c.Close()

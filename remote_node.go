@@ -7,7 +7,7 @@ import (
 	"time"
 	"os/user"
 	"strconv"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"os"
 )
@@ -26,13 +26,12 @@ type RemoteNode struct {
 
 func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	// Update FileHandler if invalid
-	fields := log.Fields{
-		"op":      "attr",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-	}
 
-	log.WithFields(fields).Debug("Attr FS Request")
+	zap.L().Debug("Attr FS Request",
+		zap.String("op", "attr"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+	)
 
 	if !rn.IsCached {
 
@@ -43,13 +42,15 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 		if respErr, ok := resp.Data.(Error); !ok {
 
 			s := resp.Data.(*Stat)
-			log.WithFields(log.Fields{
-				"op":       "attr",
-				"address":  rn.RemotePath.Address(),
-				"path":     rn.RemotePath.Path,
-				"mode":     s.Mode,
-				"size":     s.Size,
-				"mod_time": time.Unix(0, s.ModTime)}).Debug("Attr Response From Agent")
+
+			zap.L().Debug("Attr Response From Agent",
+				zap.String("op", "attr"),
+				zap.String("address", rn.RemotePath.Address()),
+				zap.String("path", rn.RemotePath.Path),
+				zap.String("mode", s.Mode.String()),
+				zap.Int64("size", s.Size),
+				zap.Time("mtime", time.Unix(0, s.ModTime)),
+			)
 
 			rn.Size = uint64(s.Size)
 			rn.Mode = s.Mode
@@ -58,7 +59,14 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 		} else {
 			err = respErr.Err
-			log.WithFields(fields).Warn("Attr Error Response:", err)
+
+			zap.L().Warn("Attr Error Response",
+				zap.String("op", "attr"),
+				zap.String("address", rn.RemotePath.Address()),
+				zap.String("path", rn.RemotePath.Path),
+				zap.Error(err),
+			)
+
 			return err
 		}
 
@@ -78,13 +86,14 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Mtime = rn.Mtime
 	//attr.Valid = time.Duration(1)
 
-	log.WithFields(log.Fields{
-		"op":       "attr",
-		"address":  rn.RemotePath.Address(),
-		"path":     rn.RemotePath.Path,
-		"mode":     rn.Mode,
-		"size":     rn.Size,
-		"mod_time": rn.Mtime}).Debug("Attr Response")
+	zap.L().Debug("Attr Response",
+		zap.String("op", "attr"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("mode", rn.Mode.String()),
+		zap.Uint64("size", rn.Size),
+		zap.Time("mtime", rn.Mtime),
+	)
 
 	return nil
 }
@@ -106,6 +115,12 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 func (rn *RemoteNode) updateChildrenRemoteNodes() {
 	resp := rn.Ifs.Talker.sendRequest(ReadDirAllRequest, rn.RemotePath.Hostname, rn.RemotePath)
 
+	zap.L().Debug("ReaddirAll FS Request",
+		zap.String("op", "readdirall"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+	)
+
 	//rn.RemoteNodes = make(map[string]*RemoteNode)
 
 	var err error
@@ -113,33 +128,32 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 
 		files := resp.Data.(*DirInfo).Stats
 
-		log.WithFields(log.Fields{
-			"op":      "readdirall",
-			"real_address": rn,
-			"address": rn.RemotePath.Address(),
-			"path":    rn.RemotePath.Path,
-			"size":    len(files),
-		}).Debug("ReadDirAll Response from Agent")
+		zap.L().Debug("ReaddirAll Response from Agent",
+			zap.String("op", "readdirall"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.Int("size", len(files)),
+		)
 
 		for _, file := range files {
 			s := file
 
-			log.WithFields(log.Fields{
-				"op":      "readdirall",
-				"address": rn.RemotePath.Address(),
-				"path":    path.Join(rn.RemotePath.Path, s.Name),
-				"size":    s.Size,
-				"mode":    s.Mode,
-				"mtime":   s.ModTime,
-			}).Debug("ReadDirAll File Response")
+			zap.L().Debug("ReadDirAll File Response",
+				zap.String("op", "readdirall"),
+				zap.String("address", rn.RemotePath.Address()),
+				zap.String("path", path.Join(rn.RemotePath.Path, s.Name)),
+				zap.Int64("size", s.Size),
+				zap.String("mode", s.Mode.String()),
+				zap.Time("mtime", time.Unix(0, s.ModTime)),
+			)
 
+			// TODO Remove Remote Nodes if Missing
 			newRn, ok := rn.RemoteNodes[s.Name]
 
 			if !ok {
 				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
 				rn.RemoteNodes[s.Name] = newRn
 			}
-
 
 			newRn.Size = uint64(s.Size)
 			newRn.Mode = s.Mode
@@ -151,21 +165,25 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 
 	} else {
 		err = respError.Err
-		log.WithFields(log.Fields{
-			"op":      "readdirall",
-			"address": rn.RemotePath.Address(),
-			"path":    rn.RemotePath.Path,
-		}).Warn("ReadDirAll Error Response:", err)
+
+		zap.L().Warn("ReadDirAll Error Response",
+			zap.String("op", "readdirall"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.Error(err),
+		)
+
 	}
 }
 
 func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	log.WithFields(log.Fields{
-		"op":      "lookup",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"name":    name,
-	}).Debug("Lookup FS Request")
+
+	zap.L().Debug("Lookup FS Request",
+		zap.String("op", "lookup"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", name),
+	)
 
 	val, ok := rn.RemoteNodes[name]
 
@@ -175,13 +193,13 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 
 	val, ok = rn.RemoteNodes[name]
 
-	log.WithFields(log.Fields{
-		"op":      "lookup",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"name":    name,
-		"ok":      ok,
-	}).Debug("Lookup Response")
+	zap.L().Debug("Lookup Response",
+		zap.String("op", "lookup"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", name),
+		zap.Bool("ok", ok),
+	)
 
 	if ok {
 		return val, nil
@@ -192,21 +210,29 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 }
 
 func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	fields := log.Fields{
-		"op":      "open",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"flags":   req.Flags.String(),
-	}
-	log.WithFields(fields).Debug("Open FS Request")
+
+	zap.L().Debug("Open FS Request",
+		zap.String("op", "open"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("flags", req.Flags.String()),
+	)
 
 	var err error
 	var fd uint64
 
-	fd, err = rn.Ifs.FileHandler.OpenFile(rn.RemotePath, int(req.Flags), rn.IsDir)
+	fd, err = rn.Ifs.FileHandler.OpenFile(rn.RemotePath, req.Flags, rn.IsDir)
 
 	if err != nil {
-		log.WithFields(fields).Warn("Open Error Response:", err)
+
+		zap.L().Debug("Open Error Response",
+			zap.String("op", "open"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("flags", req.Flags.String()),
+			zap.Error(err),
+		)
+
 	}
 
 	fh := &FileHandle{
@@ -220,17 +246,17 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 
 func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
 	// TODO Add other attributes
-	fields := log.Fields{
-		"op":      "setattr",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"valid":   req.Valid.String(),
-		"size":    req.Size,
-		"mode":    req.Mode,
-		"atime":   req.Atime,
-		"mtime":   req.Mtime,
-	}
-	log.WithFields(fields).Debug("SetAttr FS Request")
+
+	zap.L().Debug("SetAttr FS Request",
+		zap.String("op", "setattr"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("valid", req.Valid.String()),
+		zap.Uint64("size", req.Size),
+		zap.String("mode", req.Mode.String()),
+		zap.Time("atime", req.Atime),
+		zap.Time("mtime", req.Mtime),
+	)
 
 	attrInfo := &AttrInfo{
 		Path:  rn.RemotePath.Path,
@@ -267,30 +293,43 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 	}
 
 	if err != nil {
-		log.WithFields(fields).Warn("SetAttr Error Response", err)
+
+		zap.L().Warn("SetAttr Error Response",
+			zap.String("op", "setattr"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("valid", req.Valid.String()),
+			zap.Uint64("size", req.Size),
+			zap.String("mode", req.Mode.String()),
+			zap.Time("atime", req.Atime),
+			zap.Time("mtime", req.Mtime),
+			zap.Error(err),
+		)
 	}
 
 	return err
 }
 
+// TODO Remove Fsync
 func (rn *RemoteNode) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
-	log.WithFields(log.Fields{
-		"op":      "fsync",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-	}).Debug("Fsync FS Request")
+
+	zap.L().Debug("Fsync FS Request",
+		zap.String("op", "fsync"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+	)
+
 	return nil
 }
 
 func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
-	fields := log.Fields{
-		"op":      "create",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"name":    req.Name,
-	}
 
-	log.WithFields(fields).Debug("Create FS Request")
+	zap.L().Debug("Create FS Request",
+		zap.String("op", "create"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", req.Name),
+	)
 
 	// Create File Remotely
 	// Create File in Cache if Space is available
@@ -308,21 +347,28 @@ func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp 
 
 		return newRn, fh, nil
 	} else {
-		log.WithFields(fields).Warn("Create Error Response:", err)
+
+		zap.L().Warn("Create Error Response",
+			zap.String("op", "create"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("name", req.Name),
+			zap.Error(err),
+		)
+
 	}
 
 	return nil, nil, err
 }
 
 func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
-	fields := log.Fields{
-		"op":      "mkdir",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"name":    req.Name,
-	}
 
-	log.WithFields(fields).Debug("Mkdir FS request")
+	zap.L().Debug("Mkdir FS Request",
+		zap.String("op", "mkdir"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", req.Name),
+	)
 
 	err := rn.Ifs.FileHandler.Mkdir(rn.RemotePath, req.Name)
 
@@ -331,40 +377,56 @@ func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Nod
 		rn.RemoteNodes[req.Name] = newRn
 		return newRn, nil
 	} else {
-		log.WithFields(fields).Warn("Mkdir Error Response:", err)
+
+		zap.L().Warn("Mkdir FS Response",
+			zap.String("op", "mkdir"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("name", req.Name),
+			zap.Error(err),
+		)
+
 	}
 
 	return nil, err
 }
 
 func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
-	fields := log.Fields{
-		"op":      "remove",
-		"address": rn.RemotePath.Address(),
-		"path":    rn.RemotePath.Path,
-		"name":    req.Name,
-	}
-	log.WithFields(fields).Debug("Remove FS Request")
+
+	zap.L().Debug("Remove FS Request",
+		zap.String("op", "remove"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", req.Name),
+	)
 
 	err := rn.Ifs.FileHandler.Remove(rn.RemotePath, req.Name)
 	if err == nil {
 		delete(rn.RemoteNodes, req.Name)
 	} else {
-		log.WithFields(fields).Warn("Remove Error Response", err)
+
+		zap.L().Warn("Remove Error Response",
+			zap.String("op", "remove"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("name", req.Name),
+			zap.Error(err),
+		)
+
 	}
 	return err
 }
 
 func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
-	fields := log.Fields{
-		"op":       "rename",
-		"address":  rn.RemotePath.Address(),
-		"path":     rn.RemotePath.Path,
-		"old_name": req.OldName,
-		"new_name": req.NewName,
-		"new_dir":  newDir.(*RemoteNode).RemotePath.Path,
-	}
-	log.WithFields(fields).Debug("Rename FS Request")
+
+	zap.L().Debug("Rename FS Request",
+		zap.String("op", "rename"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("old_name", req.OldName),
+		zap.String("new_name", req.NewName),
+		zap.String("new_dir", newDir.(*RemoteNode).RemotePath.Path),
+	)
 
 	rnDestDir := newDir.(*RemoteNode)
 	curRn := rn.RemoteNodes[req.OldName]
@@ -383,7 +445,17 @@ func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDi
 		delete(rn.RemoteNodes, req.OldName)
 		rnDestDir.RemoteNodes[req.NewName] = curRn
 	} else {
-		log.WithFields(fields).Warn("Rename Error Response", err)
+
+		zap.L().Warn("Rename Error Response",
+			zap.String("op", "rename"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("old_name", req.OldName),
+			zap.String("new_name", req.NewName),
+			zap.String("new_dir", newDir.(*RemoteNode).RemotePath.Path),
+			zap.Error(err),
+		)
+
 	}
 
 	return err

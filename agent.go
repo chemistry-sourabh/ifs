@@ -1,7 +1,7 @@
 package ifs
 
 import (
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type Agent struct {
@@ -26,9 +26,9 @@ func populateResponse(resp *Packet, data Payload, err error) {
 func (a *Agent) ProcessRequest(req *Packet) {
 
 	resp := &Packet{
-		Id:    req.Id,
+		Id:     req.Id,
 		ConnId: req.ConnId,
-		Flags: 1,
+		Flags:  1,
 	}
 
 	var data Payload
@@ -107,10 +107,10 @@ func StartAgent(address string, port uint16) {
 		Agent: agent,
 	}
 
-	log.WithFields(log.Fields{
-		"address": address,
-		"port":    port,
-	}).Info("Starting Agent")
+	zap.L().Info("Starting Agent",
+		zap.String("address", address),
+		zap.Uint16("port", port),
+	)
 
 	agent.Talker = talker
 	agent.Watcher = watcher
@@ -118,10 +118,11 @@ func StartAgent(address string, port uint16) {
 	err := agent.Watcher.Startup()
 
 	if err != nil {
-		log.Fatal("Watcher Failed")
+		zap.L().Fatal("Watcher Failed",
+			zap.Error(err),
+		)
 	}
 
 	agent.Talker.Startup(address, port)
-
 
 }

@@ -6,8 +6,8 @@ import (
 	"os/user"
 	"strconv"
 	"os"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"go.uber.org/zap"
 )
 
 type VirtualNode struct {
@@ -16,7 +16,11 @@ type VirtualNode struct {
 }
 
 func (vn *VirtualNode) Attr(ctx context.Context, attr *fuse.Attr) error {
-	log.WithFields(log.Fields{"vn": true, "op": "attr"}).Debug("Attr FS Request")
+
+	zap.L().Debug("Attr FS Request",
+		zap.Bool("vn", true),
+		zap.String("op", "attr"),
+	)
 
 	curUser, _ := user.Current()
 	uid, _ := strconv.ParseUint(curUser.Uid, 10, 64)
@@ -29,11 +33,20 @@ func (vn *VirtualNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	//attr.Size = uint64(10)
 	attr.Mode = os.FileMode(os.ModeDir | 0755)
 
+	zap.L().Debug("Attr Response",
+		zap.Bool("vn", true),
+		zap.String("op", "attr"),
+	)
+
 	return nil
 }
 
 func (vn *VirtualNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	log.WithFields(log.Fields{"vn": true, "op": "readdir"}).Debug("ReadDir FS Request")
+
+	zap.L().Debug("ReadDir FS Request",
+		zap.Bool("vn", true),
+		zap.String("op", "readdir"),
+	)
 
 	var children []fuse.Dirent
 
@@ -42,13 +55,31 @@ func (vn *VirtualNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		children = append(children, child)
 	}
 
+	zap.L().Debug("ReadDir Response",
+		zap.Bool("vn", true),
+		zap.String("op", "readdir"),
+		//zap.Strings("remote_roots", root.RemoteRoots),
+	)
+
 	return children, nil
 }
 
 func (vn *VirtualNode) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	log.WithFields(log.Fields{"vn": true, "op": "lookup", "name": name}).Debug("Lookup FS Request")
+
+	zap.L().Debug("Lookup FS Request",
+		zap.Bool("vn", true),
+		zap.String("op", "lookup"),
+		zap.String("name", name),
+	)
 
 	val, ok := vn.Nodes[name]
+
+	zap.L().Debug("Lookup Response",
+		zap.Bool("vn", true),
+		zap.String("op", "lookup"),
+		zap.String("name", name),
+		zap.Bool("ok", ok),
+	)
 
 	if ok {
 		return val, nil

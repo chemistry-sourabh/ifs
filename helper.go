@@ -37,6 +37,8 @@ func ConvertOpCodeToString(opCode uint8) string {
 		return "Close Request"
 	case WatchDirRequest:
 		return "Watch Dir Request"
+	case AttrUpdateRequest:
+		return "Attr Update Request"
 
 	case StatResponse:
 		return "Stat Response"

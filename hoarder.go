@@ -5,8 +5,9 @@ import (
 	"path"
 	"fmt"
 	"os"
-	log "github.com/sirupsen/logrus"
 	"sync"
+	"go.uber.org/zap"
+	"bazil.org/fuse"
 )
 
 type CacheRequest interface {
@@ -47,7 +48,7 @@ func (h *Hoarder) Startup() {
 }
 
 func (h *Hoarder) DeleteCache() {
-	log.Info("Deleting Cache")
+	zap.L().Info("Deleting Cache")
 	os.RemoveAll(h.Path)
 	os.MkdirAll(h.Path, 0755)
 }
@@ -114,9 +115,9 @@ func (h *Hoarder) IsCached(rp *RemotePath) bool {
 	return ok
 }
 
-func (h *Hoarder) openCacheFile(fname string, fileDescriptor uint64, flags int) error {
+func (h *Hoarder) openCacheFile(fname string, fileDescriptor uint64, flags fuse.OpenFlags) error {
 
-	f, err := os.OpenFile(path.Join(h.Path, fname), flags, 0666)
+	f, err := os.OpenFile(path.Join(h.Path, fname), int(flags), 0666)
 
 	if err != nil {
 		return err
@@ -126,7 +127,7 @@ func (h *Hoarder) openCacheFile(fname string, fileDescriptor uint64, flags int) 
 	return nil
 }
 
-func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags int) {
+func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags fuse.OpenFlags) {
 
 	if val, ok := h.cached.Load(remotePath.String()); ok {
 		h.openCacheFile(val.(string), fileDescriptor, flags)

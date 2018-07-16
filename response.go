@@ -4,7 +4,7 @@ import (
 	"os"
 	"compress/zlib"
 	"bytes"
-	"log"
+	"go.uber.org/zap"
 )
 
 type Stat struct {
@@ -39,7 +39,9 @@ func (fc *FileChunk) Decompress() {
 	r, err := zlib.NewReader(&b)
 
 	if err != nil {
-		log.Fatal("Shit just happened = ", err)
+		zap.L().Fatal("Decompression Failed",
+			zap.Error(err),
+		)
 	}
 
 	var out bytes.Buffer

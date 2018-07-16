@@ -2,10 +2,11 @@ package ifs
 
 import (
 	"path"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"sync/atomic"
 	"sync"
+	"go.uber.org/zap"
+	"bazil.org/fuse"
 )
 
 type FileHandler struct {
@@ -15,11 +16,12 @@ type FileHandler struct {
 }
 
 func (fh *FileHandler) StartUp() {
-	log.Info("Starting File Handler")
+
+	zap.L().Info("Starting File Handler")
 	fh.Opened = &sync.Map{}
 }
 
-func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags int, isDir bool) (uint64, error) {
+func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags fuse.OpenFlags, isDir bool) (uint64, error) {
 
 	fd := atomic.AddUint64(&fh.FileDescriptor, 1)
 
