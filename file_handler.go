@@ -68,6 +68,7 @@ func (fh *FileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]b
 			if err, ok := resp.Data.(Error); ok {
 				return nil, err.Err
 			} else {
+				// TODO If EOF is returned in Read then for some reason decompress is happening and failing
 				fileChunk := resp.Data.(*FileChunk)
 				fileChunk.Decompress()
 				return fileChunk.Chunk, nil
@@ -140,12 +141,16 @@ func (fh *FileHandler) Release(handle *FileHandle) error {
 			return err.Err
 		}
 
-		err := fh.Ifs.Hoarder.CacheClose(handle.FileDescriptor)
+		if !handle.RemoteNode.IsDir {
 
-		if err != nil {
-			zap.L().Warn("Cache Close Failed",
-				zap.Error(err),
-			)
+			err := fh.Ifs.Hoarder.CacheClose(handle.FileDescriptor)
+
+			if err != nil {
+				zap.L().Warn("Cache Close Failed",
+					zap.Error(err),
+				)
+			}
+
 		}
 
 		fh.Opened.Delete(handle.FileDescriptor)
@@ -208,7 +213,7 @@ func (fh *FileHandler) Mkdir(remotePath *RemotePath, name string) error {
 	return nil
 }
 
-func (fh *FileHandler) Remove(remotePath *RemotePath, name string) error {
+func (fh *FileHandler) Remove(remotePath *RemotePath, name string, isDir bool) error {
 
 	newRemotePath := &RemotePath{
 		Hostname: remotePath.Hostname,
@@ -222,12 +227,14 @@ func (fh *FileHandler) Remove(remotePath *RemotePath, name string) error {
 		return err.Err
 	}
 
-	err := fh.Ifs.Hoarder.CacheDelete(remotePath)
+	if !isDir {
+		err := fh.Ifs.Hoarder.CacheDelete(remotePath)
 
-	if err != nil {
-		zap.L().Warn("Cache Remove Failed",
-			zap.Error(err),
-		)
+		if err != nil {
+			zap.L().Warn("Cache Remove Failed",
+				zap.Error(err),
+			)
+		}
 	}
 
 	return nil

@@ -400,7 +400,7 @@ func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error
 		zap.String("name", req.Name),
 	)
 
-	err := rn.Ifs.FileHandler.Remove(rn.RemotePath, req.Name)
+	err := rn.Ifs.FileHandler.Remove(rn.RemotePath, req.Name, rn.IsDir)
 	if err == nil {
 		delete(rn.RemoteNodes, req.Name)
 	} else {

@@ -50,6 +50,41 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 	if event.Op&fsnotify.Create == fsnotify.Create {
 	} else if event.Op&fsnotify.Write == fsnotify.Write {
 		// If Write happened then will need to update cache with write
+
+		payload := &AttrUpdateInfo{}
+
+		info, err := os.Stat(event.Name)
+
+		if err == nil {
+
+			zap.L().Debug("Got Watch Event",
+				zap.String("op", "write"),
+				zap.String("path", event.Name),
+				zap.Int64("size", info.Size()),
+				zap.String("mode", info.Mode().String()),
+				zap.Time("mtime", info.ModTime()),
+			)
+
+			payload.Path = event.Name
+			payload.Size = info.Size()
+			payload.Mode = info.Mode()
+			payload.ModTime = info.ModTime().UnixNano()
+
+			pkt := &Packet{
+				Op:    AttrUpdateRequest,
+				Flags: 0,
+				Data:  payload,
+			}
+
+			w.Agent.Talker.SendPacket(pkt)
+
+		} else {
+			zap.L().Warn("Stat Failed",
+				zap.String("op", "write"),
+				zap.String("path", event.Name),
+			)
+		}
+
 	} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 		// If Deleted then will need to be sent back
 	} else if event.Op&fsnotify.Rename == fsnotify.Rename {

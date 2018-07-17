@@ -3,11 +3,12 @@ package ifs
 import (
 	"io/ioutil"
 	"path"
-	"fmt"
 	"os"
 	"sync"
 	"go.uber.org/zap"
 	"bazil.org/fuse"
+	"sync/atomic"
+	"strconv"
 )
 
 type CacheRequest interface {
@@ -31,8 +32,7 @@ type Hoarder struct {
 	opened *sync.Map
 	//openedFiles    map[uint64]*os.File
 	fetchQueue     chan *FetchInfo
-	fileId         uint
-	fileDescriptor uint64
+	fileId         uint64
 }
 
 func (h *Hoarder) Startup() {
@@ -275,9 +275,8 @@ func (h *Hoarder) ReadCache(fd uint64, offset int64, size int) ([]byte, error) {
 }
 
 func (h *Hoarder) GetCacheFileName() string {
-	fileId := h.fileId
-	h.fileId++
-	return fmt.Sprintf("%d", fileId)
+	fileId := atomic.AddUint64(&h.fileId, 1)
+	return strconv.FormatUint(fileId, 10)
 }
 
 func (h *Hoarder) WriteCache(fd uint64, offset int64, data []byte) (int, error) {
