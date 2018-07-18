@@ -12,9 +12,11 @@ import (
 
 type Talker struct {
 	// Should be map of hostname and port
-	Ifs           *Ifs
-	IdCounters    map[string]*uint64
-	Pools         map[string]*FsConnectionPool
+	Ifs *Ifs
+	//IdCounters    map[string]*uint64
+	IdCounters *sync.Map
+	//Pools         map[string]*FsConnectionPool
+	Pools         *sync.Map
 	RequestBuffer *sync.Map
 }
 
@@ -22,9 +24,19 @@ func NewTalker(Ifs *Ifs) *Talker {
 	return &Talker{
 		Ifs:           Ifs,
 		RequestBuffer: &sync.Map{},
-		IdCounters:    make(map[string]*uint64),
-		Pools:         make(map[string]*FsConnectionPool),
+		IdCounters:    &sync.Map{},
+		Pools:         &sync.Map{},
 	}
+}
+
+func (t *Talker) getPool(hostname string) *FsConnectionPool {
+	val, _ := t.Pools.Load(hostname)
+	return val.(*FsConnectionPool)
+}
+
+func (t *Talker) getIdCounter(hostname string) *uint64 {
+	val, _ := t.IdCounters.Load(hostname)
+	return val.(*uint64)
 }
 
 func (t *Talker) Startup(remoteRoots []*RemoteRoot, poolCount int) {
@@ -32,8 +44,8 @@ func (t *Talker) Startup(remoteRoots []*RemoteRoot, poolCount int) {
 	for _, remoteRoot := range remoteRoots {
 
 		idCounter := uint64(0)
-		t.IdCounters[remoteRoot.Hostname] = &idCounter
-		t.Pools[remoteRoot.Hostname] = newFsConnectionPool()
+		t.IdCounters.Store(remoteRoot.Hostname, &idCounter)
+		t.Pools.Store(remoteRoot.Hostname, newFsConnectionPool())
 		t.mountRemoteRoot(remoteRoot, poolCount)
 	}
 }
@@ -52,9 +64,9 @@ func (t *Talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 			)
 		}
 
-		t.Pools[remoteRoot.Hostname].Append(c)
+		t.getPool(remoteRoot.Hostname).Append(c)
 
-		index := uint8(t.Pools[remoteRoot.Hostname].Len() - 1)
+		index := uint8(t.getPool(remoteRoot.Hostname).Len() - 1)
 		go t.processSendingChannel(remoteRoot.Hostname, index)
 		go t.processIncomingMessages(remoteRoot.Hostname, index)
 
@@ -77,7 +89,7 @@ func (t *Talker) sendRequest(opCode uint8, hostname string, payload Payload) *Pa
 		Data: payload,
 	}
 
-	t.Pools[hostname].SendingChannels[GetRandomIndex(t.Pools[hostname].Len())] <- &PacketChannelTuple{
+	t.getPool(hostname).SendingChannels[GetRandomIndex(t.getPool(hostname).Len())] <- &PacketChannelTuple{
 		req,
 		respChannel,
 	}
@@ -96,12 +108,12 @@ func (t *Talker) processSendingChannel(hostname string, index uint8) {
 		zap.Uint8("index", index),
 	)
 
-	for req := range t.Pools[hostname].SendingChannels[index] {
+	for req := range t.getPool(hostname).SendingChannels[index] {
 
 		pkt, _ := req.Packet, req.Channel
 
 		pkt.ConnId = index
-		pkt.Id = atomic.AddUint64(t.IdCounters[hostname], 1)
+		pkt.Id = atomic.AddUint64(t.getIdCounter(hostname), 1)
 
 		zap.L().Debug("Sending Packet",
 			zap.String("hostname", hostname),
@@ -113,8 +125,9 @@ func (t *Talker) processSendingChannel(hostname string, index uint8) {
 
 		t.RequestBuffer.Store(GetMapKey(hostname, pkt.ConnId, pkt.Id), req)
 
+
 		data, _ := pkt.Marshal()
-		err := t.Pools[hostname].Connections[index].WriteMessage(websocket.BinaryMessage, data)
+		err := t.getPool(hostname).Connections[index].WriteMessage(websocket.BinaryMessage, data)
 		if err != nil {
 			zap.L().Fatal("Write Message Failed",
 				zap.Error(err),
@@ -140,7 +153,7 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 			zap.Uint8("index", index),
 		)
 
-		_, data, err := t.Pools[hostname].Connections[index].ReadMessage()
+		_, data, err := t.getPool(hostname).Connections[index].ReadMessage()
 
 		if err != nil {
 			zap.L().Fatal("Read Message Failed",

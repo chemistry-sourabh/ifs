@@ -128,19 +128,23 @@ func (root *Ifs) UpdateAttr(hostname string, info *AttrUpdateInfo) error {
 		)
 	}
 
-	rn.Size = uint64(info.Size)
-	rn.Mode = info.Mode
-	rn.Mtime = time.Unix(0, info.ModTime)
+	if rn != nil {
 
-	zap.L().Debug("Updated Attr",
-		zap.String("op", "attrupdate"),
-		zap.String("hostname", hostname),
-		zap.String("path", info.Path),
-		zap.String("node_path", rn.RemotePath.Path),
-		zap.String("mode", rn.Mode.String()),
-		zap.Uint64("size", rn.Size),
-		zap.Time("mtime", rn.Mtime),
-	)
+		rn.Size = uint64(info.Size)
+		rn.Mode = info.Mode
+		rn.Mtime = time.Unix(0, info.ModTime)
+
+		zap.L().Debug("Updated Attr",
+			zap.String("op", "attrupdate"),
+			zap.String("hostname", hostname),
+			zap.String("path", info.Path),
+			zap.String("node_path", rn.RemotePath.Path),
+			zap.String("mode", rn.Mode.String()),
+			zap.Uint64("size", rn.Size),
+			zap.Time("mtime", rn.Mtime),
+		)
+
+	}
 
 	return nil
 }
