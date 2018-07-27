@@ -160,13 +160,16 @@ func findNode(node fs.Node, nodePath string) *RemoteNode {
 
 	switch n := node.(type) {
 	case *VirtualNode:
-		newNode := n.Nodes[firstDir]
-		return findNode(newNode, restPath)
+		newNode, ok := n.Nodes[firstDir]
+		if ok {
+			return findNode(newNode, restPath)
+		}
 	case *RemoteNode:
-		newNode := n.RemoteNodes[firstDir]
-		return findNode(newNode, restPath)
+		newNode, ok := n.RemoteNodes[firstDir]
+		if ok {
+			return findNode(newNode, restPath)
+		}
 	}
 
-	//child := vn.Nodes[path]
 	return nil
 }
