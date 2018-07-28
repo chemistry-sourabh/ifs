@@ -25,7 +25,7 @@ func (fh *FileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fus
 		zap.Uint64("fd", fh.FileDescriptor),
 	)
 
-	b, err := rn.Ifs.FileHandler.ReadData(fh, req.Offset, req.Size)
+	b, err := FileHandler().ReadData(fh, req.Offset, req.Size)
 
 	resp.Data = b
 
@@ -58,7 +58,7 @@ func (fh *FileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *f
 		zap.Int("size", len(req.Data)),
 	)
 
-	n, err := rn.Ifs.FileHandler.WriteData(fh, req.Data, req.Offset)
+	n, err := FileHandler().WriteData(fh, req.Data, req.Offset)
 	resp.Size = n
 
 	if err != nil {
@@ -95,7 +95,7 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		FileDescriptor: fh.FileDescriptor,
 	}
 
-	resp := rn.Ifs.Talker.sendRequest(ReadDirRequest, rn.RemotePath.Hostname, req)
+	resp := Talker().sendRequest(ReadDirRequest, rn.RemotePath.Hostname, req)
 
 	var children []fuse.Dirent
 	//rn.RemoteNodes = make(map[string] *RemoteNode)
@@ -133,11 +133,15 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			}
 			children = append(children, child)
 
-			newRn, ok := rn.RemoteNodes[s.Name]
+			val, ok := rn.RemoteNodes.Get(s.Name)
+
+			var newRn *RemoteNode
 
 			if !ok {
 				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
-				rn.RemoteNodes[s.Name] = newRn
+				rn.RemoteNodes.Set(s.Name, newRn)
+			} else {
+				newRn = val.(*RemoteNode)
 			}
 
 			newRn.Size = uint64(s.Size)
@@ -190,6 +194,6 @@ func (fh *FileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) err
 		zap.String("path", rn.RemotePath.Path),
 	)
 
-	rn.Ifs.FileHandler.Release(fh)
+	FileHandler().Release(fh)
 	return nil
 }

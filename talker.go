@@ -205,6 +205,6 @@ func (t *talker) processRequest(hostname string, packet *Packet) {
 	switch packet.Op {
 	case AttrUpdateRequest:
 		attrUpdateInfo := packet.Data.(*AttrUpdateInfo)
-		Ifs().UpdateAttr(hostname, attrUpdateInfo)
+		UpdateAttr(hostname, attrUpdateInfo)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"os/user"
 	"strconv"
 	"os"
-	"time"
 	"go.uber.org/zap"
 	"sync"
 	"github.com/orcaman/concurrent-map"
@@ -34,8 +33,8 @@ func Ifs() *fileSystem {
 	return fileSystemInstance
 }
 
-func (root *fileSystem) Startup() {
-	root.RemoteRoots = generateRemoteRoots()
+func (root *fileSystem) Startup(remoteRoots []*RemoteRoot) {
+	root.RemoteRoots = generateRemoteRoots(remoteRoots)
 }
 
 // TODO All Errors should be resolved here
@@ -147,7 +146,7 @@ func generateVirtualNodes(paths []string, remotePaths []*RemotePath) (cmap.Concu
 			virtualNodes.Set(k, &RemoteNode{
 				IsDir:       true,
 				RemotePath:  aggRemotePaths[k][0],
-				RemoteNodes: make(map[string]*RemoteNode),
+				RemoteNodes: cmap.New(),
 			})
 		}
 	}
@@ -162,95 +161,14 @@ func generateRemoteRoot(paths []string, remotePaths []*RemotePath) *VirtualNode 
 	}
 }
 
-func generateRemoteRoots(ifs *fileSystem, remoteRoots []*RemoteRoot) map[string]fs.Node {
+func generateRemoteRoots(remoteRoots []*RemoteRoot) cmap.ConcurrentMap {
 
-	virtualNodes := make(map[string]fs.Node)
+	virtualNodes := cmap.New()
 
 	for _, remoteRoot := range remoteRoots {
 		vn := generateRemoteRoot(remoteRoot.Paths, remoteRoot.RemotePaths())
-		virtualNodes[remoteRoot.Hostname] = vn
+		virtualNodes.Set(remoteRoot.Hostname, vn)
 	}
 
 	return virtualNodes
-}
-
-// TODO Should Return Error
-func (root *fileSystem) UpdateAttr(hostname string, info *AttrUpdateInfo) error {
-
-	zap.L().Debug("Update Attr Request",
-		zap.String("op", "attrupdate"),
-		zap.String("hostname", hostname),
-		zap.String("path", info.Path),
-		zap.String("mode", info.Mode.String()),
-		zap.Int64("size", info.Size),
-		zap.Time("mod_time", time.Unix(0, info.ModTime)),
-	)
-
-	val, ok := root.RemoteRoots.Get(hostname)
-
-	var remoteRoot *VirtualNode
-
-	if ok {
-		remoteRoot = val.(*VirtualNode)
-	}
-
-	rn := findNode(remoteRoot, info.Path)
-
-	err := root.Server.InvalidateNodeData(rn)
-
-	if err == fuse.ErrNotCached {
-		zap.L().Warn("Node Not Cached",
-			zap.String("op", "attrupdate"),
-			zap.String("hostname", hostname),
-			zap.String("path", info.Path),
-			zap.String("mode", info.Mode.String()),
-			zap.Int64("size", info.Size),
-			zap.Time("mtime", time.Unix(0, info.ModTime)),
-		)
-	}
-
-	if rn != nil {
-
-		rn.Size = uint64(info.Size)
-		rn.Mode = info.Mode
-		rn.Mtime = time.Unix(0, info.ModTime)
-
-		zap.L().Debug("Updated Attr",
-			zap.String("op", "attrupdate"),
-			zap.String("hostname", hostname),
-			zap.String("path", info.Path),
-			zap.String("node_path", rn.RemotePath.Path),
-			zap.String("mode", rn.Mode.String()),
-			zap.Uint64("size", rn.Size),
-			zap.Time("mtime", rn.Mtime),
-		)
-
-	}
-
-	return nil
-}
-
-func findNode(node fs.Node, nodePath string) *RemoteNode {
-
-	if nodePath == "" {
-		return node.(*RemoteNode)
-	}
-
-	firstDir := FirstDir(nodePath)
-	restPath := RemoveFirstDir(nodePath)
-
-	switch n := node.(type) {
-	case *VirtualNode:
-		newNode, ok := n.Nodes[firstDir]
-		if ok {
-			return findNode(newNode, restPath)
-		}
-	case *RemoteNode:
-		newNode, ok := n.RemoteNodes[firstDir]
-		if ok {
-			return findNode(newNode, restPath)
-		}
-	}
-
-	return nil
 }

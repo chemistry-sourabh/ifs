@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"bazil.org/fuse"
 	"github.com/orcaman/concurrent-map"
+	"strconv"
 )
 
 var (
@@ -16,7 +17,6 @@ var (
 )
 
 type fileHandler struct {
-	//Ifs            *Ifs
 	FileDescriptor uint64
 	Opened         cmap.ConcurrentMap
 }
@@ -47,16 +47,16 @@ func (fh *fileHandler) OpenFile(remotePath *RemotePath, flags fuse.OpenFlags, is
 	}
 
 	if !isDir {
-		go fh.Ifs.Hoarder.CacheOpen(remotePath, fd, flags)
+		go Hoarder().CacheOpen(remotePath, fd, flags)
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(OpenRequest, remotePath.Hostname, openInfo)
+	resp := Talker().sendRequest(OpenRequest, remotePath.Hostname, openInfo)
 
 	if err, ok := resp.Data.(Error); ok {
 		return 0, err.Err
 	}
 
-	fh.Opened.Store(fd, openInfo)
+	fh.Opened.Set(strconv.FormatUint(fd, 10), openInfo)
 
 	return fd, nil
 }
@@ -64,9 +64,9 @@ func (fh *fileHandler) OpenFile(remotePath *RemotePath, flags fuse.OpenFlags, is
 // TODO Skip Cache if io op fails
 func (fh *fileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]byte, error) {
 
-	if _, ok := fh.Opened.Load(handle.FileDescriptor); ok {
+	if _, ok := fh.Opened.Get(strconv.FormatUint(handle.FileDescriptor, 10)); ok {
 
-		data, err := fh.Ifs.Hoarder.ReadCache(handle.FileDescriptor, offset, size)
+		data, err := Hoarder().ReadCache(handle.FileDescriptor, offset, size)
 
 		// If Read from Cache Failed then get from remote
 		if err != nil {
@@ -78,7 +78,7 @@ func (fh *fileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]b
 				Size:           size,
 			}
 
-			resp := fh.Ifs.Talker.sendRequest(ReadFileRequest, handle.RemoteNode.RemotePath.Hostname, fileReadInfo)
+			resp := Talker().sendRequest(ReadFileRequest, handle.RemoteNode.RemotePath.Hostname, fileReadInfo)
 
 			if err, ok := resp.Data.(Error); ok {
 				return nil, err.Err
@@ -99,7 +99,7 @@ func (fh *fileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]b
 
 func (fh *fileHandler) WriteData(handle *FileHandle, data []byte, offset int64) (int, error) {
 
-	if _, ok := fh.Opened.Load(handle.FileDescriptor); ok {
+	if _, ok := fh.Opened.Get(strconv.FormatUint(handle.FileDescriptor, 10)); ok {
 
 		// Send Bytes to Agent
 		writeInfo := &WriteInfo{
@@ -108,14 +108,14 @@ func (fh *fileHandler) WriteData(handle *FileHandle, data []byte, offset int64) 
 			Offset:         offset,
 			Data:           data,
 		}
-		resp := fh.Ifs.Talker.sendRequest(WriteFileRequest, handle.RemoteNode.RemotePath.Hostname, writeInfo)
+		resp := Talker().sendRequest(WriteFileRequest, handle.RemoteNode.RemotePath.Hostname, writeInfo)
 		if err, ok := resp.Data.(Error); ok {
 			return 0, err.Err
 		}
 
 		writeResult := resp.Data.(*WriteResult)
 
-		_, err := fh.Ifs.Hoarder.WriteCache(handle.FileDescriptor, offset, data)
+		_, err := Hoarder().WriteCache(handle.FileDescriptor, offset, data)
 
 		if err != nil {
 			zap.L().Warn("Write Cache Failed",
@@ -131,26 +131,26 @@ func (fh *fileHandler) WriteData(handle *FileHandle, data []byte, offset int64) 
 
 func (fh *fileHandler) Truncate(remotePath *RemotePath, attrInfo *AttrInfo) error {
 
-	resp := fh.Ifs.Talker.sendRequest(SetAttrRequest, remotePath.Hostname, attrInfo)
+	resp := Talker().sendRequest(SetAttrRequest, remotePath.Hostname, attrInfo)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err
 	}
 
-	fh.Ifs.Hoarder.CacheTrunc(remotePath, attrInfo)
+	Hoarder().CacheTrunc(remotePath, attrInfo)
 
 	return nil
 }
 
 func (fh *fileHandler) Release(handle *FileHandle) error {
-	if _, ok := fh.Opened.Load(handle.FileDescriptor); ok {
+	if _, ok := fh.Opened.Get(strconv.FormatUint(handle.FileDescriptor, 10)); ok {
 
 		closeInfo := &CloseInfo{
 			FileDescriptor: handle.FileDescriptor,
 			Path:           handle.RemoteNode.RemotePath.Path,
 		}
 
-		resp := fh.Ifs.Talker.sendRequest(CloseRequest, handle.RemoteNode.RemotePath.Hostname, closeInfo)
+		resp := Talker().sendRequest(CloseRequest, handle.RemoteNode.RemotePath.Hostname, closeInfo)
 
 		if err, ok := resp.Data.(Error); ok {
 			return err.Err
@@ -158,7 +158,7 @@ func (fh *fileHandler) Release(handle *FileHandle) error {
 
 		if !handle.RemoteNode.IsDir {
 
-			err := fh.Ifs.Hoarder.CacheClose(handle.FileDescriptor)
+			err := Hoarder().CacheClose(handle.FileDescriptor)
 
 			if err != nil {
 				zap.L().Warn("Cache Close Failed",
@@ -168,7 +168,7 @@ func (fh *fileHandler) Release(handle *FileHandle) error {
 
 		}
 
-		fh.Opened.Delete(handle.FileDescriptor)
+		fh.Opened.Remove(strconv.FormatUint(handle.FileDescriptor, 10))
 
 		return nil
 	}
@@ -187,7 +187,7 @@ func (fh *fileHandler) Create(remotePath *RemotePath, name string) (uint64, erro
 		FileDescriptor: fd,
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(CreateRequest, remotePath.Hostname, req)
+	resp := Talker().sendRequest(CreateRequest, remotePath.Hostname, req)
 
 	if err, ok := resp.Data.(Error); ok {
 		return 0, err.Err
@@ -199,7 +199,7 @@ func (fh *fileHandler) Create(remotePath *RemotePath, name string) (uint64, erro
 		Path:     path.Join(remotePath.Path, name),
 	}
 
-	err := fh.Ifs.Hoarder.CacheCreate(newRemotePath, fd)
+	err := Hoarder().CacheCreate(newRemotePath, fd)
 
 	if err != nil {
 		zap.L().Warn("Cache Create Failed",
@@ -207,7 +207,7 @@ func (fh *fileHandler) Create(remotePath *RemotePath, name string) (uint64, erro
 		)
 	}
 
-	fh.Opened.Store(fd, req)
+	fh.Opened.Set(strconv.FormatUint(fd, 10), req)
 
 	return fd, nil
 }
@@ -219,7 +219,7 @@ func (fh *fileHandler) Mkdir(remotePath *RemotePath, name string) error {
 		IsDir:   true,
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(CreateRequest, remotePath.Hostname, req)
+	resp := Talker().sendRequest(CreateRequest, remotePath.Hostname, req)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err
@@ -236,14 +236,14 @@ func (fh *fileHandler) Remove(remotePath *RemotePath, name string, isDir bool) e
 		Path:     path.Join(remotePath.Path, name),
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(RemoveRequest, remotePath.Hostname, newRemotePath)
+	resp := Talker().sendRequest(RemoveRequest, remotePath.Hostname, newRemotePath)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err
 	}
 
 	if !isDir {
-		err := fh.Ifs.Hoarder.CacheDelete(remotePath)
+		err := Hoarder().CacheDelete(remotePath)
 
 		if err != nil {
 			zap.L().Warn("Cache Remove Failed",
@@ -261,13 +261,13 @@ func (fh *fileHandler) Rename(remotePath *RemotePath, destPath string) error {
 		DestPath: destPath,
 	}
 
-	resp := fh.Ifs.Talker.sendRequest(RenameRequest, remotePath.Hostname, req)
+	resp := Talker().sendRequest(RenameRequest, remotePath.Hostname, req)
 
 	if err, ok := resp.Data.(Error); ok {
 		return err.Err
 	}
 
-	err := fh.Ifs.Hoarder.CacheRename(remotePath, destPath)
+	err := Hoarder().CacheRename(remotePath, destPath)
 
 	if err != nil {
 		zap.L().Warn("Cache Rename Failed",

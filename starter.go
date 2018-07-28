@@ -3,12 +3,17 @@ package ifs
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"path/filepath"
-	"strings"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"github.com/orcaman/concurrent-map"
 )
+
+var (
+	fuseServerInstance *fs.Server
+)
+
+func FuseServer() *fs.Server {
+	return fuseServerInstance
+}
 
 func SetupLogger(cfg *LogConfig) {
 
@@ -51,20 +56,14 @@ func MountRemoteRoots(cfg *FsConfig) {
 		)
 	}
 
-	server := fs.New(c, nil)
+	fuseServerInstance = fs.New(c, nil)
 
-	fileSystem := Ifs()
-
-
-	remoteRootNodes := generateRemoteRoots(fileSystem, cfg.RemoteRoots)
-
-	fileSystem.RemoteRoots = remoteRootNodes
-
+	Ifs().Startup(cfg.RemoteRoots)
 	Talker().Startup(cfg.RemoteRoots, cfg.ConnCount)
 	Hoarder().Startup(cfg.CacheLocation, 100)
 	FileHandler().StartUp()
 
-	server.Serve(fileSystem)
+	FuseServer().Serve(Ifs())
 
 	<-c.Ready
 	if err := c.MountError; err != nil {

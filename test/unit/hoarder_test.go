@@ -11,8 +11,7 @@ import (
 
 func TestHoarder_GetCacheFileName(t *testing.T) {
 
-	h := ifs.Hoarder{
-	}
+	h := ifs.Hoarder()
 
 	for i := 0; i < 5; i++ {
 		p := h.GetCacheFileName()

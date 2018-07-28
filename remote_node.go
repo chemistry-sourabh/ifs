@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"os"
+	"github.com/orcaman/concurrent-map"
 )
 
 type RemoteNode struct {
@@ -23,7 +24,7 @@ type RemoteNode struct {
 	// TODO Add Atime also
 
 	// Children
-	RemoteNodes map[string]*RemoteNode
+	RemoteNodes cmap.ConcurrentMap
 }
 
 func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
@@ -100,6 +101,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	return nil
 }
 
+// TODO Should be Helper
 func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNode {
 	return &RemoteNode{
 		IsDir:    isDir,
@@ -109,7 +111,7 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 			Port:     rn.RemotePath.Port,
 			Path:     path.Join(rn.RemotePath.Path, name),
 		},
-		RemoteNodes: make(map[string]*RemoteNode),
+		RemoteNodes: cmap.New(),
 	}
 }
 
@@ -149,11 +151,14 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 			)
 
 			// TODO Remove Remote Nodes if Missing
-			newRn, ok := rn.RemoteNodes[s.Name]
+			val, ok := rn.RemoteNodes.Get(s.Name)
 
+			var newRn *RemoteNode
 			if !ok {
 				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
-				rn.RemoteNodes[s.Name] = newRn
+				rn.RemoteNodes.Set(s.Name, newRn)
+			} else {
+				newRn = val.(*RemoteNode)
 			}
 
 			newRn.Size = uint64(s.Size)
@@ -186,13 +191,13 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 		zap.String("name", name),
 	)
 
-	val, ok := rn.RemoteNodes[name]
+	val, ok := rn.RemoteNodes.Get(name)
 
 	if !ok {
 		rn.updateChildrenRemoteNodes()
 	}
 
-	val, ok = rn.RemoteNodes[name]
+	val, ok = rn.RemoteNodes.Get(name)
 
 	zap.L().Debug("Lookup Response",
 		zap.String("op", "lookup"),
@@ -203,7 +208,7 @@ func (rn *RemoteNode) Lookup(ctx context.Context, name string) (fs.Node, error) 
 	)
 
 	if ok {
-		return val, nil
+		return val.(fs.Node), nil
 	} else {
 		return nil, fuse.ENOENT
 	}
@@ -339,7 +344,7 @@ func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp 
 	fd, err := FileHandler().Create(rn.RemotePath, req.Name)
 	if err == nil {
 		newRn := rn.generateChildRemoteNode(req.Name, false)
-		rn.RemoteNodes[req.Name] = newRn
+		rn.RemoteNodes.Set(req.Name, newRn)
 
 		fh := &FileHandle{
 			FileDescriptor: fd,
@@ -375,7 +380,7 @@ func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Nod
 
 	if err == nil {
 		newRn := rn.generateChildRemoteNode(req.Name, true)
-		rn.RemoteNodes[req.Name] = newRn
+		rn.RemoteNodes.Set(req.Name,newRn)
 		return newRn, nil
 	} else {
 
@@ -403,7 +408,7 @@ func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error
 
 	err := FileHandler().Remove(rn.RemotePath, req.Name, rn.IsDir)
 	if err == nil {
-		delete(rn.RemoteNodes, req.Name)
+		rn.RemoteNodes.Remove(req.Name)
 	} else {
 
 		zap.L().Warn("Remove Error Response",
@@ -430,7 +435,15 @@ func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDi
 	)
 
 	rnDestDir := newDir.(*RemoteNode)
-	curRn := rn.RemoteNodes[req.OldName]
+	val, ok := rn.RemoteNodes.Get(req.OldName)
+
+	var curRn *RemoteNode
+	if ok {
+		curRn = val.(*RemoteNode)
+	} else {
+		// TODO Error
+	}
+
 	destPath := path.Join(rnDestDir.RemotePath.Path, req.NewName)
 
 	err := FileHandler().Rename(curRn.RemotePath, destPath)
@@ -443,8 +456,8 @@ func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDi
 
 	if err == nil {
 		curRn.RemotePath.Path = destPath
-		delete(rn.RemoteNodes, req.OldName)
-		rnDestDir.RemoteNodes[req.NewName] = curRn
+		rn.RemoteNodes.Remove(req.OldName)
+		rnDestDir.RemoteNodes.Set(req.NewName, curRn)
 	} else {
 
 		zap.L().Warn("Rename Error Response",
