@@ -9,6 +9,7 @@ import (
 	"sync"
 	"go.uber.org/zap"
 	"github.com/orcaman/concurrent-map"
+	"time"
 )
 
 type talker struct {
@@ -59,6 +60,35 @@ func (t *talker) Startup(remoteRoots []*RemoteRoot, poolCount int) {
 	}
 }
 
+func (t *talker) setupPing(ch <-chan time.Time) {
+	for range ch {
+
+		for tup := range t.Pools.IterBuffered() {
+
+			hostname := tup.Key
+			pool := tup.Val.(*FsConnectionPool)
+
+			for index, conn := range pool.Connections {
+
+				err := conn.WriteMessage(websocket.PingMessage, []byte("ping"))
+
+				zap.L().Debug("Ping Sent",
+					zap.String("hostname", hostname),
+					zap.Int("index", index),
+				)
+
+				if err != nil {
+					zap.L().Warn("Ping Failed",
+						zap.String("hostname", hostname),
+						zap.Int("index", index),
+						zap.Error(err),
+					)
+				}
+			}
+		}
+	}
+}
+
 func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 
 	u := url.URL{Scheme: "ws", Host: remoteRoot.Address(), Path: "/"}
@@ -76,6 +106,7 @@ func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 		t.getPool(remoteRoot.Hostname).Append(c)
 
 		index := uint8(t.getPool(remoteRoot.Hostname).Len() - 1)
+
 		go t.processSendingChannel(remoteRoot.Hostname, index)
 		go t.processIncomingMessages(remoteRoot.Hostname, index)
 
@@ -84,6 +115,8 @@ func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 	payload := &WatchInfo{
 		Paths: remoteRoot.Paths,
 	}
+
+	go t.setupPing(time.Tick(30 * time.Second))
 
 	t.sendRequest(WatchDirRequest, remoteRoot.Hostname, payload)
 

@@ -17,7 +17,7 @@ type agentTalker struct {
 
 var (
 	agentTalkerInstance *agentTalker
-	agentTalkerOnce sync.Once
+	agentTalkerOnce     sync.Once
 )
 
 func AgentTalker() *agentTalker {
@@ -133,14 +133,23 @@ func (t *agentTalker) HandleRequests(w http.ResponseWriter, r *http.Request) {
 
 	i := uint8(t.Pool.Connections.Count())
 
-	t.Pool.Set(i, conn)
+	conn.SetPingHandler(func(appData string) error {
 
+		zap.L().Debug("Got Ping",
+			zap.String("msg", appData),
+			zap.Uint8("index", i),
+		)
+
+		return nil
+	})
+
+	t.Pool.Set(i, conn)
 
 	go t.Listen(i)
 	go t.processSendingChannel(i)
 }
 
 func (t *agentTalker) SendPacket(pkt *Packet) {
-	val , _ := t.Pool.SendingChannels.Get(strconv.FormatUint(uint64(GetRandomIndex(t.Pool.Connections.Count())), 10))
+	val, _ := t.Pool.SendingChannels.Get(strconv.FormatUint(uint64(GetRandomIndex(t.Pool.Connections.Count())), 10))
 	val.(chan *Packet) <- pkt
 }
