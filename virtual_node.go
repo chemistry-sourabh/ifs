@@ -8,11 +8,11 @@ import (
 	"os"
 	"golang.org/x/net/context"
 	"go.uber.org/zap"
+	"github.com/orcaman/concurrent-map"
 )
 
 type VirtualNode struct {
-	Ifs   *Ifs
-	Nodes map[string] fs.Node
+	Nodes cmap.ConcurrentMap
 }
 
 func (vn *VirtualNode) Attr(ctx context.Context, attr *fuse.Attr) error {
@@ -50,8 +50,8 @@ func (vn *VirtualNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	var children []fuse.Dirent
 
-	for dirName := range vn.Nodes {
-		child := fuse.Dirent{Type: fuse.DT_Dir, Name: dirName}
+	for dirName := range vn.Nodes.IterBuffered() {
+		child := fuse.Dirent{Type: fuse.DT_Dir, Name: dirName.Key}
 		children = append(children, child)
 	}
 
@@ -72,7 +72,7 @@ func (vn *VirtualNode) Lookup(ctx context.Context, name string) (fs.Node, error)
 		zap.String("name", name),
 	)
 
-	val, ok := vn.Nodes[name]
+	val, ok := vn.Nodes.Get(name)
 
 	zap.L().Debug("Lookup Response",
 		zap.Bool("vn", true),
@@ -82,7 +82,7 @@ func (vn *VirtualNode) Lookup(ctx context.Context, name string) (fs.Node, error)
 	)
 
 	if ok {
-		return val, nil
+		return val.(fs.Node), nil
 	} else {
 		return nil, fuse.ENOENT
 	}

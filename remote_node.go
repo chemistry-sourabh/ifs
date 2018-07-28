@@ -13,19 +13,21 @@ import (
 )
 
 type RemoteNode struct {
-	Ifs      *Ifs        `msgpack:"-"`
+	RemotePath *RemotePath
+
 	IsDir    bool
-	IsCached bool        `msgpack:"-"`
-	Size     uint64      `msgpack:"-"`
-	Mode     os.FileMode `msgpack:"-"`
-	Mtime    time.Time   `msgpack:"-"`
+	IsCached bool
+	Size     uint64
+	Mode     os.FileMode
+	Mtime    time.Time
 	// TODO Add Atime also
-	RemotePath  *RemotePath
-	RemoteNodes map[string]*RemoteNode `msgpack:"-"`
+
+	// Children
+	RemoteNodes map[string]*RemoteNode
 }
 
 func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
-	// Update FileHandler if invalid
+	// Update fileHandler if invalid
 
 	zap.L().Debug("Attr FS Request",
 		zap.String("op", "attr"),
@@ -36,7 +38,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	if !rn.IsCached {
 
 		var resp *Packet
-		resp = rn.Ifs.Talker.sendRequest(AttrRequest, rn.RemotePath.Hostname, rn.RemotePath)
+		resp = Talker().sendRequest(AttrRequest, rn.RemotePath.Hostname, rn.RemotePath)
 
 		var err error = nil
 		if respErr, ok := resp.Data.(Error); !ok {
@@ -100,7 +102,6 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNode {
 	return &RemoteNode{
-		Ifs:      rn.Ifs,
 		IsDir:    isDir,
 		IsCached: false,
 		RemotePath: &RemotePath{
@@ -113,7 +114,7 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 }
 
 func (rn *RemoteNode) updateChildrenRemoteNodes() {
-	resp := rn.Ifs.Talker.sendRequest(ReadDirAllRequest, rn.RemotePath.Hostname, rn.RemotePath)
+	resp := Talker().sendRequest(ReadDirAllRequest, rn.RemotePath.Hostname, rn.RemotePath)
 
 	zap.L().Debug("ReaddirAll FS Request",
 		zap.String("op", "readdirall"),
@@ -221,7 +222,7 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 	var err error
 	var fd uint64
 
-	fd, err = rn.Ifs.FileHandler.OpenFile(rn.RemotePath, req.Flags, rn.IsDir)
+	fd, err = FileHandler().OpenFile(rn.RemotePath, req.Flags, rn.IsDir)
 
 	if err != nil {
 
@@ -269,14 +270,14 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 
 	var err error
 	if req.Valid.Size() {
-		err = rn.Ifs.FileHandler.Truncate(rn.RemotePath, attrInfo)
+		err = FileHandler().Truncate(rn.RemotePath, attrInfo)
 
 		if err == nil {
 			rn.Size = req.Size
 		}
 
 	} else {
-		resp := rn.Ifs.Talker.sendRequest(SetAttrRequest, rn.RemotePath.Hostname, attrInfo)
+		resp := Talker().sendRequest(SetAttrRequest, rn.RemotePath.Hostname, attrInfo)
 		if respErr, ok := resp.Data.(Error); ok {
 			err = respErr.Err
 		}
@@ -335,7 +336,7 @@ func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp 
 	// Create File in Cache if Space is available
 	// File should be in open state
 	// Return Errors
-	fd, err := rn.Ifs.FileHandler.Create(rn.RemotePath, req.Name)
+	fd, err := FileHandler().Create(rn.RemotePath, req.Name)
 	if err == nil {
 		newRn := rn.generateChildRemoteNode(req.Name, false)
 		rn.RemoteNodes[req.Name] = newRn
@@ -370,7 +371,7 @@ func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Nod
 		zap.String("name", req.Name),
 	)
 
-	err := rn.Ifs.FileHandler.Mkdir(rn.RemotePath, req.Name)
+	err := FileHandler().Mkdir(rn.RemotePath, req.Name)
 
 	if err == nil {
 		newRn := rn.generateChildRemoteNode(req.Name, true)
@@ -400,7 +401,7 @@ func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error
 		zap.String("name", req.Name),
 	)
 
-	err := rn.Ifs.FileHandler.Remove(rn.RemotePath, req.Name, rn.IsDir)
+	err := FileHandler().Remove(rn.RemotePath, req.Name, rn.IsDir)
 	if err == nil {
 		delete(rn.RemoteNodes, req.Name)
 	} else {
@@ -432,7 +433,7 @@ func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDi
 	curRn := rn.RemoteNodes[req.OldName]
 	destPath := path.Join(rnDestDir.RemotePath.Path, req.NewName)
 
-	err := rn.Ifs.FileHandler.Rename(curRn.RemotePath, destPath)
+	err := FileHandler().Rename(curRn.RemotePath, destPath)
 	// Check If destination exists (actual move should do it)
 	// Do Move at Remote
 	// Update Cache Map

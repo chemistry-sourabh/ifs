@@ -9,6 +9,7 @@ import (
 	"bazil.org/fuse"
 	"sync/atomic"
 	"strconv"
+	"github.com/orcaman/concurrent-map"
 )
 
 type CacheRequest interface {
@@ -21,81 +22,52 @@ type CacheRequest interface {
 // SetAttr To Cache is AttrInfo
 // Delete is RemotePath
 
-type Hoarder struct {
-	Ifs    *Ifs
-	Path   string
-	Size   uint64
-	cached *sync.Map
-	//cached   map[string]string
-	fetching *sync.Map
-	//fetching       map[string]bool
-	opened *sync.Map
-	//openedFiles    map[uint64]*os.File
-	fetchQueue     chan *FetchInfo
-	fileId         uint64
+type hoarder struct {
+	Path       string
+	Size       uint64
+	cached     cmap.ConcurrentMap
+	fetching   cmap.ConcurrentMap
+	opened     cmap.ConcurrentMap
+	fetchQueue chan *FetchInfo
+	fileId     uint64
 }
 
-func (h *Hoarder) Startup() {
-	h.fetching = &sync.Map{}
-	h.cached = &sync.Map{}
-	h.opened = &sync.Map{}
-	h.fetchQueue = make(chan *FetchInfo, ChannelLength)
-	h.fileId = 0
+var (
+	hoarderInstance *hoarder
+	hoarderOnce     sync.Once
+)
+
+func Hoarder() *hoarder {
+	hoarderOnce.Do(func() {
+		hoarderInstance = &hoarder{
+			cached:     cmap.New(),
+			fetching:   cmap.New(),
+			opened:     cmap.New(),
+			fetchQueue: make(chan *FetchInfo, ChannelLength),
+		}
+	})
+
+	return hoarderInstance
+}
+
+func (h *hoarder) Startup(path string, size uint64) {
+
+	h.Path = path
+	h.Size = size
 
 	h.DeleteCache()
 
 	go h.processFetchRequests()
 }
 
-func (h *Hoarder) DeleteCache() {
+func (h *hoarder) DeleteCache() {
 	zap.L().Info("Deleting Cache")
 	os.RemoveAll(h.Path)
 	os.MkdirAll(h.Path, 0755)
 }
 
-//func (h *Hoarder) ProcessCacheRequests() {
-//
-//	for pkt := range h.ingress {
-//
-//		switch pkt.Op {
-//		case CacheFileRequest:
-//			rp := pkt.Data.(*RemotePath)
-//			h.cacheFile(rp)
-//		case CacheWriteRequest:
-//			writeInfo := pkt.Data.(*WriteInfo)
-//			h.SendWrite(writeInfo)
-//		case CacheTruncRequest:
-//			truncInfo := pkt.Data.(*AttrInfo)
-//			h.CacheTrunc(truncInfo)
-//		case CacheCreateRequest:
-//			rp := pkt.Data.(*RemotePath)
-//			h.CacheCreate(rp)
-//		case CacheDeleteRequest:
-//			rp := pkt.Data.(*RemotePath)
-//			h.CacheDelete(rp)
-//		case CacheRenameRequest:
-//			req := pkt.Data.(*RenameInfo)
-//			h.CacheRename(req.RemotePath, req.DestPath)
-//		case CacheOpenRequest:
-//			req := pkt.Data.(*OpenInfo)
-//			h.CacheOpen(req.RemotePath, req.FileDescriptor, req.Flags)
-//		}
-//
-//	}
-//
-//}
-
-//func (h *Hoarder) SubmitRequest(opCode uint8, payload Payload) {
-//	req := &Packet{
-//		Op:   opCode,
-//		Data: payload,
-//	}
-//
-//	h.ingress <- req
-//}
-
-func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) error {
-	if val, ok := h.cached.Load(remotePath.String()); ok {
+func (h *hoarder) CacheRename(remotePath *RemotePath, destPath string) error {
+	if val, ok := h.cached.Get(remotePath.String()); ok {
 
 		fname := val.(string)
 
@@ -105,8 +77,8 @@ func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) error {
 			Path:     destPath,
 		}
 
-		h.cached.Store(newRemotePath.String(), fname)
-		h.cached.Delete(remotePath.String())
+		h.cached.Set(newRemotePath.String(), fname)
+		h.cached.Remove(remotePath.String())
 
 		return nil
 	}
@@ -114,12 +86,12 @@ func (h *Hoarder) CacheRename(remotePath *RemotePath, destPath string) error {
 	return os.ErrInvalid
 }
 
-func (h *Hoarder) IsCached(rp *RemotePath) bool {
-	_, ok := h.cached.Load(rp.String())
+func (h *hoarder) IsCached(rp *RemotePath) bool {
+	_, ok := h.cached.Get(rp.String())
 	return ok
 }
 
-func (h *Hoarder) openCacheFile(fname string, fileDescriptor uint64, flags fuse.OpenFlags) error {
+func (h *hoarder) openCacheFile(fname string, fileDescriptor uint64, flags fuse.OpenFlags) error {
 
 	f, err := os.OpenFile(path.Join(h.Path, fname), int(flags), 0666)
 
@@ -127,13 +99,13 @@ func (h *Hoarder) openCacheFile(fname string, fileDescriptor uint64, flags fuse.
 		return err
 	}
 
-	h.opened.Store(fileDescriptor, f)
+	h.opened.Set(strconv.FormatUint(fileDescriptor, 10), f)
 	return nil
 }
 
-func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags fuse.OpenFlags) {
+func (h *hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags fuse.OpenFlags) {
 
-	if val, ok := h.cached.Load(remotePath.String()); ok {
+	if val, ok := h.cached.Get(remotePath.String()); ok {
 		h.openCacheFile(val.(string), fileDescriptor, flags)
 	} else {
 
@@ -147,20 +119,20 @@ func (h *Hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags
 	}
 }
 
-func (h *Hoarder) processFetchRequests() {
+func (h *hoarder) processFetchRequests() {
 	for openInfo := range h.fetchQueue {
 
 		rp := openInfo.RemotePath
 
-		_, cachedOk := h.cached.Load(rp.String())
-		_, fetchingOk := h.fetching.Load(rp.String())
+		_, cachedOk := h.cached.Get(rp.String())
+		_, fetchingOk := h.fetching.Get(rp.String())
 
 		if !cachedOk && !fetchingOk {
 			go func() {
 				err := h.cacheFile(rp)
 
 				if err == nil {
-					val, _ := h.cached.Load(rp.String())
+					val, _ := h.cached.Get(rp.String())
 					h.openCacheFile(val.(string), openInfo.FileDescriptor, openInfo.Flags)
 				}
 
@@ -170,13 +142,13 @@ func (h *Hoarder) processFetchRequests() {
 	}
 }
 
-func (h *Hoarder) cacheFile(remotePath *RemotePath) error {
+func (h *hoarder) cacheFile(remotePath *RemotePath) error {
 
 	// TODO Check Cache Space
 	// TODO Implement some form of cache management
-	h.fetching.Store(remotePath.String(), true)
+	h.fetching.Set(remotePath.String(), true)
 
-	resp := h.Ifs.Talker.sendRequest(FetchFileRequest, remotePath.Hostname, remotePath)
+	resp := Talker().sendRequest(FetchFileRequest, remotePath.Hostname, remotePath)
 
 	// TODO Log Error
 	if err, ok := resp.Data.(Error); ok {
@@ -190,21 +162,21 @@ func (h *Hoarder) cacheFile(remotePath *RemotePath) error {
 		0666)
 
 	if err == nil {
-		h.cached.Store(remotePath.String(), fname)
+		h.cached.Set(remotePath.String(), fname)
 	}
-	h.fetching.Delete(remotePath.String())
+	h.fetching.Remove(remotePath.String())
 
 	return err
 }
 
-func (h *Hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
+func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
 	// TODO Log the error if any ?
-	h.Ifs.Talker.sendRequest(WriteFileRequest, hostname, writeInfo)
+	Talker().sendRequest(WriteFileRequest, hostname, writeInfo)
 	return nil
 }
 
-func (h *Hoarder) CacheTrunc(remotePath *RemotePath, truncInfo *AttrInfo) error {
-	if fname, ok := h.cached.Load(remotePath.String()); ok {
+func (h *hoarder) CacheTrunc(remotePath *RemotePath, truncInfo *AttrInfo) error {
+	if fname, ok := h.cached.Get(remotePath.String()); ok {
 		err := os.Truncate(path.Join(h.Path, fname.(string)), int64(truncInfo.Size))
 		return err
 	}
@@ -212,15 +184,15 @@ func (h *Hoarder) CacheTrunc(remotePath *RemotePath, truncInfo *AttrInfo) error 
 	return os.ErrNotExist
 }
 
-func (h *Hoarder) CacheCreate(remotePath *RemotePath, fd uint64) error {
-	if _, ok := h.cached.Load(remotePath.String()); !ok {
+func (h *hoarder) CacheCreate(remotePath *RemotePath, fd uint64) error {
+	if _, ok := h.cached.Get(remotePath.String()); !ok {
 		fname := h.GetCacheFileName()
 		f, err := os.Create(path.Join(h.Path, fname))
 
 		// if error doesnt happens this will be nil right ?
 		if err == nil {
-			h.cached.Store(remotePath.String(), fname)
-			h.opened.Store(fd, f)
+			h.cached.Set(remotePath.String(), fname)
+			h.opened.Set(strconv.FormatUint(fd, 10), f)
 		}
 
 		return err
@@ -229,15 +201,15 @@ func (h *Hoarder) CacheCreate(remotePath *RemotePath, fd uint64) error {
 	return os.ErrExist
 }
 
-func (h *Hoarder) CacheDelete(remotePath *RemotePath) error {
-	if val, ok := h.cached.Load(remotePath.String()); ok {
+func (h *hoarder) CacheDelete(remotePath *RemotePath) error {
+	if val, ok := h.cached.Get(remotePath.String()); ok {
 
 		fname := val.(string)
 
 		err := os.Remove(path.Join(h.Path, fname))
 
 		if err == nil {
-			h.cached.Delete(remotePath.String())
+			h.cached.Remove(remotePath.String())
 		}
 
 		return err
@@ -255,14 +227,13 @@ func (h *Hoarder) CacheDelete(remotePath *RemotePath) error {
 //	return nil, os.ErrNotExist
 //}
 
-func (h *Hoarder) ReadCache(fd uint64, offset int64, size int) ([]byte, error) {
-	if val, ok := h.opened.Load(fd); ok {
+func (h *hoarder) ReadCache(fd uint64, offset int64, size int) ([]byte, error) {
+	if val, ok := h.opened.Get(strconv.FormatUint(fd, 10)); ok {
 
 		f := val.(*os.File)
 
 		b := make([]byte, size)
 		_, err := f.ReadAt(b, offset)
-
 
 		if err == nil {
 			return b, nil
@@ -274,13 +245,13 @@ func (h *Hoarder) ReadCache(fd uint64, offset int64, size int) ([]byte, error) {
 	return nil, os.ErrInvalid
 }
 
-func (h *Hoarder) GetCacheFileName() string {
+func (h *hoarder) GetCacheFileName() string {
 	fileId := atomic.AddUint64(&h.fileId, 1)
 	return strconv.FormatUint(fileId, 10)
 }
 
-func (h *Hoarder) WriteCache(fd uint64, offset int64, data []byte) (int, error) {
-	if val, ok := h.opened.Load(fd); ok {
+func (h *hoarder) WriteCache(fd uint64, offset int64, data []byte) (int, error) {
+	if val, ok := h.opened.Get(strconv.FormatUint(fd, 10)); ok {
 		f := val.(*os.File)
 		n, err := f.WriteAt(data, offset)
 		return n, err
@@ -289,8 +260,8 @@ func (h *Hoarder) WriteCache(fd uint64, offset int64, data []byte) (int, error) 
 	return 0, os.ErrInvalid
 }
 
-func (h *Hoarder) CacheClose(fd uint64) error {
-	if val, ok := h.opened.Load(fd); ok {
+func (h *hoarder) CacheClose(fd uint64) error {
+	if val, ok := h.opened.Get(strconv.FormatUint(fd, 10)); ok {
 		f := val.(*os.File)
 		return f.Close()
 	}

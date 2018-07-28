@@ -7,65 +7,8 @@ import (
 	"strings"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"github.com/orcaman/concurrent-map"
 )
-
-func generateVirtualNodes(ifs *Ifs, paths []string, remotePaths []*RemotePath) (map[string]fs.Node) {
-
-	aggPaths := make(map[string][]string)
-	aggRemotePaths := make(map[string][]*RemotePath)
-	virtualNodes := make(map[string]fs.Node)
-
-	for i, p := range paths {
-
-		l := strings.Split(strings.Trim(p, "/"), "/")
-
-		if l[0] != "" {
-			firstDir := l[0]
-			aggPaths[firstDir] = append(aggPaths[firstDir], filepath.Join(l[1:]...))
-			aggRemotePaths[firstDir] = append(aggRemotePaths[firstDir], remotePaths[i])
-		}
-
-	}
-
-	for k, v := range aggPaths {
-
-		if len(v) > 1 || (len(v) == 1 && v[0] != "") {
-			virtualNodes[k] = &VirtualNode{
-				Ifs:   ifs,
-				Nodes: generateVirtualNodes(ifs, v, aggRemotePaths[k]),
-			}
-		} else {
-			virtualNodes[k] = &RemoteNode{
-				Ifs:         ifs,
-				IsDir:       true,
-				RemotePath:  aggRemotePaths[k][0],
-				RemoteNodes: make(map[string]*RemoteNode),
-			}
-		}
-	}
-
-	return virtualNodes
-}
-
-func generateRemoteRoot(ifs *Ifs, paths []string, remotePaths []*RemotePath) *VirtualNode {
-
-	return &VirtualNode{
-		Ifs:   ifs,
-		Nodes: generateVirtualNodes(ifs, paths, remotePaths),
-	}
-}
-
-func generateRemoteRoots(ifs *Ifs, remoteRoots []*RemoteRoot) map[string]fs.Node {
-
-	virtualNodes := make(map[string]fs.Node)
-
-	for _, remoteRoot := range remoteRoots {
-		vn := generateRemoteRoot(ifs, remoteRoot.Paths, remoteRoot.RemotePaths())
-		virtualNodes[remoteRoot.Hostname] = vn
-	}
-
-	return virtualNodes
-}
 
 func SetupLogger(cfg *LogConfig) {
 
@@ -110,32 +53,16 @@ func MountRemoteRoots(cfg *FsConfig) {
 
 	server := fs.New(c, nil)
 
-	fileSystem := &Ifs{
-		Server: server,
-	}
+	fileSystem := Ifs()
+
 
 	remoteRootNodes := generateRemoteRoots(fileSystem, cfg.RemoteRoots)
 
-	talker := NewTalker(fileSystem)
-
-	fileHandler := &FileHandler{
-		Ifs: fileSystem,
-	}
-
-	hoarder := &Hoarder{
-		Ifs:  fileSystem,
-		Path: cfg.CacheLocation,
-		Size: 100,
-	}
-
-	fileSystem.Talker = talker
-	fileSystem.FileHandler = fileHandler
-	fileSystem.Hoarder = hoarder
 	fileSystem.RemoteRoots = remoteRootNodes
 
-	talker.Startup(cfg.RemoteRoots, cfg.ConnCount)
-	hoarder.Startup()
-	fileHandler.StartUp()
+	Talker().Startup(cfg.RemoteRoots, cfg.ConnCount)
+	Hoarder().Startup(cfg.CacheLocation, 100)
+	FileHandler().StartUp()
 
 	server.Serve(fileSystem)
 

@@ -8,49 +8,58 @@ import (
 	"sync/atomic"
 	"sync"
 	"go.uber.org/zap"
+	"github.com/orcaman/concurrent-map"
 )
 
-type Talker struct {
+type talker struct {
 	// Should be map of hostname and port
-	Ifs *Ifs
 	//IdCounters    map[string]*uint64
-	IdCounters *sync.Map
+	IdCounters cmap.ConcurrentMap
 	//Pools         map[string]*FsConnectionPool
-	Pools         *sync.Map
-	RequestBuffer *sync.Map
+	Pools         cmap.ConcurrentMap
+	RequestBuffer cmap.ConcurrentMap
 }
 
-func NewTalker(Ifs *Ifs) *Talker {
-	return &Talker{
-		Ifs:           Ifs,
-		RequestBuffer: &sync.Map{},
-		IdCounters:    &sync.Map{},
-		Pools:         &sync.Map{},
-	}
+var (
+	talkerInstance *talker
+	talkerOnce     sync.Once
+)
+
+func Talker() *talker {
+	talkerOnce.Do(func() {
+		talkerInstance = &talker{
+			IdCounters:    cmap.New(),
+			Pools:         cmap.New(),
+			RequestBuffer: cmap.New(),
+		}
+	})
+
+	return talkerInstance
+
 }
 
-func (t *Talker) getPool(hostname string) *FsConnectionPool {
-	val, _ := t.Pools.Load(hostname)
+func (t talker) getPool(hostname string) *FsConnectionPool {
+	val, _ := t.Pools.Get(hostname)
 	return val.(*FsConnectionPool)
 }
 
-func (t *Talker) getIdCounter(hostname string) *uint64 {
-	val, _ := t.IdCounters.Load(hostname)
+func (t *talker) getIdCounter(hostname string) *uint64 {
+	val, _ := t.IdCounters.Get(hostname)
 	return val.(*uint64)
 }
 
-func (t *Talker) Startup(remoteRoots []*RemoteRoot, poolCount int) {
+func (t *talker) Startup(remoteRoots []*RemoteRoot, poolCount int) {
 
 	for _, remoteRoot := range remoteRoots {
 
 		idCounter := uint64(0)
-		t.IdCounters.Store(remoteRoot.Hostname, &idCounter)
-		t.Pools.Store(remoteRoot.Hostname, newFsConnectionPool())
+		t.IdCounters.Set(remoteRoot.Hostname, &idCounter)
+		t.Pools.Set(remoteRoot.Hostname, newFsConnectionPool())
 		t.mountRemoteRoot(remoteRoot, poolCount)
 	}
 }
 
-func (t *Talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
+func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 
 	u := url.URL{Scheme: "ws", Host: remoteRoot.Address(), Path: "/"}
 
@@ -80,7 +89,7 @@ func (t *Talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 
 }
 
-func (t *Talker) sendRequest(opCode uint8, hostname string, payload Payload) *Packet {
+func (t *talker) sendRequest(opCode uint8, hostname string, payload Payload) *Packet {
 
 	respChannel := make(chan *Packet)
 
@@ -101,7 +110,7 @@ func GetMapKey(hostname string, connId uint8, id uint64) string {
 	return strings.Join([]string{hostname, strconv.FormatInt(int64(connId), 10), strconv.FormatInt(int64(id), 10)}, "_")
 }
 
-func (t *Talker) processSendingChannel(hostname string, index uint8) {
+func (t *talker) processSendingChannel(hostname string, index uint8) {
 
 	zap.L().Info("Starting Egress Channel Processor",
 		zap.String("hostname", hostname),
@@ -123,8 +132,7 @@ func (t *Talker) processSendingChannel(hostname string, index uint8) {
 			zap.Uint64("id", pkt.Id),
 		)
 
-		t.RequestBuffer.Store(GetMapKey(hostname, pkt.ConnId, pkt.Id), req)
-
+		t.RequestBuffer.Set(GetMapKey(hostname, pkt.ConnId, pkt.Id), req)
 
 		data, _ := pkt.Marshal()
 		err := t.getPool(hostname).Connections[index].WriteMessage(websocket.BinaryMessage, data)
@@ -137,7 +145,7 @@ func (t *Talker) processSendingChannel(hostname string, index uint8) {
 	}
 }
 
-func (t *Talker) processIncomingMessages(hostname string, index uint8) {
+func (t *talker) processIncomingMessages(hostname string, index uint8) {
 
 	zap.L().Info("Starting Ingress Message Processor",
 		zap.String("hostname", hostname),
@@ -177,14 +185,14 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 
 			var ch chan *Packet
 
-			req, _ := t.RequestBuffer.Load(GetMapKey(hostname, packet.ConnId, packet.Id))
+			req, _ := t.RequestBuffer.Get(GetMapKey(hostname, packet.ConnId, packet.Id))
 
 			ch = req.(*PacketChannelTuple).Channel
 
 			ch <- packet
 			close(ch)
 
-			t.RequestBuffer.Delete(GetMapKey(hostname, packet.ConnId, packet.Id))
+			t.RequestBuffer.Remove(GetMapKey(hostname, packet.ConnId, packet.Id))
 
 		} else {
 			go t.processRequest(hostname, packet)
@@ -192,11 +200,11 @@ func (t *Talker) processIncomingMessages(hostname string, index uint8) {
 	}
 }
 
-func (t *Talker) processRequest(hostname string, packet *Packet) {
+func (t *talker) processRequest(hostname string, packet *Packet) {
 
 	switch packet.Op {
 	case AttrUpdateRequest:
 		attrUpdateInfo := packet.Data.(*AttrUpdateInfo)
-		t.Ifs.UpdateAttr(hostname, attrUpdateInfo)
+		Ifs().UpdateAttr(hostname, attrUpdateInfo)
 	}
 }

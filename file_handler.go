@@ -7,21 +7,36 @@ import (
 	"sync"
 	"go.uber.org/zap"
 	"bazil.org/fuse"
+	"github.com/orcaman/concurrent-map"
 )
 
-type FileHandler struct {
-	Ifs            *Ifs
+var (
+	fh   *fileHandler
+	once sync.Once
+)
+
+type fileHandler struct {
+	//Ifs            *Ifs
 	FileDescriptor uint64
-	Opened         *sync.Map
+	Opened         cmap.ConcurrentMap
 }
 
-func (fh *FileHandler) StartUp() {
+func FileHandler() *fileHandler {
+	once.Do(func() {
+		fh = &fileHandler{
+			FileDescriptor: 0,
+			Opened:         cmap.New(),
+		}
+	})
 
+	return fh
+}
+
+func (fh *fileHandler) StartUp() {
 	zap.L().Info("Starting File Handler")
-	fh.Opened = &sync.Map{}
 }
 
-func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags fuse.OpenFlags, isDir bool) (uint64, error) {
+func (fh *fileHandler) OpenFile(remotePath *RemotePath, flags fuse.OpenFlags, isDir bool) (uint64, error) {
 
 	fd := atomic.AddUint64(&fh.FileDescriptor, 1)
 
@@ -47,7 +62,7 @@ func (fh *FileHandler) OpenFile(remotePath *RemotePath, flags fuse.OpenFlags, is
 }
 
 // TODO Skip Cache if io op fails
-func (fh *FileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]byte, error) {
+func (fh *fileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]byte, error) {
 
 	if _, ok := fh.Opened.Load(handle.FileDescriptor); ok {
 
@@ -82,7 +97,7 @@ func (fh *FileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]b
 	return nil, os.ErrInvalid
 }
 
-func (fh *FileHandler) WriteData(handle *FileHandle, data []byte, offset int64) (int, error) {
+func (fh *fileHandler) WriteData(handle *FileHandle, data []byte, offset int64) (int, error) {
 
 	if _, ok := fh.Opened.Load(handle.FileDescriptor); ok {
 
@@ -114,7 +129,7 @@ func (fh *FileHandler) WriteData(handle *FileHandle, data []byte, offset int64) 
 	return 0, os.ErrNotExist
 }
 
-func (fh *FileHandler) Truncate(remotePath *RemotePath, attrInfo *AttrInfo) error {
+func (fh *fileHandler) Truncate(remotePath *RemotePath, attrInfo *AttrInfo) error {
 
 	resp := fh.Ifs.Talker.sendRequest(SetAttrRequest, remotePath.Hostname, attrInfo)
 
@@ -127,7 +142,7 @@ func (fh *FileHandler) Truncate(remotePath *RemotePath, attrInfo *AttrInfo) erro
 	return nil
 }
 
-func (fh *FileHandler) Release(handle *FileHandle) error {
+func (fh *fileHandler) Release(handle *FileHandle) error {
 	if _, ok := fh.Opened.Load(handle.FileDescriptor); ok {
 
 		closeInfo := &CloseInfo{
@@ -161,7 +176,7 @@ func (fh *FileHandler) Release(handle *FileHandle) error {
 	return os.ErrNotExist
 }
 
-func (fh *FileHandler) Create(remotePath *RemotePath, name string) (uint64, error) {
+func (fh *fileHandler) Create(remotePath *RemotePath, name string) (uint64, error) {
 
 	fd := atomic.AddUint64(&fh.FileDescriptor, 1)
 
@@ -197,7 +212,7 @@ func (fh *FileHandler) Create(remotePath *RemotePath, name string) (uint64, erro
 	return fd, nil
 }
 
-func (fh *FileHandler) Mkdir(remotePath *RemotePath, name string) error {
+func (fh *fileHandler) Mkdir(remotePath *RemotePath, name string) error {
 	req := &CreateInfo{
 		BaseDir: remotePath.Path,
 		Name:    name,
@@ -213,7 +228,7 @@ func (fh *FileHandler) Mkdir(remotePath *RemotePath, name string) error {
 	return nil
 }
 
-func (fh *FileHandler) Remove(remotePath *RemotePath, name string, isDir bool) error {
+func (fh *fileHandler) Remove(remotePath *RemotePath, name string, isDir bool) error {
 
 	newRemotePath := &RemotePath{
 		Hostname: remotePath.Hostname,
@@ -239,7 +254,7 @@ func (fh *FileHandler) Remove(remotePath *RemotePath, name string, isDir bool) e
 
 	return nil
 }
-func (fh *FileHandler) Rename(remotePath *RemotePath, destPath string) error {
+func (fh *fileHandler) Rename(remotePath *RemotePath, destPath string) error {
 
 	req := &RenameInfo{
 		Path:     remotePath.Path,
@@ -263,7 +278,7 @@ func (fh *FileHandler) Rename(remotePath *RemotePath, destPath string) error {
 	return nil
 }
 
-//func (fh *FileHandler) Flush(handle *FileHandle) error {
+//func (fh *fileHandler) Flush(handle *FileHandle) error {
 //	req := &FlushInfo{
 //		RemotePath: handle.RemoteNode.RemotePath,
 //		FileDescriptor: handle.FileDescriptor,

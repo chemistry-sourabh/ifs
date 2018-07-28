@@ -175,7 +175,7 @@ func (fh *FileHandle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
 		zap.String("path", rn.RemotePath.Path),
 	)
 
-	//rn.Ifs.FileHandler.Flush(fh)
+	//rn.Ifs.fileHandler.Flush(fh)
 
 	return nil
 }

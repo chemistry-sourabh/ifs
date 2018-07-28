@@ -9,22 +9,41 @@ import (
 	"os"
 	"time"
 	"go.uber.org/zap"
+	"sync"
+	"github.com/orcaman/concurrent-map"
+	"strings"
+	"path/filepath"
 )
 
-type Ifs struct {
-	Server      *fs.Server
-	Talker      *Talker
-	FileHandler *FileHandler
-	Hoarder     *Hoarder
-	RemoteRoots map[string]fs.Node
+type fileSystem struct {
+	RemoteRoots cmap.ConcurrentMap
+}
+
+var(
+	fileSystemInstance *fileSystem
+	fileSystemOnce sync.Once
+)
+
+func Ifs() *fileSystem {
+	fileSystemOnce.Do(func() {
+		fileSystemInstance = &fileSystem{
+			RemoteRoots: cmap.New(),
+		}
+	})
+
+	return fileSystemInstance
+}
+
+func (root *fileSystem) Startup() {
+	root.RemoteRoots = generateRemoteRoots()
 }
 
 // TODO All Errors should be resolved here
-func (root *Ifs) Root() (fs.Node, error) {
+func (root *fileSystem) Root() (fs.Node, error) {
 	return root, nil
 }
 
-func (root *Ifs) Attr(ctx context.Context, attr *fuse.Attr) error {
+func (root *fileSystem) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 	zap.L().Debug("Attr FS Request",
 		zap.Bool("root", true),
@@ -52,7 +71,7 @@ func (root *Ifs) Attr(ctx context.Context, attr *fuse.Attr) error {
 	return nil
 }
 
-func (root *Ifs) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+func (root *fileSystem) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	zap.L().Debug("ReadDir FS Request",
 		zap.Bool("root", true),
@@ -61,8 +80,8 @@ func (root *Ifs) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	var children []fuse.Dirent
 
-	for dirName := range root.RemoteRoots {
-		child := fuse.Dirent{Type: fuse.DT_Dir, Name: dirName}
+	for dirName := range root.RemoteRoots.IterBuffered() {
+		child := fuse.Dirent{Type: fuse.DT_Dir, Name: dirName.Key}
 		children = append(children, child)
 	}
 
@@ -75,7 +94,7 @@ func (root *Ifs) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	return children, nil
 }
 
-func (root *Ifs) Lookup(ctx context.Context, name string) (fs.Node, error) {
+func (root *fileSystem) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 	zap.L().Debug("Lookup FS Request",
 		zap.Bool("root", true),
@@ -83,7 +102,8 @@ func (root *Ifs) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		zap.String("name", name),
 	)
 
-	val, ok := root.RemoteRoots[name]
+	val, ok := root.RemoteRoots.Get(name)
+
 
 	zap.L().Debug("Lookup Response",
 		zap.Bool("root", true),
@@ -93,14 +113,69 @@ func (root *Ifs) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	)
 
 	if ok {
-		return val, nil
+		return val.(fs.Node), nil
 	} else {
 		return nil, fuse.ENOENT
 	}
 }
 
+func generateVirtualNodes(paths []string, remotePaths []*RemotePath) (cmap.ConcurrentMap) {
+
+	aggPaths := make(map[string][]string)
+	aggRemotePaths := make(map[string][]*RemotePath)
+	virtualNodes := cmap.New()
+
+	for i, p := range paths {
+
+		l := strings.Split(strings.Trim(p, "/"), "/")
+
+		if l[0] != "" {
+			firstDir := l[0]
+			aggPaths[firstDir] = append(aggPaths[firstDir], filepath.Join(l[1:]...))
+			aggRemotePaths[firstDir] = append(aggRemotePaths[firstDir], remotePaths[i])
+		}
+
+	}
+
+	for k, v := range aggPaths {
+
+		if len(v) > 1 || (len(v) == 1 && v[0] != "") {
+			virtualNodes.Set(k, &VirtualNode{
+				Nodes: generateVirtualNodes(v, aggRemotePaths[k]),
+			})
+		} else {
+			virtualNodes.Set(k, &RemoteNode{
+				IsDir:       true,
+				RemotePath:  aggRemotePaths[k][0],
+				RemoteNodes: make(map[string]*RemoteNode),
+			})
+		}
+	}
+
+	return virtualNodes
+}
+
+func generateRemoteRoot(paths []string, remotePaths []*RemotePath) *VirtualNode {
+
+	return &VirtualNode{
+		Nodes: generateVirtualNodes(paths, remotePaths),
+	}
+}
+
+func generateRemoteRoots(ifs *fileSystem, remoteRoots []*RemoteRoot) map[string]fs.Node {
+
+	virtualNodes := make(map[string]fs.Node)
+
+	for _, remoteRoot := range remoteRoots {
+		vn := generateRemoteRoot(remoteRoot.Paths, remoteRoot.RemotePaths())
+		virtualNodes[remoteRoot.Hostname] = vn
+	}
+
+	return virtualNodes
+}
+
 // TODO Should Return Error
-func (root *Ifs) UpdateAttr(hostname string, info *AttrUpdateInfo) error {
+func (root *fileSystem) UpdateAttr(hostname string, info *AttrUpdateInfo) error {
 
 	zap.L().Debug("Update Attr Request",
 		zap.String("op", "attrupdate"),
@@ -111,7 +186,13 @@ func (root *Ifs) UpdateAttr(hostname string, info *AttrUpdateInfo) error {
 		zap.Time("mod_time", time.Unix(0, info.ModTime)),
 	)
 
-	remoteRoot := root.RemoteRoots[hostname].(*VirtualNode)
+	val, ok := root.RemoteRoots.Get(hostname)
+
+	var remoteRoot *VirtualNode
+
+	if ok {
+		remoteRoot = val.(*VirtualNode)
+	}
 
 	rn := findNode(remoteRoot, info.Path)
 
