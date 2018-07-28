@@ -23,7 +23,7 @@ func TestAttr(t *testing.T) {
 
 	pkt := test.CreatePacket(ifs.AttrRequest, payload)
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 	s, err := fh.Attr(pkt)
 
 	if err != nil {
@@ -45,7 +45,7 @@ func TestAttr2(t *testing.T) {
 
 	pkt := test.CreatePacket(ifs.AttrRequest, payload)
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 
 	s, err := fh.Attr(pkt)
 
@@ -75,7 +75,7 @@ func TestReadDir(t *testing.T) {
 		Path:     "/tmp/dir1",
 	}
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 
 	payload := &ifs.OpenInfo{
 		Path:           remotePath.Path,
@@ -126,7 +126,7 @@ func TestReadDir2(t *testing.T) {
 		Path:     "/tmp/dir1",
 	}
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 
 	payload := &ifs.OpenInfo{
 		Path:           remotePath.Path,
@@ -180,7 +180,7 @@ func TestFetchFile(t *testing.T) {
 
 	pkt := test.CreatePacket(ifs.FetchFileRequest, payload)
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 	chunk, err := fh.FetchFile(pkt)
 
 	chunk.Decompress()
@@ -205,7 +205,7 @@ func TestFetchFile2(t *testing.T) {
 
 	pkt := test.CreatePacket(ifs.FetchFileRequest, payload)
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 	chunk, err := fh.FetchFile(pkt)
 
 	if err == nil {
@@ -230,7 +230,7 @@ func TestReadFile(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 
 	payload := &ifs.OpenInfo{
 		Path:           rp.Path,
@@ -286,7 +286,7 @@ func TestReadFile2(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 
 	payload := &ifs.OpenInfo{
 		Path:           rp.Path,
@@ -350,7 +350,7 @@ func TestReadFile3(t *testing.T) {
 
 	pkt := test.CreatePacket(ifs.ReadFileRequest, payload)
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 	chunk, err := fh.ReadFile(pkt)
 
 	// EOF Error
@@ -375,7 +375,7 @@ func TestReadFile4(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	fh := ifs.NewAgentFileHandler()
+	fh := ifs.AgentFileHandler()
 
 	payload := &ifs.OpenInfo{
 		Path:           rp.Path,
