@@ -8,20 +8,31 @@ import (
 	"sync"
 	"path"
 	"go.uber.org/zap"
+	"github.com/orcaman/concurrent-map"
+	"strconv"
 )
 
-type AgentFileHandler struct {
-	Opened sync.Map
-	//Opened map[uint64]*os.File
+type agentFileHandler struct {
+	Opened cmap.ConcurrentMap
 }
 
-func NewAgentFileHandler() *AgentFileHandler {
-	return &AgentFileHandler{
-		Opened: sync.Map{},
-	}
+var (
+	agentFileHandlerInstance *agentFileHandler
+	agentFileHandlerOnce sync.Once
+)
+
+func AgentFileHandler() *agentFileHandler {
+	agentFileHandlerOnce.Do(func() {
+		agentFileHandlerInstance = &agentFileHandler{
+			Opened: cmap.New(),
+		}
+	})
+
+	return agentFileHandlerInstance
 }
 
-func (fh *AgentFileHandler) Attr(request *Packet) (*Stat, error) {
+
+func (fh *agentFileHandler) Attr(request *Packet) (*Stat, error) {
 
 	filePath := request.Data.(*RemotePath).Path
 
@@ -72,7 +83,7 @@ func (fh *AgentFileHandler) Attr(request *Packet) (*Stat, error) {
 
 }
 
-func (fh *AgentFileHandler) convertReadDirOutput(files []os.FileInfo, err error) (*DirInfo, error) {
+func (fh *agentFileHandler) convertReadDirOutput(files []os.FileInfo, err error) (*DirInfo, error) {
 	if err == nil {
 
 		var stats []*Stat
@@ -102,7 +113,7 @@ func (fh *AgentFileHandler) convertReadDirOutput(files []os.FileInfo, err error)
 	return nil, err
 }
 
-func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
+func (fh *agentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 
 	readDirInfo := request.Data.(*ReadDirInfo)
 
@@ -116,7 +127,7 @@ func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 		zap.String("path", filePath),
 	)
 
-	val, ok := fh.Opened.Load(readDirInfo.FileDescriptor)
+	val, ok := fh.Opened.Get(strconv.FormatUint(readDirInfo.FileDescriptor, 10))
 
 	if ok {
 
@@ -155,7 +166,7 @@ func (fh *AgentFileHandler) ReadDir(request *Packet) (*DirInfo, error) {
 	return nil, os.ErrInvalid
 }
 
-func (fh *AgentFileHandler) ReadDirAll(request *Packet) (*DirInfo, error) {
+func (fh *agentFileHandler) ReadDirAll(request *Packet) (*DirInfo, error) {
 
 	remotePath := request.Data.(*RemotePath)
 
@@ -200,7 +211,7 @@ func (fh *AgentFileHandler) ReadDirAll(request *Packet) (*DirInfo, error) {
 	return dirInfo, err
 }
 
-func (fh *AgentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
+func (fh *agentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
 
 	filePath := request.Data.(*RemotePath).Path
 
@@ -252,7 +263,7 @@ func (fh *AgentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
 	return nil, err
 }
 
-func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
+func (fh *agentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 	readInfo := request.Data.(*ReadInfo)
 	filePath := readInfo.Path
 
@@ -267,7 +278,7 @@ func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 		zap.Int64("offset", readInfo.Offset),
 	)
 
-	val, ok := fh.Opened.Load(readInfo.FileDescriptor)
+	val, ok := fh.Opened.Get(strconv.FormatUint(readInfo.FileDescriptor, 10))
 
 	if ok {
 
@@ -333,7 +344,7 @@ func (fh *AgentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 	return nil, os.ErrInvalid
 }
 
-func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
+func (fh *agentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 	writeInfo := request.Data.(*WriteInfo)
 	filePath := writeInfo.Path
 
@@ -348,7 +359,7 @@ func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 		zap.Int("size", len(writeInfo.Data)),
 	)
 
-	val, ok := fh.Opened.Load(writeInfo.FileDescriptor)
+	val, ok := fh.Opened.Get(strconv.FormatUint(writeInfo.FileDescriptor, 10))
 
 	if ok {
 
@@ -409,7 +420,7 @@ func (fh *AgentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 	return nil, os.ErrInvalid
 }
 
-func (fh *AgentFileHandler) SetAttr(request *Packet) error {
+func (fh *agentFileHandler) SetAttr(request *Packet) error {
 	attrInfo := request.Data.(*AttrInfo)
 	filePath := attrInfo.Path
 
@@ -462,7 +473,7 @@ func (fh *AgentFileHandler) SetAttr(request *Packet) error {
 	return err
 }
 
-func (fh *AgentFileHandler) CreateFile(request *Packet) error {
+func (fh *agentFileHandler) CreateFile(request *Packet) error {
 	createInfo := request.Data.(*CreateInfo)
 	filePath := path.Join(createInfo.BaseDir, createInfo.Name)
 
@@ -496,7 +507,7 @@ func (fh *AgentFileHandler) CreateFile(request *Packet) error {
 
 		}
 
-		fh.Opened.Store(createInfo.FileDescriptor, f)
+		fh.Opened.Set(strconv.FormatUint(createInfo.FileDescriptor, 10), f)
 
 		return err
 	} else {
@@ -523,7 +534,7 @@ func (fh *AgentFileHandler) CreateFile(request *Packet) error {
 	}
 }
 
-func (fh *AgentFileHandler) RemoveFile(request *Packet) error {
+func (fh *agentFileHandler) RemoveFile(request *Packet) error {
 	remotePath := request.Data.(*RemotePath)
 
 	zap.L().Debug("Processing Remove Request",
@@ -553,7 +564,7 @@ func (fh *AgentFileHandler) RemoveFile(request *Packet) error {
 	return err
 }
 
-func (fh *AgentFileHandler) RenameFile(request *Packet) error {
+func (fh *agentFileHandler) RenameFile(request *Packet) error {
 	renameInfo := request.Data.(*RenameInfo)
 
 	zap.L().Debug("Processing Rename Request",
@@ -585,7 +596,7 @@ func (fh *AgentFileHandler) RenameFile(request *Packet) error {
 	return err
 }
 
-func (fh *AgentFileHandler) OpenFile(request *Packet) error {
+func (fh *agentFileHandler) OpenFile(request *Packet) error {
 	openInfo := request.Data.(*OpenInfo)
 
 	zap.L().Debug("Processing Open Request",
@@ -616,12 +627,12 @@ func (fh *AgentFileHandler) OpenFile(request *Packet) error {
 		return err
 	}
 
-	fh.Opened.Store(openInfo.FileDescriptor, f)
+	fh.Opened.Set(strconv.FormatUint(openInfo.FileDescriptor, 10), f)
 
 	return nil
 }
 
-func (fh *AgentFileHandler) CloseFile(request *Packet) error {
+func (fh *agentFileHandler) CloseFile(request *Packet) error {
 
 	closeInfo := request.Data.(*CloseInfo)
 
@@ -634,10 +645,10 @@ func (fh *AgentFileHandler) CloseFile(request *Packet) error {
 		zap.Uint64("fd", closeInfo.FileDescriptor),
 	)
 
-	if val, ok := fh.Opened.Load(closeInfo.FileDescriptor); ok {
+	if val, ok := fh.Opened.Get(strconv.FormatUint(closeInfo.FileDescriptor, 10)); ok {
 		f := val.(*os.File)
 		f.Close()
-		fh.Opened.Delete(closeInfo.FileDescriptor)
+		fh.Opened.Remove(strconv.FormatUint(closeInfo.FileDescriptor, 10))
 		return nil
 	}
 

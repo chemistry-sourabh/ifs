@@ -5,22 +5,34 @@ import (
 	"strings"
 	"strconv"
 	"github.com/gorilla/websocket"
+	"github.com/orcaman/concurrent-map"
 )
 
 type AgentConnectionPool struct {
-	Connections      []*websocket.Conn
-	ReceivedChannels []chan *Packet
-	SendingChannels  []chan *Packet
+	Connections      cmap.ConcurrentMap
+	ReceivedChannels cmap.ConcurrentMap
+	SendingChannels  cmap.ConcurrentMap
 }
 
 func NewAgentConnectionPool() *AgentConnectionPool {
-	return &AgentConnectionPool{}
+	return &AgentConnectionPool{
+		Connections:      cmap.New(),
+		ReceivedChannels: cmap.New(),
+		SendingChannels:  cmap.New(),
+	}
 }
 
-func (p *AgentConnectionPool) Append(conn *websocket.Conn) {
-	p.Connections = append(p.Connections, conn)
-	p.ReceivedChannels = append(p.ReceivedChannels, make(chan *Packet, ChannelLength))
-	p.SendingChannels = append(p.SendingChannels, make(chan *Packet, ChannelLength))
+
+func (p *AgentConnectionPool) Set(index uint8, conn *websocket.Conn) {
+	p.Connections.Set(strconv.FormatUint(uint64(index), 10), conn)
+	p.ReceivedChannels.Set(strconv.FormatUint(uint64(index), 10), make(chan *Packet, ChannelLength))
+	p.SendingChannels.Set(strconv.FormatUint(uint64(index), 10), make(chan *Packet, ChannelLength))
+}
+
+func (p *AgentConnectionPool) Remove(index uint8) {
+	p.Connections.Remove(strconv.FormatUint(uint64(index), 10))
+	p.SendingChannels.Remove(strconv.FormatUint(uint64(index), 10))
+	p.ReceivedChannels.Remove(strconv.FormatUint(uint64(index), 10))
 }
 
 type FsConnectionPool struct {
@@ -117,7 +129,7 @@ func (f *FastMap) ProcessRequests() {
 
 			req.ch <- &LoadResponse{
 				val: val,
-				ok: ok,
+				ok:  ok,
 			}
 		}
 	}

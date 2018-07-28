@@ -6,17 +6,31 @@ import (
 	"path"
 	"os"
 	"go.uber.org/zap"
+	"sync"
 )
 
-type Watcher struct {
-	Agent   *Agent
+type watcher struct {
+	//Agent   *Agent
 	Paths   map[string]bool
 	watcher *fsnotify.Watcher
 }
 
-func (w *Watcher) Startup() error {
+var (
+	watcherInstance *watcher
+	watcherOnce     sync.Once
+)
 
-	w.Paths = make(map[string]bool)
+func Watcher() *watcher {
+	watcherOnce.Do(func() {
+		watcherInstance = &watcher{
+			Paths: make(map[string]bool),
+		}
+	})
+
+	return watcherInstance
+}
+
+func (w *watcher) Startup() error {
 
 	watcher, err := fsnotify.NewWatcher()
 
@@ -31,7 +45,7 @@ func (w *Watcher) Startup() error {
 	return nil
 }
 
-func (w *Watcher) processEvents() {
+func (w *watcher) processEvents() {
 
 	for {
 		select {
@@ -43,7 +57,7 @@ func (w *Watcher) processEvents() {
 
 }
 
-func (w *Watcher) processEvent(event fsnotify.Event) {
+func (w *watcher) processEvent(event fsnotify.Event) {
 
 	// If folder is created should be added to watch list
 	// Will need to send attr back
@@ -76,7 +90,7 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 				Data:  payload,
 			}
 
-			w.Agent.Talker.SendPacket(pkt)
+			AgentTalker().SendPacket(pkt)
 
 		} else {
 			zap.L().Warn("Stat Failed",
@@ -117,7 +131,7 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 				Data:  payload,
 			}
 
-			w.Agent.Talker.SendPacket(pkt)
+			AgentTalker().SendPacket(pkt)
 
 		} else {
 			zap.L().Warn("Stat Failed",
@@ -129,7 +143,7 @@ func (w *Watcher) processEvent(event fsnotify.Event) {
 
 }
 
-func (w *Watcher) watchDir(dirPath string) error {
+func (w *watcher) watchDir(dirPath string) error {
 	//w.watcher.Add(dirPath)
 
 	var allDirs []string
@@ -170,7 +184,7 @@ func (w *Watcher) watchDir(dirPath string) error {
 	return nil
 }
 
-func (w *Watcher) WatchPaths(request *Packet) error {
+func (w *watcher) WatchPaths(request *Packet) error {
 
 	watchInfo := request.Data.(*WatchInfo)
 
@@ -201,4 +215,14 @@ func (w *Watcher) WatchPaths(request *Packet) error {
 	}
 
 	return nil
+}
+
+func (w *watcher) UnwatchPaths() {
+	zap.L().Debug("Removing Watch Paths")
+
+	for name := range w.Paths {
+		w.watcher.Remove(name)
+	}
+
+	w.Paths = make(map[string]bool)
 }

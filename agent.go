@@ -2,12 +2,23 @@ package ifs
 
 import (
 	"go.uber.org/zap"
+	"sync"
 )
 
-type Agent struct {
-	Talker      *AgentTalker
-	FileHandler *AgentFileHandler
-	Watcher     *Watcher
+type agent struct {
+}
+
+var (
+	agentInstance *agent
+	agentOnce sync.Once
+)
+
+func Agent() *agent {
+	agentOnce.Do(func() {
+		agentInstance = &agent{}
+	})
+
+	return agentInstance
 }
 
 func populateResponse(resp *Packet, data Payload, err error) {
@@ -23,7 +34,7 @@ func populateResponse(resp *Packet, data Payload, err error) {
 	resp.Flags = 1
 }
 
-func (a *Agent) ProcessRequest(req *Packet) {
+func (a *agent) ProcessRequest(req *Packet) {
 
 	resp := &Packet{
 		Id:     req.Id,
@@ -38,84 +49,71 @@ func (a *Agent) ProcessRequest(req *Packet) {
 
 	case AttrRequest:
 		resp.Op = StatResponse
-		data, err = a.FileHandler.Attr(req)
+		data, err = AgentFileHandler().Attr(req)
 
 	case ReadDirRequest:
 		resp.Op = StatsResponse
-		data, err = a.FileHandler.ReadDir(req)
+		data, err = AgentFileHandler().ReadDir(req)
 	case ReadDirAllRequest:
 		resp.Op = StatsResponse
-		data, err = a.FileHandler.ReadDirAll(req)
+		data, err = AgentFileHandler().ReadDirAll(req)
 	case FetchFileRequest:
 		resp.Op = FileDataResponse
-		data, err = a.FileHandler.FetchFile(req)
+		data, err = AgentFileHandler().FetchFile(req)
 
 	case ReadFileRequest:
 		resp.Op = FileDataResponse
-		data, err = a.FileHandler.ReadFile(req)
+		data, err = AgentFileHandler().ReadFile(req)
 
 	case WriteFileRequest:
 		resp.Op = WriteResponse
-		data, err = a.FileHandler.WriteFile(req)
+		data, err = AgentFileHandler().WriteFile(req)
 
 	case SetAttrRequest:
 		resp.Op = ErrorResponse
-		err = a.FileHandler.SetAttr(req)
+		err = AgentFileHandler().SetAttr(req)
 
 	case CreateRequest:
 		resp.Op = ErrorResponse
-		err = a.FileHandler.CreateFile(req)
+		err = AgentFileHandler().CreateFile(req)
 
 	case RemoveRequest:
 		resp.Op = ErrorResponse
-		err = a.FileHandler.RemoveFile(req)
+		err = AgentFileHandler().RemoveFile(req)
 
 	case RenameRequest:
 		resp.Op = ErrorResponse
-		err = a.FileHandler.RenameFile(req)
+		err = AgentFileHandler().RenameFile(req)
 
 	case OpenRequest:
 		resp.Op = ErrorResponse
-		err = a.FileHandler.OpenFile(req)
+		err = AgentFileHandler().OpenFile(req)
 	case CloseRequest:
 		resp.Op = ErrorResponse
-		err = a.FileHandler.CloseFile(req)
+		err = AgentFileHandler().CloseFile(req)
 
 	case WatchDirRequest:
 		resp.Op = ErrorResponse
-		err = a.Watcher.WatchPaths(req)
+		err = Watcher().WatchPaths(req)
 
 	}
 
 	populateResponse(resp, data, err)
 
-	a.Talker.SendPacket(resp)
+	AgentTalker().SendPacket(resp)
 
 }
 
 func StartAgent(address string, port uint16) {
-	agent := &Agent{
-		FileHandler: NewAgentFileHandler(),
-	}
 
-	talker := &AgentTalker{
-		Agent: agent,
-		Pool:  NewAgentConnectionPool(),
-	}
-
-	watcher := &Watcher{
-		Agent: agent,
-	}
 
 	zap.L().Info("Starting Agent",
 		zap.String("address", address),
 		zap.Uint16("port", port),
 	)
 
-	agent.Talker = talker
-	agent.Watcher = watcher
 
-	err := agent.Watcher.Startup()
+	err := Watcher().Startup()
 
 	if err != nil {
 		zap.L().Fatal("Watcher Failed",
@@ -123,6 +121,6 @@ func StartAgent(address string, port uint16) {
 		)
 	}
 
-	agent.Talker.Startup(address, port)
+	AgentTalker().Startup(address, port)
 
 }

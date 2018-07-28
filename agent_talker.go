@@ -7,15 +7,30 @@ import (
 	"sync/atomic"
 	"go.uber.org/zap"
 	"strings"
+	"sync"
 )
 
-type AgentTalker struct {
+type agentTalker struct {
 	IdCounter uint64
-	Agent     *Agent
 	Pool      *AgentConnectionPool
 }
 
-func (t *AgentTalker) Startup(address string, port uint16) {
+var (
+	agentTalkerInstance *agentTalker
+	agentTalkerOnce sync.Once
+)
+
+func AgentTalker() *agentTalker {
+	agentTalkerOnce.Do(func() {
+		agentTalkerInstance = &agentTalker{
+			Pool: NewAgentConnectionPool(),
+		}
+	})
+
+	return agentTalkerInstance
+}
+
+func (t *agentTalker) Startup(address string, port uint16) {
 
 	http.HandleFunc("/", t.HandleRequests)
 	err := http.ListenAndServe(address+":"+strconv.FormatInt(int64(port), 10), nil)
@@ -28,13 +43,14 @@ func (t *AgentTalker) Startup(address string, port uint16) {
 
 }
 
-func (t *AgentTalker) processSendingChannel(index uint8) {
+func (t *agentTalker) processSendingChannel(index uint8) {
 
 	zap.L().Debug("Starting Egress Processor",
 		zap.Uint8("index", index),
 	)
 
-	pktChan := t.Pool.SendingChannels[index]
+	val, _ := t.Pool.SendingChannels.Get(strconv.FormatUint(uint64(index), 10))
+	pktChan := val.(chan *Packet)
 	for pkt := range pktChan {
 
 		if pkt.IsRequest() {
@@ -51,7 +67,9 @@ func (t *AgentTalker) processSendingChannel(index uint8) {
 		)
 
 		data, _ := pkt.Marshal()
-		err := t.Pool.Connections[index].WriteMessage(websocket.BinaryMessage, data)
+		val, _ := t.Pool.Connections.Get(strconv.FormatUint(uint64(index), 10))
+		conn := val.(*websocket.Conn)
+		err := conn.WriteMessage(websocket.BinaryMessage, data)
 
 		if err != nil {
 			zap.L().Fatal("Write Message Failed",
@@ -62,9 +80,10 @@ func (t *AgentTalker) processSendingChannel(index uint8) {
 	}
 }
 
-func (t *AgentTalker) Listen(index uint8) {
+func (t *agentTalker) Listen(index uint8) {
 
-	conn := t.Pool.Connections[index]
+	val, _ := t.Pool.Connections.Get(strconv.FormatUint(uint64(index), 10))
+	conn := val.(*websocket.Conn)
 
 	for {
 
@@ -77,7 +96,7 @@ func (t *AgentTalker) Listen(index uint8) {
 		typ, data, err := conn.ReadMessage()
 
 		if err != nil {
-			zap.L().Fatal("Read Message Failed",
+			zap.L().Warn("Read Message Failed",
 				zap.Error(err),
 			)
 			break
@@ -94,14 +113,17 @@ func (t *AgentTalker) Listen(index uint8) {
 				zap.Uint64("id", req.Id),
 			)
 
-			go t.Agent.ProcessRequest(req)
+			go Agent().ProcessRequest(req)
 		}
 
 	}
 
+	t.Pool.Remove(index)
+	Watcher().UnwatchPaths()
+
 }
 
-func (t *AgentTalker) HandleRequests(w http.ResponseWriter, r *http.Request) {
+func (t *agentTalker) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{}
 	conn, _ := upgrader.Upgrade(w, r, nil)
 
@@ -109,13 +131,16 @@ func (t *AgentTalker) HandleRequests(w http.ResponseWriter, r *http.Request) {
 		zap.String("address", conn.RemoteAddr().String()),
 	)
 
-	t.Pool.Append(conn)
+	i := uint8(t.Pool.Connections.Count())
 
-	i := uint8(len(t.Pool.Connections) - 1)
+	t.Pool.Set(i, conn)
+
+
 	go t.Listen(i)
 	go t.processSendingChannel(i)
 }
 
-func (t *AgentTalker) SendPacket(pkt *Packet) {
-	t.Pool.SendingChannels[GetRandomIndex(len(t.Pool.Connections))] <- pkt
+func (t *agentTalker) SendPacket(pkt *Packet) {
+	val , _ := t.Pool.SendingChannels.Get(strconv.FormatUint(uint64(GetRandomIndex(t.Pool.Connections.Count())), 10))
+	val.(chan *Packet) <- pkt
 }
