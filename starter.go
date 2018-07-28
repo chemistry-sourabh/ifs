@@ -5,6 +5,8 @@ import (
 	"bazil.org/fuse/fs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os"
+	"os/signal"
 )
 
 var (
@@ -42,6 +44,23 @@ func SetupLogger(cfg *LogConfig) {
 
 func MountRemoteRoots(cfg *FsConfig) {
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+
+	go func() {
+		for range sigChan {
+			err := fuse.Unmount(cfg.MountPoint)
+
+			if err == nil {
+				zap.L().Info("Unmounted Successfully")
+			} else {
+				zap.L().Warn("Unmount Failed",
+					zap.Error(err),
+				)
+			}
+		}
+	}()
+
 	// TODO Figure out more options to add
 	options := []fuse.MountOption{
 		fuse.NoAppleDouble(),
@@ -50,6 +69,8 @@ func MountRemoteRoots(cfg *FsConfig) {
 	}
 
 	c, err := fuse.Mount(cfg.MountPoint, options...)
+	defer c.Close()
+
 	if err != nil {
 		zap.L().Fatal("Mount Failed",
 			zap.Error(err),
@@ -72,5 +93,4 @@ func MountRemoteRoots(cfg *FsConfig) {
 		)
 	}
 
-	c.Close()
 }
