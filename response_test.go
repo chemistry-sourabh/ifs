@@ -1,12 +1,11 @@
 // +build unit
 
-package unit
+package ifs_test
 
 import (
 	"testing"
 	"ifs"
-	"ifs/test"
-)
+	)
 
 func TestFileChunk_Compress_Decompress(t *testing.T) {
 	str := "hello world!! Bye World!!!"
@@ -23,6 +22,6 @@ func TestFileChunk_Compress_Decompress(t *testing.T) {
 
 	decompressed := string(fileChunk.Chunk)
 	if str != decompressed {
-		test.PrintTestError(t, "strings not matching", decompressed, str)
+		PrintTestError(t, "strings not matching", decompressed, str)
 	}
 }

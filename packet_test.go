@@ -1,6 +1,6 @@
 // +build unit
 
-package unit
+package ifs_test
 
 import (
 	"testing"
@@ -8,7 +8,6 @@ import (
 	"github.com/vmihailenco/msgpack"
 	"io"
 	"ifs"
-	"ifs/test"
 )
 
 //TODO Check Proper Id and ConnId
@@ -22,36 +21,36 @@ func TestPacket_Marshal(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	pkt := test.CreatePacket(ifs.ReadFileRequest, payload)
+	pkt := CreatePacket(ifs.ReadFileRequest, payload)
 
 	data, err := pkt.Marshal()
 
 	// No Error
-	test.Ok(t, err)
+	Ok(t, err)
 	// Should not be nil
-	test.NotNil(t, data)
+	NotNil(t, data)
 
 	header := data[:11]
 
 	// Compare op code
-	test.Compare(t, header[8], uint8(ifs.ReadFileRequest))
+	Compare(t, header[8], uint8(ifs.ReadFileRequest))
 
 	id := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
 	// Compare Request Id
-	test.Compare(t, header[:8], id)
+	Compare(t, header[:8], id)
 
 	rp := &ifs.RemotePath{}
 
 	msgpack.Unmarshal(data[11:], rp)
 
 	// Compare Payload
-	test.Compare(t, rp, payload)
+	Compare(t, rp, payload)
 
 }
 
 func TestPacket_Marshal2(t *testing.T) {
-	pkt := test.CreatePacket(ifs.ReadFileRequest, nil)
+	pkt := CreatePacket(ifs.ReadFileRequest, nil)
 
 	data, err := pkt.Marshal()
 
@@ -66,20 +65,20 @@ func TestPacket_Marshal2(t *testing.T) {
 	header := data[:11]
 
 	if header[8] != ifs.ReadFileRequest {
-		test.PrintTestError(t, "op code not matching", header[8], ifs.ReadFileRequest)
+		PrintTestError(t, "op code not matching", header[8], ifs.ReadFileRequest)
 	}
 
 	id := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
 	// Compare Request Id
-	test.Compare(t, header[:8], id)
+	Compare(t, header[:8], id)
 
 	var n interface{}
 
 	msgpack.Unmarshal(data[11:], &n)
 
 	if n != nil {
-		test.PrintTestError(t, "data is not nil", n, nil)
+		PrintTestError(t, "data is not nil", n, nil)
 	}
 
 }
@@ -89,7 +88,7 @@ func TestPacket_Marshal3(t *testing.T) {
 		Err: io.EOF,
 	}
 
-	pkt := test.CreatePacket(ifs.FileDataResponse, payload)
+	pkt := CreatePacket(ifs.FileDataResponse, payload)
 
 	data, err := pkt.Marshal()
 
@@ -104,20 +103,20 @@ func TestPacket_Marshal3(t *testing.T) {
 	header := data[:11]
 
 	if header[8] != ifs.FileDataResponse {
-		test.PrintTestError(t, "op code not matching", header[8], ifs.FileDataResponse)
+		PrintTestError(t, "op code not matching", header[8], ifs.FileDataResponse)
 	}
 
 	id := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
 	if !cmp.Equal(header[:8], id) {
-		test.PrintTestError(t, "request Id doesnt match", header[:8], id)
+		PrintTestError(t, "request Id doesnt match", header[:8], id)
 	}
 
 	e := ifs.Error{}
 	msgpack.Unmarshal(data[11:], &e)
 
 	if !cmp.Equal(e.Err.Error(), io.EOF.Error()) {
-		test.PrintTestError(t, "errors dont match", e.Err, io.EOF)
+		PrintTestError(t, "errors dont match", e.Err, io.EOF)
 	}
 
 }

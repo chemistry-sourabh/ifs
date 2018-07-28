@@ -1,6 +1,6 @@
 // +build unit
 
-package unit
+package ifs_test
 
 import (
 	"testing"
@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"os"
 	"ifs"
-	"ifs/test"
 )
 
 const configLocation = "testConfig"
@@ -34,7 +33,7 @@ func TestConfig_LoadSuccess(t *testing.T) {
 	cfg := ifs.FsConfig{}
 	cfg.Load(configLocation)
 
-	test.Compare(t, initialCfg, cfg)
+	Compare(t, initialCfg, cfg)
 
 	// Cleanup
 	os.Remove(configLocation)
@@ -45,7 +44,7 @@ func TestConfig_LoadFailure(t *testing.T) {
 	cfg := ifs.FsConfig{}
 	err := cfg.Load(configLocation)
 
-	test.Error(t, err)
+	Err(t, err)
 }
 
 func TestRemoteRoot_StringArray(t *testing.T) {
@@ -60,5 +59,5 @@ func TestRemoteRoot_StringArray(t *testing.T) {
 
 	result := []string{"localhost:11211@/tmp/hello", "localhost:11211@/tmp/bye"}
 
-	test.Compare(t, paths, result)
+	Compare(t, paths, result)
 }

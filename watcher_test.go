@@ -1,4 +1,4 @@
-package unit
+package ifs
 
 //import (
 //	"testing"

@@ -1,4 +1,4 @@
-package test
+package ifs_test
 
 import (
 	"testing"
@@ -8,8 +8,8 @@ import (
 	"encoding/binary"
 	"crypto/rand"
 	"github.com/google/go-cmp/cmp"
-	"ifs"
 	"runtime"
+	"ifs"
 )
 
 func PrintTestError(t *testing.T, message string, got interface{}, want interface{}) {
@@ -62,7 +62,7 @@ func Compare(t *testing.T, got interface{}, want interface{}) {
 	}
 }
 
-func Error(t *testing.T, err error) {
+func Err(t *testing.T, err error) {
 	if err == nil {
 		_, file, line, _ := runtime.Caller(1)
 		t.Errorf("Didnt Get Error in File: %s at Line: %d", file, line)

@@ -1,6 +1,6 @@
 // +build integration
 
-package integration
+package ifs_test
 
 import (
 	"testing"
@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"io/ioutil"
 	"ifs"
-	"ifs/test"
 )
 
 
@@ -134,12 +133,12 @@ func TestCreateAndRemove(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestFile(GetFileName(i))
-		test.Ok(t, err)
+		Ok(t, err)
 	}
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := RemoveTestFile(GetFileName(i))
-		test.Ok(t, err)
+		Ok(t, err)
 	}
 
 }
@@ -148,12 +147,12 @@ func TestMkdirAndRemove(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := CreateTestDir(GetDirName(i))
-		test.Ok(t, err)
+		Ok(t, err)
 	}
 
 	for i := 0; i < SmallFileCount; i++ {
 		err := RemoveTestFile(GetDirName(i))
-		test.Ok(t, err)
+		Ok(t, err)
 	}
 
 }
@@ -167,10 +166,10 @@ func TestReadDirAll(t *testing.T) {
 	files, err := ioutil.ReadDir(fullPath)
 
 	// No Error After Read
-	test.Ok(t, err)
+	Ok(t, err)
 
 	// checking number of fikes
-	test.Compare(t, len(files), SmallFileCount)
+	Compare(t, len(files), SmallFileCount)
 
 	var names []string
 	for _, file := range files {
@@ -184,7 +183,7 @@ func TestReadDirAll(t *testing.T) {
 
 	for i := 0; i < SmallFileCount; i++ {
 		if !ContainsInArray(names, GetFileName(i)) {
-			test.PrintTestError(t, "Flags content is wrong", names, actNames)
+			PrintTestError(t, "Flags content is wrong", names, actNames)
 		}
 	}
 
@@ -198,17 +197,17 @@ func TestSetAttr(t *testing.T) {
 	defer RemoveTestFile(GetFileName(0))
 
 	fullPath := path.Join(TestRemoteRoot, GetFileName(0))
-	test.WriteDummyData(fullPath, 100)
+	WriteDummyData(fullPath, 100)
 
 	err := os.Truncate(fullPath, 10)
 
 	// checking no error
-	test.Ok(t, err)
+	Ok(t, err)
 
 	f, _ := os.Lstat(fullPath)
 
 	// checking new size
-	test.Compare(t, int(f.Size()), 10)
+	Compare(t, int(f.Size()), 10)
 }
 
 func TestMain(m *testing.M) {

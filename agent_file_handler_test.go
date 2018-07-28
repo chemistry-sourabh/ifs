@@ -1,19 +1,18 @@
 // +build unit
 
-package unit
+package ifs_test
 
 import (
 	"testing"
 	"github.com/google/go-cmp/cmp"
 	"ifs"
-	"ifs/test"
 )
 
 // TODO Check for specific errors
 func TestAttr(t *testing.T) {
 
-	test.CreateTempFile("file1")
-	defer test.RemoveTempFile("file1")
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
 
 	payload := &ifs.RemotePath{
 		Hostname: "localhost",
@@ -21,7 +20,7 @@ func TestAttr(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	pkt := test.CreatePacket(ifs.AttrRequest, payload)
+	pkt := CreatePacket(ifs.AttrRequest, payload)
 
 	fh := ifs.AgentFileHandler()
 	s, err := fh.Attr(pkt)
@@ -43,7 +42,7 @@ func TestAttr2(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	pkt := test.CreatePacket(ifs.AttrRequest, payload)
+	pkt := CreatePacket(ifs.AttrRequest, payload)
 
 	fh := ifs.AgentFileHandler()
 
@@ -60,14 +59,14 @@ func TestAttr2(t *testing.T) {
 
 func TestReadDir(t *testing.T) {
 
-	test.CreateTempDir("dir1")
-	defer test.RemoveTempFile("dir1")
+	CreateTempDir("dir1")
+	defer RemoveTempFile("dir1")
 
-	test.CreateTempFile("dir1/file1")
-	defer test.RemoveTempFile("dir1/file1")
+	CreateTempFile("dir1/file1")
+	defer RemoveTempFile("dir1/file1")
 
-	test.CreateTempFile("dir1/file2")
-	defer test.RemoveTempFile("dir1/file2")
+	CreateTempFile("dir1/file2")
+	defer RemoveTempFile("dir1/file2")
 
 	remotePath := &ifs.RemotePath{
 		Hostname: "localhost",
@@ -83,7 +82,7 @@ func TestReadDir(t *testing.T) {
 		Flags:          0,
 	}
 
-	pkt := test.CreatePacket(ifs.OpenRequest, payload)
+	pkt := CreatePacket(ifs.OpenRequest, payload)
 
 	fh.OpenFile(pkt)
 
@@ -92,7 +91,7 @@ func TestReadDir(t *testing.T) {
 		FileDescriptor: 1,
 	}
 
-	pkt = test.CreatePacket(ifs.ReadDirRequest, payload1)
+	pkt = CreatePacket(ifs.ReadDirRequest, payload1)
 
 	stats, err := fh.ReadDir(pkt)
 
@@ -113,7 +112,7 @@ func TestReadDir(t *testing.T) {
 		FileDescriptor: 1,
 	}
 
-	pkt = test.CreatePacket(ifs.CloseRequest, payload2)
+	pkt = CreatePacket(ifs.CloseRequest, payload2)
 
 	fh.CloseFile(pkt)
 
@@ -134,7 +133,7 @@ func TestReadDir2(t *testing.T) {
 		Flags:          0,
 	}
 
-	pkt := test.CreatePacket(ifs.OpenRequest, payload)
+	pkt := CreatePacket(ifs.OpenRequest, payload)
 
 	fh.OpenFile(pkt)
 
@@ -143,7 +142,7 @@ func TestReadDir2(t *testing.T) {
 		FileDescriptor: 1,
 	}
 
-	pkt = test.CreatePacket(ifs.ReadDirRequest, payload1)
+	pkt = CreatePacket(ifs.ReadDirRequest, payload1)
 
 	stats, err := fh.ReadDir(pkt)
 
@@ -160,17 +159,17 @@ func TestReadDir2(t *testing.T) {
 		FileDescriptor: 1,
 	}
 
-	pkt = test.CreatePacket(ifs.CloseRequest, payload2)
+	pkt = CreatePacket(ifs.CloseRequest, payload2)
 
 	fh.CloseFile(pkt)
 }
 
 func TestFetchFile(t *testing.T) {
 
-	test.CreateTempFile("file1")
-	defer test.RemoveTempFile("file1")
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
 
-	data := test.WriteDummyData("file1", 1000)
+	data := WriteDummyData("file1", 1000)
 
 	payload := &ifs.RemotePath{
 		Hostname: "localhost",
@@ -178,7 +177,7 @@ func TestFetchFile(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	pkt := test.CreatePacket(ifs.FetchFileRequest, payload)
+	pkt := CreatePacket(ifs.FetchFileRequest, payload)
 
 	fh := ifs.AgentFileHandler()
 	chunk, err := fh.FetchFile(pkt)
@@ -190,7 +189,7 @@ func TestFetchFile(t *testing.T) {
 	}
 
 	if !cmp.Equal(chunk.Chunk, data) {
-		test.PrintTestError(t, "data fetched mismatch", chunk.Chunk, data)
+		PrintTestError(t, "data fetched mismatch", chunk.Chunk, data)
 	}
 
 }
@@ -203,7 +202,7 @@ func TestFetchFile2(t *testing.T) {
 		Path:     "/tmp/file1",
 	}
 
-	pkt := test.CreatePacket(ifs.FetchFileRequest, payload)
+	pkt := CreatePacket(ifs.FetchFileRequest, payload)
 
 	fh := ifs.AgentFileHandler()
 	chunk, err := fh.FetchFile(pkt)
@@ -219,10 +218,10 @@ func TestFetchFile2(t *testing.T) {
 
 func TestReadFile(t *testing.T) {
 
-	test.CreateTempFile("file1")
-	defer test.RemoveTempFile("file1")
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
 
-	data := test.WriteDummyData("file1", 1000)
+	data := WriteDummyData("file1", 1000)
 
 	rp := &ifs.RemotePath{
 		Hostname: "localhost",
@@ -238,7 +237,7 @@ func TestReadFile(t *testing.T) {
 		Flags:          0,
 	}
 
-	pkt := test.CreatePacket(ifs.OpenRequest, payload)
+	pkt := CreatePacket(ifs.OpenRequest, payload)
 
 	fh.OpenFile(pkt)
 
@@ -249,7 +248,7 @@ func TestReadFile(t *testing.T) {
 		Size:           100,
 	}
 
-	pkt = test.CreatePacket(ifs.ReadFileRequest, payload1)
+	pkt = CreatePacket(ifs.ReadFileRequest, payload1)
 
 	chunk, err := fh.ReadFile(pkt)
 
@@ -260,7 +259,7 @@ func TestReadFile(t *testing.T) {
 	}
 
 	if !cmp.Equal(chunk.Chunk, data[:100]) {
-		test.PrintTestError(t, "chunks dont match", chunk.Chunk, data[:100])
+		PrintTestError(t, "chunks dont match", chunk.Chunk, data[:100])
 	}
 
 	payload2 := &ifs.CloseInfo{
@@ -268,17 +267,17 @@ func TestReadFile(t *testing.T) {
 		FileDescriptor: 1,
 	}
 
-	pkt = test.CreatePacket(ifs.CloseRequest, payload2)
+	pkt = CreatePacket(ifs.CloseRequest, payload2)
 
 	fh.CloseFile(pkt)
 
 }
 
 func TestReadFile2(t *testing.T) {
-	test.CreateTempFile("file1")
-	defer test.RemoveTempFile("file1")
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
 
-	data := test.WriteDummyData("file1", 1000)
+	data := WriteDummyData("file1", 1000)
 
 	rp := &ifs.RemotePath{
 		Hostname: "localhost",
@@ -294,7 +293,7 @@ func TestReadFile2(t *testing.T) {
 		Flags:          0,
 	}
 
-	pkt := test.CreatePacket(ifs.OpenRequest, payload)
+	pkt := CreatePacket(ifs.OpenRequest, payload)
 
 	fh.OpenFile(pkt)
 
@@ -305,7 +304,7 @@ func TestReadFile2(t *testing.T) {
 		Size:           100,
 	}
 
-	pkt = test.CreatePacket(ifs.ReadFileRequest, payload1)
+	pkt = CreatePacket(ifs.ReadFileRequest, payload1)
 
 	chunk, err := fh.ReadFile(pkt)
 
@@ -316,7 +315,7 @@ func TestReadFile2(t *testing.T) {
 	}
 
 	if !cmp.Equal(chunk.Chunk, data[100:200]) {
-		test.PrintTestError(t, "chunks dont match", chunk.Chunk, data[100:200])
+		PrintTestError(t, "chunks dont match", chunk.Chunk, data[100:200])
 	}
 
 	payload2 := &ifs.CloseInfo{
@@ -324,16 +323,16 @@ func TestReadFile2(t *testing.T) {
 		FileDescriptor: 1,
 	}
 
-	pkt = test.CreatePacket(ifs.CloseRequest, payload2)
+	pkt = CreatePacket(ifs.CloseRequest, payload2)
 
 	fh.CloseFile(pkt)
 }
 
 func TestReadFile3(t *testing.T) {
-	test.CreateTempFile("file1")
-	defer test.RemoveTempFile("file1")
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
 
-	test.WriteDummyData("file1", 1000)
+	WriteDummyData("file1", 1000)
 
 	rp := &ifs.RemotePath{
 		Hostname: "localhost",
@@ -348,7 +347,7 @@ func TestReadFile3(t *testing.T) {
 		Size:           100,
 	}
 
-	pkt := test.CreatePacket(ifs.ReadFileRequest, payload)
+	pkt := CreatePacket(ifs.ReadFileRequest, payload)
 
 	fh := ifs.AgentFileHandler()
 	chunk, err := fh.ReadFile(pkt)
@@ -364,10 +363,10 @@ func TestReadFile3(t *testing.T) {
 }
 
 func TestReadFile4(t *testing.T) {
-	test.CreateTempFile("file1")
-	defer test.RemoveTempFile("file1")
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
 
-	data := test.WriteDummyData("file1", 1000)
+	data := WriteDummyData("file1", 1000)
 
 	rp := &ifs.RemotePath{
 		Hostname: "localhost",
@@ -383,7 +382,7 @@ func TestReadFile4(t *testing.T) {
 		Flags:          0,
 	}
 
-	pkt := test.CreatePacket(ifs.OpenRequest, payload)
+	pkt := CreatePacket(ifs.OpenRequest, payload)
 
 	fh.OpenFile(pkt)
 
@@ -394,7 +393,7 @@ func TestReadFile4(t *testing.T) {
 		Size:           1000,
 	}
 
-	pkt = test.CreatePacket(ifs.ReadFileRequest, payload1)
+	pkt = CreatePacket(ifs.ReadFileRequest, payload1)
 
 	chunk, err := fh.ReadFile(pkt)
 
@@ -405,7 +404,7 @@ func TestReadFile4(t *testing.T) {
 	}
 
 	if !cmp.Equal(chunk.Chunk, data) {
-		test.PrintTestError(t, "chunks dont match", chunk.Chunk, data)
+		PrintTestError(t, "chunks dont match", chunk.Chunk, data)
 	}
 
 	payload2 := &ifs.CloseInfo{
@@ -413,7 +412,7 @@ func TestReadFile4(t *testing.T) {
 		FileDescriptor: 1,
 	}
 
-	pkt = test.CreatePacket(ifs.CloseRequest, payload2)
+	pkt = CreatePacket(ifs.CloseRequest, payload2)
 
 	fh.CloseFile(pkt)
 }
