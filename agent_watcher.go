@@ -57,6 +57,7 @@ func (w *watcher) processEvents() {
 
 }
 
+//TODO Finish Watcher
 func (w *watcher) processEvent(event fsnotify.Event) {
 
 	// If folder is created should be added to watch list
