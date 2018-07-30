@@ -1,4 +1,4 @@
-package ifs
+package ifs_test
 
 //import (
 //	"testing"
