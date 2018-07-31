@@ -58,6 +58,8 @@ func (t *talker) Startup(remoteRoots []*RemoteRoot, poolCount int) {
 		t.Pools.Set(remoteRoot.Hostname, newFsConnectionPool())
 		t.mountRemoteRoot(remoteRoot, poolCount)
 	}
+
+	go t.setupPing(time.Tick(30 * time.Second))
 }
 
 func (t *talker) setupPing(ch <-chan time.Time) {
@@ -115,8 +117,6 @@ func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 	payload := &WatchInfo{
 		Paths: remoteRoot.Paths,
 	}
-
-	go t.setupPing(time.Tick(30 * time.Second))
 
 	t.sendRequest(WatchDirRequest, remoteRoot.Hostname, payload)
 
