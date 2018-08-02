@@ -5,9 +5,7 @@ import (
 	"bazil.org/fuse/fs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
-	"os/signal"
-)
+			)
 
 var (
 	fuseServerInstance *fs.Server
@@ -44,22 +42,22 @@ func SetupLogger(cfg *LogConfig) {
 
 func MountRemoteRoots(cfg *FsConfig) {
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-
-	go func() {
-		for range sigChan {
-			err := fuse.Unmount(cfg.MountPoint)
-
-			if err == nil {
-				zap.L().Info("Unmounted Successfully")
-			} else {
-				zap.L().Warn("Unmount Failed",
-					zap.Error(err),
-				)
-			}
-		}
-	}()
+	//sigChan := make(chan os.Signal, 1)
+	//signal.Notify(sigChan, os.Interrupt)
+	//
+	//go func() {
+	//	for range sigChan {
+	//		err := fuse.Unmount(cfg.MountPoint)
+	//
+	//		if err == nil {
+	//			zap.L().Info("Unmounted Successfully")
+	//		} else {
+	//			zap.L().Warn("Unmount Failed",
+	//				zap.Error(err),
+	//			)
+	//		}
+	//	}
+	//}()
 
 	// TODO Figure out more options to add
 	options := []fuse.MountOption{
@@ -93,4 +91,5 @@ func MountRemoteRoots(cfg *FsConfig) {
 		)
 	}
 
+	zap.L().Core().Sync()
 }

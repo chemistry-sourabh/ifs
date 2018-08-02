@@ -232,7 +232,7 @@ func (fh *agentFileHandler) FetchFile(request *Packet) (*FileChunk, error) {
 			Size:  len(data),
 		}
 
-		fileChunk.Compress()
+		//fileChunk.Compress()
 
 		zap.L().Debug("Fetch Response",
 			zap.String("op", "fetch"),
@@ -293,7 +293,7 @@ func (fh *agentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 				Size:  n,
 			}
 
-			fileChunk.Compress()
+			//fileChunk.Compress()
 
 			zap.L().Debug("Read Response",
 				zap.String("op", "read"),

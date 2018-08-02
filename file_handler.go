@@ -85,7 +85,7 @@ func (fh *fileHandler) ReadData(handle *FileHandle, offset int64, size int) ([]b
 			} else {
 				// TODO If EOF is returned in Read then for some reason decompress is happening and failing
 				fileChunk := resp.Data.(*FileChunk)
-				fileChunk.Decompress()
+				//fileChunk.Decompress()
 				return fileChunk.Chunk, nil
 			}
 

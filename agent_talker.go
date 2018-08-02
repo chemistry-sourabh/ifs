@@ -125,6 +125,7 @@ func (t *agentTalker) Listen(index uint8) {
 
 func (t *agentTalker) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{}
+	upgrader.EnableCompression = true
 	conn, _ := upgrader.Upgrade(w, r, nil)
 
 	zap.L().Debug("Got New Connection",

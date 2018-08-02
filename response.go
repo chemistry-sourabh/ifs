@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"bytes"
 	"go.uber.org/zap"
+	"io"
 )
 
 type Stat struct {
@@ -28,8 +29,8 @@ type FileChunk struct {
 func (fc *FileChunk) Compress() {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
+	defer w.Close()
 	w.Write(fc.Chunk)
-	w.Close()
 	fc.Chunk = b.Bytes()
 }
 
@@ -37,8 +38,9 @@ func (fc *FileChunk) Decompress() {
 	var b bytes.Buffer
 	b.Write(fc.Chunk)
 	r, err := zlib.NewReader(&b)
+	defer r.Close()
 
-	if err != nil {
+	if err != nil && err != io.EOF {
 		zap.L().Fatal("Decompression Failed",
 			zap.Error(err),
 		)
@@ -46,7 +48,6 @@ func (fc *FileChunk) Decompress() {
 
 	var out bytes.Buffer
 	out.ReadFrom(r)
-	r.Close()
 	fc.Chunk = out.Bytes()
 }
 

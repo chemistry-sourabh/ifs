@@ -157,7 +157,7 @@ func (h *hoarder) cacheFile(remotePath *RemotePath) error {
 
 	fname := h.GetCacheFileName()
 	fileChunk := resp.Data.(*FileChunk)
-	fileChunk.Decompress()
+	//fileChunk.Decompress()
 	err := ioutil.WriteFile(path.Join(h.Path, fname), fileChunk.Chunk,
 		0666)
 

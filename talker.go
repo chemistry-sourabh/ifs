@@ -94,9 +94,8 @@ func (t *talker) setupPing(ch <-chan time.Time) {
 func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 
 	u := url.URL{Scheme: "ws", Host: remoteRoot.Address(), Path: "/"}
-
+	websocket.DefaultDialer.EnableCompression = true
 	for i := 0; i < poolCount; i++ {
-
 		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 
 		if err != nil {

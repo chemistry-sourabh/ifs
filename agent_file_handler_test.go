@@ -182,7 +182,7 @@ func TestFetchFile(t *testing.T) {
 	fh := ifs.AgentFileHandler()
 	chunk, err := fh.FetchFile(pkt)
 
-	chunk.Decompress()
+	//chunk.Decompress()
 
 	if err != nil {
 		t.Error("Got Error in FetchFile", err)
@@ -252,7 +252,7 @@ func TestReadFile(t *testing.T) {
 
 	chunk, err := fh.ReadFile(pkt)
 
-	chunk.Decompress()
+	//chunk.Decompress()
 
 	if err != nil {
 		t.Error("Got Error in ReadFile", err)
@@ -308,7 +308,7 @@ func TestReadFile2(t *testing.T) {
 
 	chunk, err := fh.ReadFile(pkt)
 
-	chunk.Decompress()
+	//chunk.Decompress()
 
 	if err != nil {
 		t.Error("Got Error in ReadFile", err)
@@ -397,7 +397,7 @@ func TestReadFile4(t *testing.T) {
 
 	chunk, err := fh.ReadFile(pkt)
 
-	chunk.Decompress()
+	//chunk.Decompress()
 
 	if err != nil {
 		t.Error("Got Error in ReadFile", err)
