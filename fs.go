@@ -143,10 +143,11 @@ func generateVirtualNodes(paths []string, remotePaths []*RemotePath) (cmap.Concu
 				Nodes: generateVirtualNodes(v, aggRemotePaths[k]),
 			})
 		} else {
+			cm := cmap.New()
 			virtualNodes.Set(k, &RemoteNode{
 				IsDir:       true,
 				RemotePath:  aggRemotePaths[k][0],
-				RemoteNodes: cmap.New(),
+				RemoteNodes: &cm,
 			})
 		}
 	}

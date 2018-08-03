@@ -5,7 +5,8 @@ import (
 	"golang.org/x/net/context"
 	"time"
 	"go.uber.org/zap"
-)
+	"github.com/orcaman/concurrent-map"
+	)
 
 type FileHandle struct {
 	RemoteNode     *RemoteNode
@@ -113,6 +114,8 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			zap.Int("size", len(files)),
 		)
 
+		newRns := cmap.New()
+
 		for _, file := range files {
 
 			s := file
@@ -140,7 +143,6 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 			if !ok {
 				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
-				rn.RemoteNodes.Set(s.Name, newRn)
 			} else {
 				newRn = val.(*RemoteNode)
 			}
@@ -150,9 +152,13 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			newRn.Mtime = time.Unix(0, s.ModTime)
 			newRn.IsCached = true
 
+			newRns.Set(s.Name, newRn)
 			//rn.RemoteNodes[s.Name] = newRn
 
 		}
+
+		//TODO Might be fishy (Atomic?)
+		rn.RemoteNodes = &newRns
 
 		return children, nil
 

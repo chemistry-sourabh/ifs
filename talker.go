@@ -97,7 +97,6 @@ func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 	websocket.DefaultDialer.EnableCompression = true
 	for i := 0; i < poolCount; i++ {
 		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-
 		if err != nil {
 			zap.L().Fatal("Connection Handshake Failed",
 				zap.Error(err),

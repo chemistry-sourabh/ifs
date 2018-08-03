@@ -120,7 +120,7 @@ func (t *agentTalker) Listen(index uint8) {
 
 	t.Pool.Remove(index)
 	Watcher().UnwatchPaths()
-	//AgentFileHandler().Opened = cmap.New()
+	AgentFileHandler().CloseAll()
 
 }
 

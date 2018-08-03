@@ -24,7 +24,7 @@ type RemoteNode struct {
 	// TODO Add Atime also
 
 	// Children
-	RemoteNodes cmap.ConcurrentMap
+	RemoteNodes *cmap.ConcurrentMap
 }
 
 func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
@@ -103,6 +103,9 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 
 // TODO Should be Helper
 func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNode {
+
+	cm := cmap.New()
+
 	return &RemoteNode{
 		IsDir:    isDir,
 		IsCached: false,
@@ -111,7 +114,7 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 			Port:     rn.RemotePath.Port,
 			Path:     path.Join(rn.RemotePath.Path, name),
 		},
-		RemoteNodes: cmap.New(),
+		RemoteNodes: &cm,
 	}
 }
 
@@ -124,6 +127,7 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 		zap.String("path", rn.RemotePath.Path),
 	)
 
+	newRns := cmap.New()
 	//rn.RemoteNodes = make(map[string]*RemoteNode)
 
 	var err error
@@ -156,7 +160,6 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 			var newRn *RemoteNode
 			if !ok {
 				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
-				rn.RemoteNodes.Set(s.Name, newRn)
 			} else {
 				newRn = val.(*RemoteNode)
 			}
@@ -166,8 +169,11 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 			newRn.Mtime = time.Unix(0, s.ModTime)
 			newRn.IsCached = true
 
+			newRns.Set(s.Name, newRn)
 			//rn.RemoteNodes[s.Name] = newRn
 		}
+
+		rn.RemoteNodes = &newRns
 
 	} else {
 		err = respError.Err
