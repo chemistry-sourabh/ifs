@@ -87,7 +87,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Size = rn.Size
 	attr.Mode = rn.Mode
 	attr.Mtime = rn.Mtime
-	//attr.Valid = time.Duration(1)
+	attr.Valid = time.Duration(-1)
 
 	zap.L().Debug("Attr Response",
 		zap.String("op", "attr"),

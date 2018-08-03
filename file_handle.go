@@ -77,6 +77,7 @@ func (fh *FileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *f
 	return err
 }
 
+// TODO Remove Nodes if not present on remote
 func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	rn := fh.RemoteNode

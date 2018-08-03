@@ -1,33 +1,88 @@
 package main
 
 import (
-	"ifs"
-	"fmt"
+	_ "go.uber.org/automaxprocs"
+	"gopkg.in/urfave/cli.v1"
 	"os"
+	"fmt"
+	"ifs"
 )
 
-import _ "go.uber.org/automaxprocs"
-
+//TODO Remove Logs for automaxprocs
 func main() {
 
-	cfgPath := "./fs.json"
-
-	args := os.Args[1:]
-
-	if len(args) > 1 {
-		fmt.Printf("usage: ifs [config]")
-		os.Exit(1)
-	} else if len(args) == 1 {
-		cfgPath = args[0]
+	app := cli.NewApp()
+	app.EnableBashCompletion = true
+	app.Version = "0.1.0"
+	app.Usage = "A Fast Network File System that can Mount Paths from Multiple Hosts"
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "c, config",
+			Usage: "Specify the Config File",
+			Value: "./fs.json",
+		},
 	}
 
-	cfg := &ifs.FsConfig{}
-	err := cfg.Load(cfgPath)
+	app.Commands = []cli.Command{
+		{
+			Name:    "mount",
+			Aliases: []string{"mnt"},
+			Usage:   "Mount the Filesystem",
+			Action: func(c *cli.Context) error {
+				cfg := &ifs.FsConfig{}
+				path := c.GlobalString("config")
+				err := cfg.Load(path)
+
+				if err != nil {
+					return err
+				}
+
+				ifs.SetupLogger(cfg.Log)
+				ifs.MountRemoteRoots(cfg)
+				return nil
+			},
+		},
+		{
+			Name:    "umount",
+			Aliases: []string{"umnt"},
+			Usage:   "Unmount the Filesystem",
+			Action: func(c *cli.Context) error {
+				fmt.Println("Unimplemented")
+				return nil
+			},
+		},
+		{
+			Name:  "add",
+			Usage: "Add a New Path to Mount",
+			Action: func(c *cli.Context) error {
+				fmt.Println("Unimplemented")
+				return nil
+			},
+		},
+		{
+			Name: "remove",
+			Aliases: []string{"rm"},
+			Usage: "Remove a Mounted Path",
+			Action: func(c *cli.Context) error {
+				fmt.Println("Unimplemented")
+				return nil
+			},
+		},
+		{
+			Name:    "list",
+			Aliases: []string{"ls"},
+			Usage:   "List Mounted Paths",
+			Action: func(c *cli.Context) error {
+				fmt.Println("Unimplemented")
+				return nil
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
 
 	if err != nil {
-		fmt.Printf("got error: %s",err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
-
-	ifs.SetupLogger(cfg.Log)
-	ifs.MountRemoteRoots(cfg)
 }

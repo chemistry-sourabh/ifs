@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 	"strings"
 	"sync"
-)
+	)
 
 type agentTalker struct {
 	IdCounter uint64
@@ -120,6 +120,7 @@ func (t *agentTalker) Listen(index uint8) {
 
 	t.Pool.Remove(index)
 	Watcher().UnwatchPaths()
+	//AgentFileHandler().Opened = cmap.New()
 
 }
 

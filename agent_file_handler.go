@@ -31,6 +31,17 @@ func AgentFileHandler() *agentFileHandler {
 	return agentFileHandlerInstance
 }
 
+func (fh *agentFileHandler) CloseAll() error {
+	for t := range fh.Opened.IterBuffered() {
+		f := t.Val.(*os.File)
+		f.Close()
+		fh.Opened.Remove(t.Key)
+	}
+
+	zap.L().Debug("Closed All Open Files")
+
+	return nil
+}
 
 func (fh *agentFileHandler) Attr(request *Packet) (*Stat, error) {
 

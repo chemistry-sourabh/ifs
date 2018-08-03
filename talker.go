@@ -113,11 +113,11 @@ func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 
 	}
 
-	payload := &WatchInfo{
-		Paths: remoteRoot.Paths,
-	}
+	//payload := &WatchInfo{
+	//	Paths: remoteRoot.Paths,
+	//}
 
-	t.sendRequest(WatchDirRequest, remoteRoot.Hostname, payload)
+	//t.sendRequest(WatchDirRequest, remoteRoot.Hostname, payload)
 
 }
 
