@@ -12,6 +12,7 @@ import (
 	"github.com/orcaman/concurrent-map"
 	"strings"
 	"path/filepath"
+	"time"
 )
 
 type fileSystem struct {
@@ -60,6 +61,7 @@ func (root *fileSystem) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Gid = uint32(gid)
 	//attr.Size = uint64(10)
 	attr.Mode = os.FileMode(os.ModeDir | 0755)
+	attr.Valid = time.Duration(-1)
 	//attr.Mtime = s.ModTime
 
 	zap.L().Debug("Attr Response",
