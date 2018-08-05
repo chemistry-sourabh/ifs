@@ -14,9 +14,7 @@ import (
 
 type talker struct {
 	// Should be map of hostname and port
-	//IdCounters    map[string]*uint64
-	IdCounters cmap.ConcurrentMap
-	//Pools         map[string]*FsConnectionPool
+	IdCounters    cmap.ConcurrentMap
 	Pools         cmap.ConcurrentMap
 	RequestBuffer cmap.ConcurrentMap
 }
@@ -111,12 +109,6 @@ func (t *talker) mountRemoteRoot(remoteRoot *RemoteRoot, poolCount int) {
 		go t.processIncomingMessages(remoteRoot.Hostname, index)
 
 	}
-
-	//payload := &WatchInfo{
-	//	Paths: remoteRoot.Paths,
-	//}
-
-	//t.sendRequest(WatchDirRequest, remoteRoot.Hostname, payload)
 
 }
 
@@ -232,10 +224,5 @@ func (t *talker) processIncomingMessages(hostname string, index uint8) {
 }
 
 func (t *talker) processRequest(hostname string, packet *Packet) {
-
-	switch packet.Op {
-	case AttrUpdateRequest:
-		attrUpdateInfo := packet.Data.(*AttrUpdateInfo)
-		UpdateAttr(hostname, attrUpdateInfo)
-	}
+	// Just in case Agent needs to send messages back
 }

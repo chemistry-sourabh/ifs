@@ -164,11 +164,16 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 				newRn = val.(*RemoteNode)
 			}
 
+			mtime := time.Unix(0, s.ModTime)
+
+			if ok && mtime != newRn.Mtime {
+				Hoarder().CacheFetch(rn.RemotePath)
+			}
+
 			newRn.Size = uint64(s.Size)
 			newRn.Mode = s.Mode
-			newRn.Mtime = time.Unix(0, s.ModTime)
 			newRn.IsCached = true
-
+			newRn.Mtime = mtime
 			newRns.Set(s.Name, newRn)
 			//rn.RemoteNodes[s.Name] = newRn
 		}

@@ -10,7 +10,7 @@ type agent struct {
 
 var (
 	agentInstance *agent
-	agentOnce sync.Once
+	agentOnce     sync.Once
 )
 
 func Agent() *agent {
@@ -91,11 +91,6 @@ func (a *agent) ProcessRequest(req *Packet) {
 	case CloseRequest:
 		resp.Op = ErrorResponse
 		err = AgentFileHandler().CloseFile(req)
-
-	case WatchDirRequest:
-		resp.Op = ErrorResponse
-		err = Watcher().WatchPaths(req)
-
 	}
 
 	populateResponse(resp, data, err)
@@ -106,20 +101,10 @@ func (a *agent) ProcessRequest(req *Packet) {
 
 func StartAgent(address string, port uint16) {
 
-
 	zap.L().Info("Starting Agent",
 		zap.String("address", address),
 		zap.Uint16("port", port),
 	)
-
-
-	err := Watcher().Startup()
-
-	if err != nil {
-		zap.L().Fatal("Watcher Failed",
-			zap.Error(err),
-		)
-	}
 
 	AgentTalker().Startup(address, port)
 

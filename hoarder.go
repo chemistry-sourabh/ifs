@@ -28,7 +28,7 @@ type hoarder struct {
 	cached     cmap.ConcurrentMap
 	fetching   cmap.ConcurrentMap
 	opened     cmap.ConcurrentMap
-	fetchQueue chan *FetchInfo
+	fetchQueue chan interface{}
 	fileId     uint64
 }
 
@@ -40,10 +40,11 @@ var (
 func Hoarder() *hoarder {
 	hoarderOnce.Do(func() {
 		hoarderInstance = &hoarder{
+			fileId:     1,
 			cached:     cmap.New(),
 			fetching:   cmap.New(),
 			opened:     cmap.New(),
-			fetchQueue: make(chan *FetchInfo, ChannelLength),
+			fetchQueue: make(chan interface{}, ChannelLength),
 		}
 	})
 
@@ -119,26 +120,51 @@ func (h *hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags
 	}
 }
 
+func (h *hoarder) CacheFetch(remotePath *RemotePath) {
+
+	zap.L().Debug("Fetch File",
+		zap.String("remotePath", remotePath.String()),
+	)
+
+	h.fetchQueue <- remotePath
+}
+
 func (h *hoarder) processFetchRequests() {
-	for openInfo := range h.fetchQueue {
+	for info := range h.fetchQueue {
 
-		rp := openInfo.RemotePath
+		switch val := info.(type) {
+		case *FetchInfo:
 
-		_, cachedOk := h.cached.Get(rp.String())
-		_, fetchingOk := h.fetching.Get(rp.String())
+			fetchInfo := val
 
-		if !cachedOk && !fetchingOk {
-			go func() {
-				err := h.cacheFile(rp)
+			rp := fetchInfo.RemotePath
 
-				if err == nil {
-					val, _ := h.cached.Get(rp.String())
-					h.openCacheFile(val.(string), openInfo.FileDescriptor, openInfo.Flags)
-				}
+			_, cachedOk := h.cached.Get(rp.String())
+			_, fetchingOk := h.fetching.Get(rp.String())
 
-			}()
+			if !cachedOk && !fetchingOk {
+				go func() {
+					err := h.cacheFile(rp)
+
+					if err == nil {
+						val, _ := h.cached.Get(rp.String())
+						h.openCacheFile(val.(string), fetchInfo.FileDescriptor, fetchInfo.Flags)
+					}
+
+				}()
+			}
+
+		case *RemotePath:
+
+			rp := val
+
+			_, cachedOk := h.cached.Get(rp.String())
+			_, fetchingOk := h.fetching.Get(rp.String())
+
+			if cachedOk && !fetchingOk {
+				go h.cacheFile(rp)
+			}
 		}
-
 	}
 }
 
@@ -162,7 +188,12 @@ func (h *hoarder) cacheFile(remotePath *RemotePath) error {
 		0666)
 
 	if err == nil {
+		val, ok := h.cached.Get(remotePath.String())
 		h.cached.Set(remotePath.String(), fname)
+		if ok {
+			oldFname := val.(string)
+			os.Remove(oldFname)
+		}
 	}
 	h.fetching.Remove(remotePath.String())
 

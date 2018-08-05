@@ -147,9 +147,15 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 				newRn = val.(*RemoteNode)
 			}
 
+			mtime := time.Unix(0, s.ModTime)
+
+			if ok && mtime != newRn.Mtime {
+				Hoarder().CacheFetch(rn.RemotePath)
+			}
+
 			newRn.Size = uint64(s.Size)
 			newRn.Mode = s.Mode
-			newRn.Mtime = time.Unix(0, s.ModTime)
+			newRn.Mtime = mtime
 			newRn.IsCached = true
 
 			newRns.Set(s.Name, newRn)
