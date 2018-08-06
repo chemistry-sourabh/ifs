@@ -83,14 +83,3 @@ type FetchInfo struct {
 	FileDescriptor uint64
 	Flags          fuse.OpenFlags
 }
-
-type AttrUpdateInfo struct {
-	Path    string
-	Size    int64
-	Mode    os.FileMode
-	ModTime int64
-}
-
-type WatchInfo struct {
-	Paths []string
-}

@@ -31,10 +31,6 @@ const CloseRequest = FileOpBase + 10
 const FlushRequest  = FileOpBase + 11
 const ReadDirAllRequest = FileOpBase + 12
 
-const WatcherBase = 20
-const WatchDirRequest = WatcherBase + 0
-const AttrUpdateRequest = WatcherBase + 1
-
 const ResponseBase = 30
 const StatResponse = ResponseBase + 0
 const StatsResponse = ResponseBase + 1

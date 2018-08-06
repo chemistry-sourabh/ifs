@@ -1,3 +1,5 @@
+// +build unit
+
 /*
 Copyright 2018 Sourabh Bollapragada
 
@@ -23,56 +25,38 @@ import (
 
 func TestFirstDir(t *testing.T) {
 
+	// Case 1
 	path := "/home/sourabh/hello.py"
-
 	firstDir := ifs.FirstDir(path)
+	Compare(t, firstDir, "home")
 
-	if firstDir != "home" {
-		PrintTestError(t, "Dont Match", firstDir, "home")
-	}
-
+	// Case 2
 	path = "home/sourabh/hello.py"
-
 	firstDir = ifs.FirstDir(path)
+	Compare(t, firstDir, "home")
 
-	if firstDir != "home" {
-		PrintTestError(t, "Dont Match", firstDir, "home")
-	}
-
+	// Case 3
 	path = "home"
-
 	firstDir = ifs.FirstDir(path)
-
-	if firstDir != "home" {
-		PrintTestError(t, "Dont Match", firstDir, "home")
-	}
+	Compare(t, firstDir, "home")
 
 }
 
 func TestRemoveFirstDir(t *testing.T) {
 
+	// Case 1
 	path := "/home/sourabh/hello.py"
-
 	newPath := ifs.RemoveFirstDir(path)
+	Compare(t, newPath, "sourabh/hello.py")
 
-	if newPath != "sourabh/hello.py" {
-		PrintTestError(t, "Dont Match", newPath, "sourabh/hello.py")
-	}
-
+	// Case 2
 	path = "home/sourabh/hello.py"
-
 	newPath = ifs.RemoveFirstDir(path)
+	Compare(t, newPath, "sourabh/hello.py")
 
-	if newPath != "sourabh/hello.py" {
-		PrintTestError(t, "Dont Match", newPath, "sourabh/hello.py")
-	}
-
+	// Case 3
 	path = "home"
-
 	newPath = ifs.RemoveFirstDir(path)
-
-	if newPath != "" {
-		PrintTestError(t, "Dont Match", newPath, "")
-	}
+	Compare(t, newPath, "")
 
 }

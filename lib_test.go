@@ -69,6 +69,15 @@ func WriteDummyData(name string, size int) []byte {
 	return data
 }
 
+func WriteDummyDataToPath(fullPath string, size int) []byte {
+	data := make([]byte, size)
+	binary.Read(rand.Reader, binary.LittleEndian, &data)
+	ioutil.WriteFile(fullPath, data, 0666)
+	return data
+}
+
+
+
 // New Lib Starts Here
 
 func Compare(t *testing.T, got interface{}, want interface{}) {

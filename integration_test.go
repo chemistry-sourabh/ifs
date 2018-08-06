@@ -27,14 +27,17 @@ import (
 	"syscall"
 	"io/ioutil"
 	"github.com/chemistry-sourabh/ifs"
+	"math/rand"
+	"fmt"
 )
 
-
+// TODO Check Tree
 const TestRoot = "/tmp/test_root"
 const TestCache = "/tmp/test_cache"
 const TestRemoteRoot = "/tmp/test_remote_root"
 
 const SmallFileCount = 10
+const FileNameLimit = 1000
 
 func StartAgentProcess() {
 	go func() {
@@ -55,12 +58,14 @@ func CreateConfig() *ifs.FsConfig {
 		RemoteRoots: []*ifs.RemoteRoot{
 			&ifs.RemoteRoot{
 				Hostname: "localhost",
-				Port: 8000,
-				Paths:   []string{TestRemoteRoot},
+				Port:     8000,
+				Paths:    []string{TestRemoteRoot},
 			},
 		},
 		Log: &ifs.LogConfig{
 			Logging: false,
+			Console: true,
+			Debug:   true,
 		},
 
 		ConnCount: 3,
@@ -80,7 +85,7 @@ func DeleteTestDirs() {
 }
 
 func CreateTestFile(name string) error {
-	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot , name)
+	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot, name)
 	f, err := os.Create(fullPath)
 	if err == nil {
 		f.Close()
@@ -97,8 +102,23 @@ func CreateTestFileRemote(name string) {
 	}
 }
 
+func GetTestFilePath(i int) string {
+	fname := GetFileName(i)
+	return path.Join(TestRoot, "localhost", TestRemoteRoot, fname)
+}
+
+func GetTestFileRemotePath(i int) string {
+	fname := GetFileName(i)
+	return path.Join(TestRemoteRoot, fname)
+}
+
 func CreateTestDir(name string) error {
 	fullPath := path.Join(TestRoot, "localhost", TestRemoteRoot, name)
+	return os.Mkdir(fullPath, 0755)
+}
+
+func CreateTestDirRemote(name string) error {
+	fullPath := path.Join(TestRemoteRoot, name)
 	return os.Mkdir(fullPath, 0755)
 }
 
@@ -145,28 +165,67 @@ func ContainsInArray(arr []string, str string) bool {
 	return false
 }
 
-func TestCreateAndRemove(t *testing.T) {
-
-	for i := 0; i < SmallFileCount; i++ {
+func TestCreate(t *testing.T) {
+	start := rand.Intn(FileNameLimit)
+	var files []string
+	for i := start; i < start+SmallFileCount; i++ {
 		err := CreateTestFile(GetFileName(i))
 		Ok(t, err)
+		files = append(files, GetFileName(i))
 	}
 
-	for i := 0; i < SmallFileCount; i++ {
+	stats, _ := ioutil.ReadDir(TestRemoteRoot)
+
+	Compare(t, len(stats), SmallFileCount)
+	for _, stat := range stats {
+		Compare(t, ContainsInArray(files, stat.Name()), true)
+	}
+
+	for i := start; i < start+SmallFileCount; i++ {
+		RemoveTestFileRemote(GetFileName(i))
+	}
+}
+
+func TestRemove(t *testing.T) {
+	start := rand.Intn(FileNameLimit)
+	for i := start; i < start+SmallFileCount; i++ {
+		CreateTestFileRemote(GetFileName(i))
+	}
+
+	for i := start; i < start+SmallFileCount; i++ {
 		err := RemoveTestFile(GetFileName(i))
 		Ok(t, err)
+	}
+}
+
+func TestMkdir(t *testing.T) {
+	start := rand.Intn(FileNameLimit)
+	var dirs []string
+	for i := start; i < start+SmallFileCount; i++ {
+		err := CreateTestDir(GetDirName(i))
+		Ok(t, err)
+		dirs = append(dirs, GetDirName(i))
+	}
+
+	stats, _ := ioutil.ReadDir(TestRemoteRoot)
+	Compare(t, len(stats), SmallFileCount)
+	for _, stat := range stats {
+		Compare(t, ContainsInArray(dirs, stat.Name()), true)
+	}
+
+	for i := start; i < start+SmallFileCount; i++ {
+		RemoveTestFileRemote(GetDirName(i))
 	}
 
 }
 
-func TestMkdirAndRemove(t *testing.T) {
-
-	for i := 0; i < SmallFileCount; i++ {
-		err := CreateTestDir(GetDirName(i))
-		Ok(t, err)
+func TestRemoveDir(t *testing.T) {
+	start := rand.Intn(FileNameLimit)
+	for i := start; i < start+SmallFileCount; i++ {
+		CreateTestDirRemote(GetDirName(i))
 	}
 
-	for i := 0; i < SmallFileCount; i++ {
+	for i := start; i < start+SmallFileCount; i++ {
 		err := RemoveTestFile(GetDirName(i))
 		Ok(t, err)
 	}
@@ -174,7 +233,8 @@ func TestMkdirAndRemove(t *testing.T) {
 }
 
 func TestReadDirAll(t *testing.T) {
-	for i := 0; i < SmallFileCount; i++ {
+	start := rand.Intn(FileNameLimit)
+	for i := start; i < start+SmallFileCount; i++ {
 		CreateTestFileRemote(GetFileName(i))
 	}
 
@@ -184,7 +244,7 @@ func TestReadDirAll(t *testing.T) {
 	// No Error After Read
 	Ok(t, err)
 
-	// checking number of fikes
+	// checking number of files
 	Compare(t, len(files), SmallFileCount)
 
 	var names []string
@@ -193,40 +253,195 @@ func TestReadDirAll(t *testing.T) {
 	}
 
 	var actNames []string
-	for i := 0; i < SmallFileCount; i++ {
+	for i := start; i < start+SmallFileCount; i++ {
 		actNames = append(actNames, GetFileName(i))
 	}
 
-	for i := 0; i < SmallFileCount; i++ {
+	for i := start; i < start+SmallFileCount; i++ {
 		if !ContainsInArray(names, GetFileName(i)) {
 			PrintTestError(t, "Flags content is wrong", names, actNames)
 		}
 	}
 
-	for i := 0; i < SmallFileCount; i++ {
+	for i := start; i < start+SmallFileCount; i++ {
 		RemoveTestFileRemote(GetFileName(i))
 	}
 }
 
-func TestSetAttr(t *testing.T) {
-	CreateTestFileRemote(GetFileName(0))
-	defer RemoveTestFile(GetFileName(0))
+func TestSetAttrSize(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	defer RemoveTestFileRemote(GetFileName(fname))
 
-	fullPath := path.Join(TestRemoteRoot, GetFileName(0))
-	WriteDummyData(fullPath, 100)
+	rp := GetTestFileRemotePath(fname)
+	localPath := GetTestFilePath(fname)
 
-	err := os.Truncate(fullPath, 10)
+	WriteDummyData(rp, 100)
 
-	// checking no error
+	err := os.Truncate(localPath, 10)
 	Ok(t, err)
 
-	f, _ := os.Lstat(fullPath)
+	f, _ := os.Lstat(rp)
+	Compare(t, int(f.Size()), 10)
 
-	// checking new size
+	f, _ = os.Lstat(localPath)
 	Compare(t, int(f.Size()), 10)
 }
 
+func TestSetAttrMode(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	defer RemoveTestFileRemote(GetFileName(fname))
+
+	rp := GetTestFileRemotePath(fname)
+	localPath := GetTestFilePath(fname)
+
+	f, _ := os.Lstat(rp)
+	Compare(t, f.Mode(), os.FileMode(0644))
+
+	f, _ = os.Lstat(localPath)
+	Compare(t, f.Mode(), os.FileMode(0644))
+
+	os.Chmod(localPath, 0666)
+
+	f, _ = os.Lstat(rp)
+	Compare(t, f.Mode(), os.FileMode(0666))
+
+	f, _ = os.Lstat(localPath)
+	Compare(t, f.Mode(), os.FileMode(0666))
+}
+
+func TestSetAttrTime(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	defer RemoveTestFileRemote(GetFileName(fname))
+
+	rp := GetTestFileRemotePath(fname)
+	localPath := GetTestFilePath(fname)
+
+	now := time.Now().Add(10 * time.Minute)
+	os.Chtimes(localPath, now, now)
+
+	f, _ := os.Lstat(rp)
+	Compare(t, f.ModTime().Unix(), now.Unix())
+
+	f, _ = os.Lstat(localPath)
+	Compare(t, f.ModTime().Unix(), now.Unix())
+
+}
+
+func TestOpenClose(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	defer RemoveTestFileRemote(GetFileName(fname))
+
+	localPath := GetTestFilePath(fname)
+
+	f, err := os.OpenFile(localPath, os.O_RDWR, 0666)
+	Ok(t, err)
+
+	err = f.Close()
+	Ok(t, err)
+}
+
+func TestWrite(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	defer RemoveTestFileRemote(GetFileName(fname))
+
+	localPath := GetTestFilePath(fname)
+	rp := GetTestFileRemotePath(fname)
+
+	data := WriteDummyDataToPath(localPath, 100)
+
+	f, _ := os.Lstat(localPath)
+	Compare(t, f.Size(), int64(100))
+
+	f, _ = os.Lstat(rp)
+	Compare(t, f.Size(), int64(100))
+
+	read, _ := ioutil.ReadFile(rp)
+	Compare(t, read, data)
+}
+
+func TestRead(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	defer RemoveTestFileRemote(GetFileName(fname))
+
+	rp := GetTestFileRemotePath(fname)
+	localPath := GetTestFilePath(fname)
+	data := WriteDummyDataToPath(rp, 100)
+
+	read, _ := ioutil.ReadFile(localPath)
+	Compare(t, len(read), 100)
+	Compare(t, read, data)
+}
+
+func TestRename(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	//defer RemoveTestFileRemote(GetFileName(fname))
+
+	rp := GetTestFileRemotePath(fname)
+	newRp := GetTestFileRemotePath(fname + 1)
+	localPath := GetTestFilePath(fname)
+	newPath := GetTestFilePath(fname + 1)
+
+	_, err := os.Lstat(rp)
+	Ok(t, err)
+
+	_, err = os.Lstat(newRp)
+	Err(t, err)
+
+	os.Rename(localPath, newPath)
+
+	_, err = os.Lstat(localPath)
+	Err(t, err)
+
+	_, err = os.Lstat(newPath)
+	Ok(t, err)
+
+	_, err = os.Lstat(rp)
+	Err(t, err)
+
+	_, err = os.Lstat(newRp)
+	Ok(t, err)
+
+	RemoveTestFileRemote(GetFileName(fname + 1))
+}
+
+func TestAttrSync(t *testing.T) {
+	fname := rand.Intn(FileNameLimit)
+	CreateTestFileRemote(GetFileName(fname))
+	defer RemoveTestFileRemote(GetFileName(fname))
+
+	f, _ := os.Lstat(GetTestFilePath(fname))
+	Compare(t, f.Mode(), os.FileMode(0644))
+
+	os.Chmod(GetTestFileRemotePath(fname), 0666)
+
+	f, _ = os.Lstat(GetTestFileRemotePath(fname))
+	Compare(t, f.Mode(), os.FileMode(0666))
+
+	ioutil.ReadDir(path.Join(TestRoot, "localhost", TestRemoteRoot))
+	time.Sleep(2 * time.Second)
+	f, _ = os.Lstat(GetTestFilePath(fname))
+	//Compare(t, stats[0].Mode(), os.FileMode(0666))
+	Compare(t, f.Mode(), os.FileMode(0666))
+}
+
+// TODO Sync Tests
+// TODO Multiple Mounts
+// TODO Error Tests
+// TODO Cache Tests
+// TODO Multithreaded Test
+// TODO In Directory Tests
+
 func TestMain(m *testing.M) {
+	seed := time.Now().UnixNano()
+	fmt.Printf("Seed is %d\n", seed)
+	rand.Seed(seed)
 	Setup()
 	m.Run()
 	Teardown()

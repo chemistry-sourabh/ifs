@@ -133,7 +133,7 @@ func (h *hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags
 			Flags:          flags,
 		}
 
-		go h.cacheAndOpen(fetchInfo)
+		h.cacheAndOpen(fetchInfo)
 	}
 }
 

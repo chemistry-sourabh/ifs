@@ -51,10 +51,6 @@ func ConvertOpCodeToString(opCode uint8) string {
 		return "Open Request"
 	case CloseRequest:
 		return "Close Request"
-	case WatchDirRequest:
-		return "Watch Dir Request"
-	case AttrUpdateRequest:
-		return "Attr Update Request"
 
 	case StatResponse:
 		return "Stat Response"
@@ -69,10 +65,6 @@ func ConvertOpCodeToString(opCode uint8) string {
 	}
 
 	return "Unknown Op"
-}
-
-func AppendFileToRemotePath(rp *RemotePath, name string) string {
-	return rp.Address() + "@" + path.Join(rp.Path, name)
 }
 
 func GetRandomIndex(length int) int {

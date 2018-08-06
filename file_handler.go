@@ -139,6 +139,8 @@ func (fh *fileHandler) WriteData(handle *FileHandle, data []byte, offset int64) 
 			)
 		}
 
+		handle.RemoteNode.Size = uint64(writeResult.FileSize)
+
 		return writeResult.Size, nil
 	}
 

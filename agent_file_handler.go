@@ -397,8 +397,11 @@ func (fh *agentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 
 		if err == nil {
 
+			s, _ := os.Lstat(filePath)
+
 			result := &WriteResult{
 				Size: n,
+				FileSize: s.Size(),
 			}
 
 			zap.L().Debug("Write Response",
@@ -411,6 +414,7 @@ func (fh *agentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 				zap.Int64("offset", writeInfo.Offset),
 				zap.Int("size", len(writeInfo.Data)),
 				zap.Int("written", n),
+				zap.Int64("file_size", s.Size()),
 			)
 
 			return result, nil

@@ -18,27 +18,22 @@ limitations under the License.
 
 package ifs_test
 
-import (
-	"testing"
-	"github.com/chemistry-sourabh/ifs"
-	)
-
-func TestFileChunk_Compress_Decompress(t *testing.T) {
-	t.SkipNow()
-	str := "hello world!! Bye World!!!"
-
-	bytes := []byte(str)
-
-	fileChunk := &ifs.FileChunk{
-		Chunk: bytes,
-		Size:  len(str),
-	}
-
-	fileChunk.Compress()
-	fileChunk.Decompress()
-
-	decompressed := string(fileChunk.Chunk)
-	if str != decompressed {
-		PrintTestError(t, "strings not matching", decompressed, str)
-	}
-}
+//func TestFileChunk_Compress_Decompress(t *testing.T) {
+//	t.SkipNow()
+//	str := "hello world!! Bye World!!!"
+//
+//	bytes := []byte(str)
+//
+//	fileChunk := &ifs.FileChunk{
+//		Chunk: bytes,
+//		Size:  len(str),
+//	}
+//
+//	fileChunk.Compress()
+//	fileChunk.Decompress()
+//
+//	decompressed := string(fileChunk.Chunk)
+//	if str != decompressed {
+//		PrintTestError(t, "strings not matching", decompressed, str)
+//	}
+//}
