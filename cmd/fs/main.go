@@ -74,6 +74,7 @@ func main() {
 			Name:  "add",
 			Usage: "Add a New Path to Mount",
 			Action: func(c *cli.Context) error {
+				
 				fmt.Println("Unimplemented")
 				return nil
 			},
@@ -92,7 +93,20 @@ func main() {
 			Aliases: []string{"ls"},
 			Usage:   "List Mounted Paths",
 			Action: func(c *cli.Context) error {
-				fmt.Println("Unimplemented")
+				cfgPath := c.GlobalString("config")
+				cfg := &ifs.FsConfig{}
+				err := cfg.Load(cfgPath)
+
+				if err != nil {
+					return err
+				}
+
+				for _, root := range cfg.RemoteRoots {
+					for _, rp := range root.RemotePaths() {
+						fmt.Println(rp.String())
+					}
+					fmt.Println()
+				}
 				return nil
 			},
 		},
