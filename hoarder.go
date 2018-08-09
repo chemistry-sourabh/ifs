@@ -23,10 +23,11 @@ type CacheRequest interface {
 // Delete is RemotePath
 
 type hoarder struct {
-	Path       string
-	Size       uint64
-	cached     cmap.ConcurrentMap
-	fetching   cmap.ConcurrentMap
+	Path   string
+	Size   uint64
+	cached cmap.ConcurrentMap
+	//fetching   cmap.ConcurrentMap
+	fetching   MutexMap
 	opened     cmap.ConcurrentMap
 	fetchQueue chan interface{}
 	fileId     uint64
@@ -42,7 +43,7 @@ func Hoarder() *hoarder {
 		hoarderInstance = &hoarder{
 			fileId:     1,
 			cached:     cmap.New(),
-			fetching:   cmap.New(),
+			fetching:   *NewMutexMap(),
 			opened:     cmap.New(),
 			fetchQueue: make(chan interface{}, ChannelLength),
 		}
@@ -58,7 +59,7 @@ func (h *hoarder) Startup(path string, size uint64) {
 
 	h.DeleteCache()
 
-	go h.processFetchRequests()
+	//go h.processFetchRequests()
 }
 
 func (h *hoarder) DeleteCache() {
@@ -116,8 +117,30 @@ func (h *hoarder) CacheOpen(remotePath *RemotePath, fileDescriptor uint64, flags
 			Flags:          flags,
 		}
 
-		h.fetchQueue <- fetchInfo
+		go h.cacheAndOpen(fetchInfo)
 	}
+}
+
+func (h *hoarder) cacheAndOpen(info *FetchInfo) error {
+
+	zap.L().Debug("Cache File",
+		zap.String("remotePath", info.RemotePath.String()),
+	)
+
+	h.fetching.Lock(info.RemotePath.String())
+	defer h.fetching.Unlock(info.RemotePath.String())
+
+	if !h.IsCached(info.RemotePath) {
+		err := h.cacheFile(info.RemotePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	val, _ := h.cached.Get(info.RemotePath.String())
+
+	return h.openCacheFile(val.(string), info.FileDescriptor, info.Flags)
+
 }
 
 func (h *hoarder) CacheFetch(remotePath *RemotePath) {
@@ -126,53 +149,57 @@ func (h *hoarder) CacheFetch(remotePath *RemotePath) {
 		zap.String("remotePath", remotePath.String()),
 	)
 
-	h.fetchQueue <- remotePath
-}
+	h.fetching.Lock(remotePath.String())
+	defer h.fetching.Unlock(remotePath.String())
 
-func (h *hoarder) processFetchRequests() {
-	for info := range h.fetchQueue {
-
-		switch val := info.(type) {
-		case *FetchInfo:
-
-			fetchInfo := val
-
-			rp := fetchInfo.RemotePath
-
-			_, cachedOk := h.cached.Get(rp.String())
-			_, fetchingOk := h.fetching.Get(rp.String())
-
-			if !cachedOk && !fetchingOk {
-				go func() {
-					err := h.cacheFile(rp)
-
-					if err == nil {
-						val, _ := h.cached.Get(rp.String())
-						h.openCacheFile(val.(string), fetchInfo.FileDescriptor, fetchInfo.Flags)
-					}
-
-				}()
-			}
-
-		case *RemotePath:
-
-			rp := val
-
-			_, cachedOk := h.cached.Get(rp.String())
-			_, fetchingOk := h.fetching.Get(rp.String())
-
-			if cachedOk && !fetchingOk {
-				go h.cacheFile(rp)
-			}
-		}
+	if h.IsCached(remotePath) {
+		go h.cacheFile(remotePath)
 	}
 }
+
+//func (h *hoarder) processFetchRequests() {
+//	for info := range h.fetchQueue {
+//
+//		switch val := info.(type) {
+//		case *FetchInfo:
+//
+//			fetchInfo := val
+//
+//			rp := fetchInfo.RemotePath
+//
+//			_, cachedOk := h.cached.Get(rp.String())
+//			_, fetchingOk := h.fetching.Get(rp.String())
+//
+//			if !cachedOk && !fetchingOk {
+//				go func() {
+//					err := h.cacheFile(rp)
+//
+//					if err == nil {
+//						val, _ := h.cached.Get(rp.String())
+//						h.openCacheFile(val.(string), fetchInfo.FileDescriptor, fetchInfo.Flags)
+//					}
+//
+//				}()
+//			}
+//
+//		case *RemotePath:
+//
+//			rp := val
+//
+//			_, cachedOk := h.cached.Get(rp.String())
+//			_, fetchingOk := h.fetching.Get(rp.String())
+//
+//			if cachedOk && !fetchingOk {
+//				go h.cacheFile(rp)
+//			}
+//		}
+//	}
+//}
 
 func (h *hoarder) cacheFile(remotePath *RemotePath) error {
 
 	// TODO Check Cache Space
 	// TODO Implement some form of cache management
-	h.fetching.Set(remotePath.String(), true)
 
 	resp := Talker().sendRequest(FetchFileRequest, remotePath.Hostname, remotePath)
 
@@ -192,10 +219,9 @@ func (h *hoarder) cacheFile(remotePath *RemotePath) error {
 		h.cached.Set(remotePath.String(), fname)
 		if ok {
 			oldFname := val.(string)
-			os.Remove(oldFname)
+			os.Remove(path.Join(h.Path, oldFname))
 		}
 	}
-	h.fetching.Remove(remotePath.String())
 
 	return err
 }
@@ -216,7 +242,7 @@ func (h *hoarder) CacheTrunc(remotePath *RemotePath, truncInfo *AttrInfo) error 
 }
 
 func (h *hoarder) CacheCreate(remotePath *RemotePath, fd uint64) error {
-	if _, ok := h.cached.Get(remotePath.String()); !ok {
+	if !h.IsCached(remotePath) {
 		fname := h.GetCacheFileName()
 		f, err := os.Create(path.Join(h.Path, fname))
 
