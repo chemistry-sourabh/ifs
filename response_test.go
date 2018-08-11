@@ -20,7 +20,7 @@ package ifs_test
 
 import (
 	"testing"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 	)
 
 func TestFileChunk_Compress_Decompress(t *testing.T) {

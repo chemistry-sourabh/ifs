@@ -25,7 +25,7 @@ import (
 	"crypto/rand"
 	"github.com/google/go-cmp/cmp"
 	"runtime"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 )
 
 func PrintTestError(t *testing.T, message string, got interface{}, want interface{}) {

@@ -21,7 +21,7 @@ package ifs_test
 import (
 	"testing"
 	"github.com/google/go-cmp/cmp"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 	)
 
 const remotePath = "localhost:1121@/tmp/"

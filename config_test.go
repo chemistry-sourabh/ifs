@@ -23,7 +23,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"os"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 )
 
 const configLocation = "testConfig"

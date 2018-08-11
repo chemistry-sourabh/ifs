@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/vmihailenco/msgpack"
 	"io"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 )
 
 //TODO Check Proper Id and ConnId

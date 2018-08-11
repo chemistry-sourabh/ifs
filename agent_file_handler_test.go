@@ -21,7 +21,7 @@ package ifs_test
 import (
 	"testing"
 	"github.com/google/go-cmp/cmp"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 )
 
 // TODO Check for specific errors

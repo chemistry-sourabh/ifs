@@ -1,0 +1,17 @@
+language: go
+
+go:
+  - "1.10.1"
+
+sudo: enabled
+
+install:
+  - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev
+
+before_script:
+  - go get -v -t ./...
+  - go build -v ./...
+
+script:
+  - go test -v -cover -tags="unit integration" ./...
+

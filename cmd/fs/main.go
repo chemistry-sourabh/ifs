@@ -21,7 +21,7 @@ import (
 	"gopkg.in/urfave/cli.v1"
 	"os"
 	"fmt"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 )
 
 //TODO Remove Logs for automaxprocs

@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"syscall"
 	"io/ioutil"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 )
 
 

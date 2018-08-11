@@ -18,7 +18,7 @@ package main
 
 import (
 	"fmt"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 	"os"
 )
 

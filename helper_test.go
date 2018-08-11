@@ -18,7 +18,7 @@ package ifs_test
 
 import (
 	"testing"
-	"ifs"
+	"github.com/chemistry-sourabh/ifs"
 )
 
 func TestFirstDir(t *testing.T) {
