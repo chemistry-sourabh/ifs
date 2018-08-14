@@ -448,6 +448,7 @@ func TestMain(m *testing.M) {
 	fmt.Printf("Seed is %d\n", seed)
 	rand.Seed(seed)
 	Setup()
-	m.Run()
+	exitCode := m.Run()
 	Teardown()
+	os.Exit(exitCode)
 }
