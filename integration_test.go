@@ -296,6 +296,9 @@ func TestSetAttrMode(t *testing.T) {
 	rp := GetTestFileRemotePath(fname)
 	localPath := GetTestFilePath(fname)
 
+	// CI Fix
+	os.Chmod(rp, os.FileMode(0644))
+
 	f, _ := os.Lstat(rp)
 	Compare(t, f.Mode(), os.FileMode(0644))
 
@@ -415,6 +418,8 @@ func TestAttrSync(t *testing.T) {
 	fname := rand.Intn(FileNameLimit)
 	CreateTestFileRemote(GetFileName(fname))
 	defer RemoveTestFileRemote(GetFileName(fname))
+
+	os.Chmod(GetTestFileRemotePath(fname), 0644)
 
 	f, _ := os.Lstat(GetTestFilePath(fname))
 	Compare(t, f.Mode(), os.FileMode(0644))
