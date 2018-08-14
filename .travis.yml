@@ -1,3 +1,7 @@
+env:
+  global:
+    - CC_TEST_REPORTER_ID=c9c7e6be089003e81598448088eba62252c988c4b92fcaa88d45ba1c1138592f
+
 language: go
 
 go:
@@ -9,9 +13,14 @@ install:
   - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev
 
 before_script:
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
   - go get -v -t ./...
   - go build -v ./...
 
 script:
-  - go test -v -cover -tags="unit integration" ./...
+  - go test -v -coverprofile c.out -tags="unit integration" ./...
 
+after_script:
+  - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
