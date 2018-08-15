@@ -373,6 +373,7 @@ func TestRead(t *testing.T) {
 	localPath := GetTestFilePath(fname)
 	data := WriteDummyDataToPath(rp, 100)
 
+	time.Sleep(2 * time.Second)
 	ioutil.ReadDir(path.Join(TestRoot, "localhost", TestRemoteRoot))
 	time.Sleep(2 * time.Second)
 	read, _ := ioutil.ReadFile(localPath)
