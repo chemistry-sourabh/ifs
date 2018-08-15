@@ -76,6 +76,13 @@ func WriteDummyDataToPath(fullPath string, size int) []byte {
 	return data
 }
 
+func DefaultPerm() int {
+	if runtime.GOOS == "darwin" {
+		return 0644
+	} else {
+		return 0664
+	}
+}
 
 
 // New Lib Starts Here

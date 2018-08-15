@@ -297,10 +297,10 @@ func TestSetAttrMode(t *testing.T) {
 	localPath := GetTestFilePath(fname)
 
 	f, _ := os.Lstat(rp)
-	Compare(t, f.Mode(), os.FileMode(0644))
+	Compare(t, f.Mode(), os.FileMode(DefaultPerm()))
 
 	f, _ = os.Lstat(localPath)
-	Compare(t, f.Mode(), os.FileMode(0644))
+	Compare(t, f.Mode(), os.FileMode(DefaultPerm()))
 
 	os.Chmod(localPath, 0666)
 
@@ -420,7 +420,7 @@ func TestAttrSync(t *testing.T) {
 	defer RemoveTestFileRemote(GetFileName(fname))
 
 	f, _ := os.Lstat(GetTestFilePath(fname))
-	Compare(t, f.Mode(), os.FileMode(0644))
+	Compare(t, f.Mode(), os.FileMode(DefaultPerm()))
 
 	os.Chmod(GetTestFileRemotePath(fname), 0666)
 
