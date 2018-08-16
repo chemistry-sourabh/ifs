@@ -63,7 +63,7 @@ func CreateConfig() *ifs.FsConfig {
 			},
 		},
 		Log: &ifs.LogConfig{
-			Logging: false,
+			Logging: true,
 			Console: true,
 			Debug:   true,
 		},
