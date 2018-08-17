@@ -373,9 +373,7 @@ func TestRead(t *testing.T) {
 	localPath := GetTestFilePath(fname)
 	data := WriteDummyDataToPath(rp, 100)
 
-	//time.Sleep(2 * time.Second)
 	ioutil.ReadDir(path.Join(TestRoot, "localhost", TestRemoteRoot))
-	//time.Sleep(2 * time.Second)
 	read, _ := ioutil.ReadFile(localPath)
 	Compare(t, len(read), 100)
 	Compare(t, read, data)
@@ -384,7 +382,6 @@ func TestRead(t *testing.T) {
 func TestRename(t *testing.T) {
 	fname := rand.Intn(FileNameLimit)
 	CreateTestFileRemote(GetFileName(fname))
-	//defer RemoveTestFileRemote(GetFileName(fname))
 
 	rp := GetTestFileRemotePath(fname)
 	newRp := GetTestFileRemotePath(fname + 1)
@@ -428,9 +425,7 @@ func TestAttrSync(t *testing.T) {
 	Compare(t, f.Mode(), os.FileMode(0666))
 
 	ioutil.ReadDir(path.Join(TestRoot, "localhost", TestRemoteRoot))
-	//time.Sleep(2 * time.Second)
 	f, _ = os.Lstat(GetTestFilePath(fname))
-	//Compare(t, stats[0].Mode(), os.FileMode(0666))
 	Compare(t, f.Mode(), os.FileMode(0666))
 }
 
