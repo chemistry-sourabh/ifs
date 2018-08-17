@@ -22,7 +22,8 @@ import (
 	"time"
 	"go.uber.org/zap"
 	"github.com/orcaman/concurrent-map"
-	)
+	"path"
+)
 
 type FileHandle struct {
 	RemoteNode     *RemoteNode
@@ -139,7 +140,7 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			zap.L().Debug("ReadDir File Response",
 				zap.String("op", "readdir"),
 				zap.String("address", rn.RemotePath.Address()),
-				zap.String("path", rn.RemotePath.Path),
+				zap.String("path", path.Join(rn.RemotePath.Path, s.Name)),
 				zap.Int64("size", s.Size),
 				zap.String("mode", s.Mode.String()),
 				zap.Time("mtime", time.Unix(0, s.ModTime)),
@@ -161,6 +162,7 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
 			} else {
 				newRn = val.(*RemoteNode)
+				FuseServer().InvalidateNodeData(newRn)
 			}
 
 			mtime := time.Unix(0, s.ModTime)
@@ -173,6 +175,7 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			newRn.Mode = s.Mode
 			newRn.Mtime = mtime
 			newRn.IsCached = true
+
 
 			newRns.Set(s.Name, newRn)
 			//rn.RemoteNodes[s.Name] = newRn

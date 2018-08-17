@@ -176,6 +176,7 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() {
 			var newRn *RemoteNode
 			if !ok {
 				newRn = rn.generateChildRemoteNode(s.Name, s.IsDir)
+				FuseServer().InvalidateNodeData(newRn)
 			} else {
 				newRn = val.(*RemoteNode)
 			}
