@@ -432,3 +432,54 @@ func TestReadFile4(t *testing.T) {
 
 	fh.CloseFile(pkt)
 }
+
+func TestReadFile5(t *testing.T) {
+	CreateTempFile("file1")
+	defer RemoveTempFile("file1")
+
+	data := WriteDummyData("file1", 1000)
+
+	rp := &ifs.RemotePath{
+		Hostname: "localhost",
+		Port:     11211,
+		Path:     "/tmp/file1",
+	}
+
+	fh := ifs.AgentFileHandler()
+
+	payload := &ifs.OpenInfo{
+		Path:           rp.Path,
+		FileDescriptor: 1,
+		Flags:          0,
+	}
+
+	pkt := CreatePacket(ifs.OpenRequest, payload)
+
+	fh.OpenFile(pkt)
+
+	payload1 := &ifs.ReadInfo{
+		Path:           rp.Path,
+		FileDescriptor: 1,
+		Offset:         0,
+		Size:           4096,
+	}
+
+	pkt = CreatePacket(ifs.ReadFileRequest, payload1)
+
+	chunk, err := fh.ReadFile(pkt)
+
+	//chunk.Decompress()
+
+	Ok(t, err)
+
+	Compare(t, chunk.Chunk, data)
+
+	payload2 := &ifs.CloseInfo{
+		Path:           rp.Path,
+		FileDescriptor: 1,
+	}
+
+	pkt = CreatePacket(ifs.CloseRequest, payload2)
+
+	fh.CloseFile(pkt)
+}

@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 	"github.com/orcaman/concurrent-map"
 	"strconv"
+	"io"
 )
 
 type agentFileHandler struct {
@@ -315,9 +316,9 @@ func (fh *agentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 		b := make([]byte, readInfo.Size)
 		n, err := f.ReadAt(b, readInfo.Offset)
 
-		if err == nil {
+		if err == nil || ( err == io.EOF && n > 0 ) {
 			fileChunk := &FileChunk{
-				Chunk: b,
+				Chunk: b[:n],
 				Size:  n,
 			}
 

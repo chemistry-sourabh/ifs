@@ -63,7 +63,7 @@ func CreateConfig() *ifs.FsConfig {
 			},
 		},
 		Log: &ifs.LogConfig{
-			Logging: true,
+			Logging: false,
 			Console: true,
 			Debug:   true,
 		},
@@ -373,9 +373,9 @@ func TestRead(t *testing.T) {
 	localPath := GetTestFilePath(fname)
 	data := WriteDummyDataToPath(rp, 100)
 
-	time.Sleep(2 * time.Second)
+	//time.Sleep(2 * time.Second)
 	ioutil.ReadDir(path.Join(TestRoot, "localhost", TestRemoteRoot))
-	time.Sleep(2 * time.Second)
+	//time.Sleep(2 * time.Second)
 	read, _ := ioutil.ReadFile(localPath)
 	Compare(t, len(read), 100)
 	Compare(t, read, data)
@@ -428,7 +428,7 @@ func TestAttrSync(t *testing.T) {
 	Compare(t, f.Mode(), os.FileMode(0666))
 
 	ioutil.ReadDir(path.Join(TestRoot, "localhost", TestRemoteRoot))
-	time.Sleep(2 * time.Second)
+	//time.Sleep(2 * time.Second)
 	f, _ = os.Lstat(GetTestFilePath(fname))
 	//Compare(t, stats[0].Mode(), os.FileMode(0666))
 	Compare(t, f.Mode(), os.FileMode(0666))
