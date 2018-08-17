@@ -12,19 +12,19 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
+	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 	"net/http"
 	"strconv"
-	"github.com/gorilla/websocket"
-	"sync/atomic"
-	"go.uber.org/zap"
 	"strings"
 	"sync"
-	)
+	"sync/atomic"
+)
 
 type agentTalker struct {
 	IdCounter uint64

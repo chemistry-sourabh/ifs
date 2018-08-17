@@ -12,16 +12,16 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package main
 
 import (
+	"fmt"
+	"github.com/chemistry-sourabh/ifs"
 	_ "go.uber.org/automaxprocs"
 	"gopkg.in/urfave/cli.v1"
 	"os"
-	"fmt"
-	"github.com/chemistry-sourabh/ifs"
 )
 
 //TODO Remove Logs for automaxprocs
@@ -78,9 +78,9 @@ func main() {
 			},
 		},
 		{
-			Name: "remove",
+			Name:    "remove",
 			Aliases: []string{"rm"},
-			Usage: "Remove a Mounted Path",
+			Usage:   "Remove a Mounted Path",
 			Action: func(c *cli.Context) error {
 				fmt.Println("Unimplemented")
 				return nil

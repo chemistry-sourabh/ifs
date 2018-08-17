@@ -12,20 +12,20 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
-	"io/ioutil"
-	"path"
-	"os"
-	"sync"
-	"go.uber.org/zap"
 	"bazil.org/fuse"
-	"sync/atomic"
-	"strconv"
 	"github.com/orcaman/concurrent-map"
+	"go.uber.org/zap"
+	"io/ioutil"
+	"os"
+	"path"
+	"strconv"
+	"sync"
+	"sync/atomic"
 )
 
 type CacheRequest interface {

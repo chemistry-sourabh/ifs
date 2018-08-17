@@ -12,7 +12,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
@@ -28,7 +28,7 @@ const RemoveRequest = FileOpBase + 7
 const RenameRequest = FileOpBase + 8
 const OpenRequest = FileOpBase + 9
 const CloseRequest = FileOpBase + 10
-const FlushRequest  = FileOpBase + 11
+const FlushRequest = FileOpBase + 11
 const ReadDirAllRequest = FileOpBase + 12
 
 const ResponseBase = 30

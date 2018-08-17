@@ -12,17 +12,17 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import "bazil.org/fuse"
 import (
-	"golang.org/x/net/context"
-	"time"
-	"go.uber.org/zap"
 	"github.com/orcaman/concurrent-map"
+	"go.uber.org/zap"
+	"golang.org/x/net/context"
 	"path"
+	"time"
 )
 
 type FileHandle struct {
@@ -175,7 +175,6 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			newRn.Mode = s.Mode
 			newRn.Mtime = mtime
 			newRn.IsCached = true
-
 
 			newRns.Set(s.Name, newRn)
 			//rn.RemoteNodes[s.Name] = newRn

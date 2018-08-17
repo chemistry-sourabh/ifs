@@ -12,16 +12,16 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
 	"fmt"
-	"strings"
-	"strconv"
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
+	"strconv"
+	"strings"
 )
 
 type AgentConnectionPool struct {
@@ -37,7 +37,6 @@ func NewAgentConnectionPool() *AgentConnectionPool {
 		SendingChannels:  cmap.New(),
 	}
 }
-
 
 func (p *AgentConnectionPool) Set(index uint8, conn *websocket.Conn) {
 	p.Connections.Set(strconv.FormatUint(uint64(index), 10), conn)

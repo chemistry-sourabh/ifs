@@ -12,23 +12,23 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
-	"sync"
 	"hash/fnv"
+	"sync"
 )
 
 type MutexMap struct {
-	m []sync.Mutex
+	m     []sync.Mutex
 	count uint32
 }
 
 func NewMutexMap() *MutexMap {
 	return &MutexMap{
-		m: make([]sync.Mutex, 100),
+		m:     make([]sync.Mutex, 100),
 		count: 100,
 	}
 }

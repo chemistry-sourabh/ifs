@@ -12,21 +12,21 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"path"
-	"time"
-	"os/user"
-	"strconv"
+	"github.com/orcaman/concurrent-map"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"os"
-	"github.com/orcaman/concurrent-map"
+	"os/user"
+	"path"
+	"strconv"
+	"time"
 )
 
 type RemoteNode struct {
@@ -408,7 +408,7 @@ func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Nod
 
 	if err == nil {
 		newRn := rn.generateChildRemoteNode(req.Name, true)
-		rn.RemoteNodes.Set(req.Name,newRn)
+		rn.RemoteNodes.Set(req.Name, newRn)
 		return newRn, nil
 	} else {
 

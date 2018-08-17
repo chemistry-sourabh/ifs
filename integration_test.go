@@ -14,21 +14,21 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs_test
 
 import (
-	"testing"
+	"fmt"
+	"github.com/chemistry-sourabh/ifs"
+	"io/ioutil"
+	"math/rand"
 	"os"
-	"time"
 	"path"
 	"strconv"
 	"syscall"
-	"io/ioutil"
-	"github.com/chemistry-sourabh/ifs"
-	"math/rand"
-	"fmt"
+	"testing"
+	"time"
 )
 
 // TODO Check Tree

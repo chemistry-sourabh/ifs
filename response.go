@@ -12,13 +12,13 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
 	"os"
-				)
+)
 
 type Stat struct {
 	Name    string
@@ -64,7 +64,7 @@ type FileChunk struct {
 //}
 
 type WriteResult struct {
-	Size int
+	Size     int
 	FileSize int64
 }
 

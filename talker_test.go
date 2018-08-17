@@ -14,21 +14,20 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs_test
 
 import (
-	"testing"
 	"github.com/chemistry-sourabh/ifs"
-	)
+	"testing"
+)
 
 func TestGetMapKey(t *testing.T) {
 
-	str := ifs.GetMapKey("host1",0, 10)
+	str := ifs.GetMapKey("host1", 0, 10)
 
 	if str != "host1_0_10" {
 		PrintTestError(t, "strings not matching", str, "0_10")
 	}
 }
-

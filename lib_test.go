@@ -12,20 +12,20 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs_test
 
 import (
-	"testing"
+	"crypto/rand"
+	"encoding/binary"
+	"github.com/chemistry-sourabh/ifs"
+	"github.com/google/go-cmp/cmp"
+	"io/ioutil"
 	"os"
 	"path"
-	"io/ioutil"
-	"encoding/binary"
-	"crypto/rand"
-	"github.com/google/go-cmp/cmp"
 	"runtime"
-	"github.com/chemistry-sourabh/ifs"
+	"testing"
 )
 
 func PrintTestError(t *testing.T, message string, got interface{}, want interface{}) {
@@ -83,7 +83,6 @@ func DefaultPerm() int {
 		return 0664
 	}
 }
-
 
 // New Lib Starts Here
 

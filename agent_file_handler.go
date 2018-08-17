@@ -12,22 +12,21 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
-
+*/
 
 package ifs
 
 import (
-	"os"
 	"io/ioutil"
+	"os"
 
-	"time"
-	"sync"
-	"path"
-	"go.uber.org/zap"
 	"github.com/orcaman/concurrent-map"
-	"strconv"
+	"go.uber.org/zap"
 	"io"
+	"path"
+	"strconv"
+	"sync"
+	"time"
 )
 
 type agentFileHandler struct {
@@ -36,7 +35,7 @@ type agentFileHandler struct {
 
 var (
 	agentFileHandlerInstance *agentFileHandler
-	agentFileHandlerOnce sync.Once
+	agentFileHandlerOnce     sync.Once
 )
 
 func AgentFileHandler() *agentFileHandler {
@@ -316,7 +315,7 @@ func (fh *agentFileHandler) ReadFile(request *Packet) (*FileChunk, error) {
 		b := make([]byte, readInfo.Size)
 		n, err := f.ReadAt(b, readInfo.Offset)
 
-		if err == nil || ( err == io.EOF && n > 0 ) {
+		if err == nil || (err == io.EOF && n > 0) {
 			fileChunk := &FileChunk{
 				Chunk: b[:n],
 				Size:  n,
@@ -401,7 +400,7 @@ func (fh *agentFileHandler) WriteFile(request *Packet) (*WriteResult, error) {
 			s, _ := os.Lstat(filePath)
 
 			result := &WriteResult{
-				Size: n,
+				Size:     n,
 				FileSize: s.Size(),
 			}
 

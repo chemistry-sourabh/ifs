@@ -12,19 +12,19 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
-	"bazil.org/fuse/fs"
 	"bazil.org/fuse"
+	"bazil.org/fuse/fs"
+	"github.com/orcaman/concurrent-map"
+	"go.uber.org/zap"
+	"golang.org/x/net/context"
+	"os"
 	"os/user"
 	"strconv"
-	"os"
-	"golang.org/x/net/context"
-	"go.uber.org/zap"
-	"github.com/orcaman/concurrent-map"
 	"time"
 )
 

@@ -12,22 +12,22 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
- */
+*/
 
 package ifs
 
 import (
 	"bazil.org/fuse"
-	"golang.org/x/net/context"
 	"bazil.org/fuse/fs"
-	"os/user"
-	"strconv"
-	"os"
-	"go.uber.org/zap"
-	"sync"
 	"github.com/orcaman/concurrent-map"
-	"strings"
+	"go.uber.org/zap"
+	"golang.org/x/net/context"
+	"os"
+	"os/user"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -35,9 +35,9 @@ type fileSystem struct {
 	RemoteRoots cmap.ConcurrentMap
 }
 
-var(
+var (
 	fileSystemInstance *fileSystem
-	fileSystemOnce sync.Once
+	fileSystemOnce     sync.Once
 )
 
 func Ifs() *fileSystem {
@@ -121,7 +121,6 @@ func (root *fileSystem) Lookup(ctx context.Context, name string) (fs.Node, error
 
 	val, ok := root.RemoteRoots.Get(name)
 
-
 	zap.L().Debug("Lookup Response",
 		zap.Bool("root", true),
 		zap.String("op", "lookup"),
@@ -136,7 +135,7 @@ func (root *fileSystem) Lookup(ctx context.Context, name string) (fs.Node, error
 	}
 }
 
-func generateVirtualNodes(paths []string, remotePaths []*RemotePath) (cmap.ConcurrentMap) {
+func generateVirtualNodes(paths []string, remotePaths []*RemotePath) cmap.ConcurrentMap {
 
 	aggPaths := make(map[string][]string)
 	aggRemotePaths := make(map[string][]*RemotePath)
