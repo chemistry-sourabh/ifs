@@ -19,8 +19,9 @@ limitations under the License.
 package ifs_test
 
 import (
-	"encoding/json"
 	"github.com/chemistry-sourabh/ifs"
+	"github.com/chemistry-sourabh/ifs/structures"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -33,6 +34,7 @@ func TestConfig_LoadSuccess(t *testing.T) {
 	// Setup
 	initialCfg := ifs.FsConfig{
 		MountPoint: "/tmp",
+		CachePath: "/tmp/cache",
 		RemoteRoots: []*ifs.RemoteRoot{
 			{
 				Hostname: "localhost",
@@ -40,19 +42,30 @@ func TestConfig_LoadSuccess(t *testing.T) {
 				Paths:    []string{"/tmp", "/tmp/test"},
 			},
 		},
+		Log: &ifs.LogConfig{
+			Logging:true,
+			Console: true,
+			Debug: false,
+			Path: "/tmp/log",
+		},
 	}
 
-	data, _ := json.Marshal(initialCfg)
-	ioutil.WriteFile(configLocation, data, 0666)
+	data, _ := yaml.Marshal(initialCfg)
+	err := ioutil.WriteFile(configLocation, data, 0666)
+
+	Ok(t ,err)
 
 	// Test
 	cfg := ifs.FsConfig{}
-	cfg.Load(configLocation)
+	err = cfg.Load(configLocation)
+
+	Ok(t, err)
 
 	Compare(t, initialCfg, cfg)
 
 	// Cleanup
-	os.Remove(configLocation)
+	err = os.Remove(configLocation)
+	Ok(t, err)
 }
 
 func TestConfig_LoadFailure(t *testing.T) {
@@ -76,4 +89,62 @@ func TestRemoteRoot_StringArray(t *testing.T) {
 	result := []string{"localhost:11211@/tmp/hello", "localhost:11211@/tmp/bye"}
 
 	Compare(t, paths, result)
+}
+
+func TestRemoteRoot_RemotePaths(t *testing.T) {
+
+	rr := &ifs.RemoteRoot{
+		Hostname: "localhost",
+		Port:     11211,
+		Paths:    []string{"/tmp/hello", "/tmp/bye"},
+	}
+
+	remotePaths := rr.RemotePaths()
+
+	result := []*structures.RemotePath{
+		{
+			Hostname: "localhost",
+			Port:     11211,
+			Path:     "/tmp/hello",
+		},
+		{
+			Hostname: "localhost",
+			Port:     11211,
+			Path:     "/tmp/bye",
+		},
+	}
+
+	Compare(t, remotePaths, result)
+
+}
+
+func TestAgentConfig_Load(t *testing.T) {
+
+	initialCfg := ifs.AgentConfig{
+		Address: "localhost",
+		Port: 8000,
+		Log: &ifs.LogConfig{
+			Logging: true,
+			Console: true,
+			Debug: false,
+			Path: "/tmp/log",
+		},
+	}
+
+	data, _ := yaml.Marshal(initialCfg)
+	err := ioutil.WriteFile(configLocation, data, 0666)
+
+	Ok(t ,err)
+
+	// Test
+	cfg := ifs.AgentConfig{}
+	err = cfg.Load(configLocation)
+
+	Ok(t, err)
+
+	Compare(t, initialCfg, cfg)
+
+	// Cleanup
+	err = os.Remove(configLocation)
+	Ok(t, err)
 }

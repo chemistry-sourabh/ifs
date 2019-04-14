@@ -17,24 +17,24 @@ limitations under the License.
 package ifs
 
 import (
-	"encoding/json"
+	"github.com/chemistry-sourabh/ifs/structures"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"strconv"
 )
 
 type LogConfig struct {
-	Logging bool   `json:"logging"`
-	Console bool   `json:"console"`
-	Debug   bool   `json:"debug"`
-	Path    string `json:"path"`
+	Logging bool   `yaml:"logging"`
+	Console bool   `yaml:"console"`
+	Debug   bool   `yaml:"debug"`
+	Path    string `yaml:"path"`
 }
 
 type FsConfig struct {
-	MountPoint    string        `json:"mount_point"`
-	CacheLocation string        `json:"cache_location"`
-	RemoteRoots   []*RemoteRoot `json:"remote_roots"`
-	Log           *LogConfig    `json:"log"`
-	ConnCount     int           `json:"connection_count"`
+	MountPoint  string        `yaml:"mount_point"`
+	CachePath   string        `yaml:"cache_path"`
+	RemoteRoots []*RemoteRoot `yaml:"remote_roots"`
+	Log         *LogConfig    `yaml:"log"`
 }
 
 func (c *FsConfig) Load(path string) error {
@@ -42,22 +42,22 @@ func (c *FsConfig) Load(path string) error {
 	data, err := ioutil.ReadFile(path)
 
 	if err == nil {
-		err = json.Unmarshal(data, c)
+		err = yaml.Unmarshal(data, c)
 	}
 
 	return err
 }
 
 type RemoteRoot struct {
-	Hostname string   `json:"hostname"`
-	Port     uint16   `json:"port"`
-	Paths    []string `json:"paths"`
+	Hostname string   `yaml:"hostname"`
+	Port     uint16   `yaml:"port"`
+	Paths    []string `yaml:"paths"`
 }
 
-func (rr *RemoteRoot) RemotePaths() []*RemotePath {
-	var remotePaths []*RemotePath
+func (rr *RemoteRoot) RemotePaths() []*structures.RemotePath {
+	var remotePaths []*structures.RemotePath
 	for _, path := range rr.Paths {
-		remotePaths = append(remotePaths, &RemotePath{
+		remotePaths = append(remotePaths, &structures.RemotePath{
 			Hostname: rr.Hostname,
 			Port:     rr.Port,
 			Path:     path,
@@ -82,9 +82,9 @@ func (rr *RemoteRoot) Address() string {
 }
 
 type AgentConfig struct {
-	Address string     `json:"address"`
-	Port    uint16     `json:"port"`
-	Log     *LogConfig `json:"log"`
+	Address string     `yaml:"address"`
+	Port    uint16     `yaml:"port"`
+	Log     *LogConfig `yaml:"log"`
 }
 
 func (c *AgentConfig) Load(path string) error {
@@ -92,7 +92,7 @@ func (c *AgentConfig) Load(path string) error {
 	data, err := ioutil.ReadFile(path)
 
 	if err == nil {
-		err = json.Unmarshal(data, c)
+		err = yaml.Unmarshal(data, c)
 	}
 
 	return err
