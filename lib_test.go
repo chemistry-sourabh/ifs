@@ -20,7 +20,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"github.com/chemistry-sourabh/ifs"
-	"github.com/google/go-cmp/cmp"
 	"io/ioutil"
 	"os"
 	"path"
@@ -81,35 +80,5 @@ func DefaultPerm() int {
 		return 0644
 	} else {
 		return 0664
-	}
-}
-
-// New Lib Starts Here
-
-func Compare(t *testing.T, got interface{}, want interface{}) {
-	if !cmp.Equal(got, want) {
-		_, file, line, _ := runtime.Caller(1)
-		t.Errorf("Compare Failed in File: %s at Line: %d, got: %s, want: %s", file, line, got, want)
-	}
-}
-
-func Err(t *testing.T, err error) {
-	if err == nil {
-		_, file, line, _ := runtime.Caller(1)
-		t.Errorf("Didnt Get Error in File: %s at Line: %d", file, line)
-	}
-}
-
-func Ok(t *testing.T, err error) {
-	if err != nil {
-		_, file, line, _ := runtime.Caller(1)
-		t.Errorf("Got Error in File: %s at Line: %d, %s", file, line, err)
-	}
-}
-
-func NotNil(t *testing.T, got interface{}) {
-	if got == nil {
-		_, file, line, _ := runtime.Caller(1)
-		t.Errorf("Got Nil in File: %s at Line: %d, %s", file, line, got)
 	}
 }

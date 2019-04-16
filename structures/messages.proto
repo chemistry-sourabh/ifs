@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package structures;
+
+message Request {
+    uint64 id = 1;
+    uint32 op = 2;
+    oneof msg {
+        FetchMessage m1 = 3;
+        FileMessage m2 = 4;
+    }
+}
+
+message RemotePath {
+    string hostname = 1;
+    uint32 port = 2;
+    string path = 3;
+}
+
+message FetchMessage {
+    RemotePath remotePath = 1;
+}
+
+message FileMessage {
+    bytes file = 1;
+}

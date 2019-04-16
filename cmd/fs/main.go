@@ -37,7 +37,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "c, config",
 			Usage: "Specify the Config File",
-			Value: "./fs.json",
+			Value: "./fs.yaml",
 		},
 	}
 
