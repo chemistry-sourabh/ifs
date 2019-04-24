@@ -37,11 +37,22 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 		Path: "/tmp/test",
 	}
 
-	payload := &structures.RequestPayload{
+	requestPayload := &structures.RequestPayload{
 		Payload: &structures.RequestPayload_FetchMsg{
 			FetchMsg: fm,
 		},
 	}
+
+	fileMsg := &structures.FileMessage{
+		File: []byte("Hello World"),
+	}
+
+	replyPayload := &structures.ReplyPayload{
+		Payload: &structures.ReplyPayload_FileMsg{
+			FileMsg: fileMsg,
+		},
+	}
+
 
 	sock := goczmq.NewSock(goczmq.Router)
 	sock.SetIdentity(clientAddress)
@@ -54,7 +65,7 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 		request := &structures.Request{
 			Id:          uint64(i),
 			PayloadType: structures.FetchMessageCode,
-			Payload:     payload,
+			Payload:     requestPayload,
 		}
 
 		data, err := proto.Marshal(request)
@@ -66,14 +77,29 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 		reqId, payloadType, address, recvPayload, err := atr.RecvRequest()
 		ifstest.Ok(t, err)
 
-		ifstest.Compare(t, request.Id, reqId)
-		ifstest.Compare(t, request.PayloadType, payloadType)
-		ifstest.Compare(t, clientAddress, address)
+		ifstest.Compare(t, reqId, request.Id)
+		ifstest.Compare(t, payloadType, uint32(structures.FetchMessageCode))
+		ifstest.Compare(t, address, clientAddress)
 
 		recvFm := recvPayload.GetFetchMsg()
 		ifstest.Compare(t, fm.Path, recvFm.Path)
 
+		err = atr.SendReply(reqId, structures.FileMessageCode, address, replyPayload)
+		ifstest.Ok(t, err)
 
+		frames, err := sock.RecvMessage()
+		ifstest.Ok(t, err)
+
+		ifstest.Compare(t, string(frames[0]), agentAddress)
+
+		data = frames[1]
+		reply := &structures.Reply{}
+		err = proto.Unmarshal(data, reply)
+		ifstest.Ok(t, err)
+
+		ifstest.Compare(t, reply.Id, reqId)
+		ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
+		ifstest.Compare(t, string(reply.Payload.GetFileMsg().File), "Hello World")
 	}
 
 	atr.Unbind()
