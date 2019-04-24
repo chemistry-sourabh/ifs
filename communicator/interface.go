@@ -14,33 +14,21 @@
  * limitations under the License.
  */
 
-package structures
+package communicator
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
+	"github.com/chemistry-sourabh/ifs/structures"
 )
 
-//type RemotePath struct {
-//	Hostname string
-//	Port     uint16
-//	Path     string
-//}
-
-func (rp *RemotePath) PrettyString() string {
-	return fmt.Sprintf("%s:%d@%s", rp.Hostname, rp.Port, rp.Path)
+type Sender interface {
+	Connect(endpoints []string)
+	Disconnect()
+	SendRequest(op uint32, address string, payload *structures.RequestPayload) (*structures.ReplyPayload, error)
 }
 
-func (rp *RemotePath) Load(str string) {
-	parts := strings.Split(str, ":")
-	rp.Hostname = parts[0]
-	parts = strings.Split(parts[1], "@")
-	p64, _ := strconv.ParseUint(parts[0], 10, 32)
-	rp.Port = uint32(p64)
-	rp.Path = parts[1]
-}
-
-func (rp *RemotePath) Address() string {
-	return fmt.Sprintf("%s:%d", rp.Hostname, rp.Port)
+type Receiver interface {
+	Bind(address string) error
+	Unbind()
+	RecvRequest() (uint64, uint32, string, *structures.RequestPayload, error)
+	SendReply(id uint64, payloadType uint32, address string, payload *structures.ReplyPayload) error
 }

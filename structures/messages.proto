@@ -2,13 +2,31 @@ syntax = "proto3";
 
 package structures;
 
+message RequestPayload {
+    oneof payload {
+        FetchMessage fetchMsg = 1;
+        RenameMessage renameMsg = 2;
+        OpenMessage openMsg = 3;
+    }
+}
+
+message ReplyPayload {
+    oneof payload {
+        ErrMessage errMsg = 1;
+        FileMessage fileMsg = 2;
+    }
+}
+
 message Request {
     uint64 id = 1;
-    uint32 op = 2;
-    oneof msg {
-        FetchMessage m1 = 3;
-        FileMessage m2 = 4;
-    }
+    uint32 payloadType = 2;
+    RequestPayload payload = 3;
+}
+
+message Reply {
+    uint64 id = 1;
+    uint32 payloadType = 2;
+    ReplyPayload payload = 3;
 }
 
 message RemotePath {
@@ -18,9 +36,23 @@ message RemotePath {
 }
 
 message FetchMessage {
-    RemotePath remotePath = 1;
+    string path = 1;
 }
 
 message FileMessage {
     bytes file = 1;
+}
+
+message RenameMessage {
+    string currentPath = 1;
+    string newPath = 2;
+}
+
+message OpenMessage {
+    string path = 1;
+    uint32 flags = 2;
+}
+
+message ErrMessage {
+    string error = 1;
 }

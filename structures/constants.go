@@ -16,9 +16,15 @@
 
 package structures
 
-const MessageCodeBase = 0
-const FetchMessageCode = MessageCodeBase + 1
-const FileMessageCode = MessageCodeBase + 2
+const RequestCodeBase = 0
+const FetchMessageCode = RequestCodeBase + 1
+const RenameMessageCode = RequestCodeBase + 2
+const OpenMessageCode = RequestCodeBase + 3
+
+const ReplyCodeBase = 100
+const OkMessageCode = ReplyCodeBase + 1
+const ErrMessageCode = ReplyCodeBase + 2
+const FileMessageCode = ReplyCodeBase + 3
 
 const ResponseBase = 30
 const StatResponse = ResponseBase + 0

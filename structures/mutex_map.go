@@ -48,4 +48,3 @@ func (mm *MutexMap) Unlock(key string) {
 	i := mm.hash(key)
 	mm.m[i].Unlock()
 }
-

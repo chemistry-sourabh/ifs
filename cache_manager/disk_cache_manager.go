@@ -17,7 +17,7 @@
 package cache_manager
 
 import (
-	"github.com/chemistry-sourabh/ifs/network_manager"
+	"github.com/chemistry-sourabh/ifs/communicator"
 	"github.com/chemistry-sourabh/ifs/structures"
 	"go.uber.org/zap"
 	"io/ioutil"
@@ -38,7 +38,7 @@ import (
 type DiskCacheManager struct {
 	Path     string
 	Size     uint64
-	Nm       network_manager.NetworkManager
+	Nm       communicator.Sender
 	fileId   uint64
 	cached   sync.Map
 	fetching structures.MutexMap
@@ -52,14 +52,13 @@ func NewDiskCacheManager() *DiskCacheManager {
 	}
 }
 
-
 //Private Methods
-func (dcm *DiskCacheManager) isCached(rp *structures.RemotePath) bool {
+func (dcm *DiskCacheManager) IsCached(rp *structures.RemotePath) bool {
 	_, ok := dcm.cached.Load(rp.PrettyString())
 	return ok
 }
 
-func (dcm *DiskCacheManager) deleteCache() error {
+func (dcm *DiskCacheManager) DeleteCache() error {
 	zap.L().Info("Deleting Cache")
 	err := os.RemoveAll(dcm.Path)
 
@@ -71,30 +70,36 @@ func (dcm *DiskCacheManager) deleteCache() error {
 	return err
 }
 
-func (dcm *DiskCacheManager) getNextCacheFileName() string {
+func (dcm *DiskCacheManager) GetNextCacheFileName() string {
 	fileId := atomic.AddUint64(&dcm.fileId, 1)
 	return strconv.FormatUint(fileId, 10)
 }
 
-func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
+func (dcm *DiskCacheManager) Fetch(rp *structures.RemotePath) error {
 
 	dcm.fetching.Lock(rp.PrettyString())
 	defer dcm.fetching.Unlock(rp.PrettyString())
 
-	if !dcm.isCached(rp) {
+	if !dcm.IsCached(rp) {
 
 		fetchMsg := &structures.FetchMessage{
-			RemotePath: rp,
+			Path: rp.Path,
 		}
 
-		msg, err := dcm.Nm.SendMessage(structures.FetchMessageCode, fetchMsg)
+		payload := &structures.RequestPayload{
+			Payload: &structures.RequestPayload_FetchMsg{
+				FetchMsg: fetchMsg,
+			},
+		}
+
+		msg, err := dcm.Nm.SendRequest(structures.FetchMessageCode, rp.Address(), payload)
 
 		if err != nil {
 			return err
 		}
 
-		fname := dcm.getNextCacheFileName()
-		fileMsg := msg.(*structures.FileMessage)
+		fname := dcm.GetNextCacheFileName()
+		fileMsg := msg.GetFileMsg()
 
 		err = ioutil.WriteFile(path.Join(dcm.Path, fname), fileMsg.File, 0666)
 
@@ -106,7 +111,12 @@ func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 		dcm.cached.Store(rp.PrettyString(), fname)
 		if ok {
 			oldFname := val.(string)
-			os.Remove(path.Join(dcm.Path, oldFname))
+			err = os.Remove(path.Join(dcm.Path, oldFname))
+
+			if err != nil {
+				return err
+			}
+
 		}
 
 	}
@@ -114,13 +124,13 @@ func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 	return nil
 }
 
-// Public Methods
-func (dcm *DiskCacheManager) Startup(path string, size uint64) {
+// Interface Methods
+func (dcm *DiskCacheManager) Run(path string, size uint64) {
 
 	dcm.Path = path
 	dcm.Size = size
 
-	dcm.deleteCache()
+	dcm.DeleteCache()
 }
 
 func (dcm *DiskCacheManager) Rename(path *structures.RemotePath, dst string) error {
@@ -155,7 +165,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 		return f, err
 	} else {
 
-		err := dcm.fetch(filePath)
+		err := dcm.Fetch(filePath)
 
 		if err != nil {
 			return nil, err

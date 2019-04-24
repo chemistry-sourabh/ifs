@@ -49,4 +49,3 @@ func NotNil(t *testing.T, got interface{}) {
 		t.Errorf("Got Nil in File: %s at Line: %d, %s", file, line, got)
 	}
 }
-

@@ -16,12 +16,11 @@
  * limitations under the License.
  */
 
-package cache_manager_test
+package cache_manager
 
 import (
-	"github.com/chemistry-sourabh/ifs/cache_manager"
+	"github.com/chemistry-sourabh/ifs/communicator"
 	"github.com/chemistry-sourabh/ifs/ifstest"
-	"github.com/chemistry-sourabh/ifs/network_manager"
 	"github.com/chemistry-sourabh/ifs/structures"
 	"io/ioutil"
 	"os"
@@ -29,24 +28,13 @@ import (
 	"testing"
 )
 
-//func TestHoarder_GetCacheFileName(t *testing.T) {
-//
-//	h := ifs.Hoarder()
-//
-//	for i := 0; i < 5; i++ {
-//		p := h.GetCacheFileName()
-//		Compare(t, p, strconv.FormatInt(int64(i+2), 10))
-//	}
-//
-//}
-
 func TestDiskCacheManager_Open(t *testing.T) {
 
 	cachePath := "/tmp/test_cache"
 
-	dcm := cache_manager.NewDiskCacheManager()
-	dcm.Nm = &network_manager.TestNetworkManager{}
-	dcm.Startup(cachePath, 100)
+	dcm := NewDiskCacheManager()
+	dcm.Nm = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
 
 	rp := &structures.RemotePath{
 		Hostname: "localhost",
@@ -74,9 +62,9 @@ func TestDiskCacheManager_Open(t *testing.T) {
 func TestDiskCacheManager_Open2(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
-	dcm := cache_manager.NewDiskCacheManager()
-	dcm.Nm = &network_manager.TestNetworkManager{}
-	dcm.Startup(cachePath, 100)
+	dcm := NewDiskCacheManager()
+	dcm.Nm = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
 
 	rp := &structures.RemotePath{
 		Hostname: "localhost",
@@ -108,9 +96,9 @@ func TestDiskCacheManager_Open2(t *testing.T) {
 func TestDiskCacheManager_Rename(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
-	dcm := cache_manager.NewDiskCacheManager()
-	dcm.Nm = &network_manager.TestNetworkManager{}
-	dcm.Startup(cachePath, 100)
+	dcm := NewDiskCacheManager()
+	dcm.Nm = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
 
 	rp := &structures.RemotePath{
 		Hostname: "localhost",
