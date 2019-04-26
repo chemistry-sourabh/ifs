@@ -20,7 +20,7 @@ import (
 	"github.com/chemistry-sourabh/ifs/ifstest"
 	"github.com/chemistry-sourabh/ifs/structures"
 	"github.com/golang/protobuf/proto"
-	"gopkg.in/zeromq/goczmq.v4"
+	zmq "github.com/pebbe/zmq4"
 	"testing"
 	"time"
 )
@@ -54,8 +54,12 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 	}
 
 
-	sock := goczmq.NewSock(goczmq.Router)
-	sock.SetIdentity(clientAddress)
+	sock, err := zmq.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = sock.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
 	err = sock.Connect("tcp://" + agentAddress)
 	ifstest.Ok(t, err)
 
@@ -71,7 +75,10 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 		data, err := proto.Marshal(request)
 		ifstest.Ok(t, err)
 
-		err = sock.SendMessage([][]byte{[]byte(agentAddress), data})
+		_, err = sock.SendBytes([]byte(agentAddress), zmq.SNDMORE)
+		ifstest.Ok(t, err)
+
+		_, err = sock.SendBytes(data, 0)
 		ifstest.Ok(t, err)
 
 		reqId, payloadType, address, recvPayload, err := atr.RecvRequest()
@@ -87,7 +94,7 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 		err = atr.SendReply(reqId, structures.FileMessageCode, address, replyPayload)
 		ifstest.Ok(t, err)
 
-		frames, err := sock.RecvMessage()
+		frames, err := sock.RecvMessageBytes(0)
 		ifstest.Ok(t, err)
 
 		ifstest.Compare(t, string(frames[0]), agentAddress)
@@ -103,5 +110,6 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 	}
 
 	atr.Unbind()
-	sock.Destroy()
+	sock.SetLinger(0)
+	sock.Close()
 }

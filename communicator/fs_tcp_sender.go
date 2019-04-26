@@ -19,8 +19,8 @@ package communicator
 import (
 	"github.com/chemistry-sourabh/ifs/structures"
 	"github.com/golang/protobuf/proto"
+	zmq "github.com/pebbe/zmq4"
 	"go.uber.org/zap"
-	"gopkg.in/zeromq/goczmq.v4"
 	"sync/atomic"
 	"time"
 )
@@ -32,62 +32,171 @@ type ReturnableMessage struct {
 
 type FsTcpSender struct {
 	msgId  uint64
-	socket *goczmq.Sock
+	socket *zmq.Socket
+	stop   bool
+	recv   chan [][]byte
 	send   chan [][]byte
 	sent   chan *ReturnableMessage
 }
 
 func NewFsTcpSender(address string) *FsTcpSender {
+	sock, err := zmq.NewSocket(zmq.ROUTER)
 
-	sock := goczmq.NewSock(goczmq.Router)
-	sock.SetIdentity(address)
+	if err != nil {
+		zap.L().Fatal("Failed to Create Socket",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = sock.SetIdentity(address)
+
+	if err != nil {
+		zap.L().Fatal("Failed to Set Identity",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
 
 	return &FsTcpSender{
 		msgId:  0,
 		socket: sock,
+		stop: false,
+		recv:   make(chan [][]byte, structures.ChannelLength),
 		send:   make(chan [][]byte, structures.ChannelLength),
 		sent:   make(chan *ReturnableMessage, structures.ChannelLength),
 	}
 }
 
-func (znm *FsTcpSender) sendSocket() {
-	for data := range znm.send {
-		err := znm.socket.SendMessage(data)
-
-		if err != nil {
-			zap.L().Error("Failed to Send Message",
-				zap.Error(err),
-			)
+func (znm *FsTcpSender) processSocket() {
+	for {
+		time.Sleep(0)
+		if znm.stop {
+			break
 		}
 
+		znm.sendMessages()
+		znm.recvMessages()
+
+	}
+
+
+	znm.socket.SetLinger(0)
+	znm.socket.Close()
+}
+
+func (znm *FsTcpSender) sendMessages() {
+	for {
+
+		select {
+
+		case data := <-znm.send:
+			_, err := znm.socket.SendBytes(data[0], zmq.SNDMORE)
+
+			if err != nil {
+				zap.L().Error("Failed to Send Message",
+					zap.Error(err),
+				)
+			}
+
+			_, err = znm.socket.SendBytes(data[1], 0)
+
+			if err != nil {
+				zap.L().Error("Failed to Send Message",
+					zap.Error(err),
+				)
+			}
+
+		default:
+			return
+		}
 	}
 }
 
-func (znm *FsTcpSender) recvSocket() {
+func (znm *FsTcpSender) recvMessages() {
 
-	sentMessages := make(map[uint64]*ReturnableMessage)
+	//sentMessages := make(map[uint64]*ReturnableMessage)
 
 	for {
 
-		frames, err := znm.socket.RecvMessage()
+		frames, err := znm.socket.RecvMessageBytes(zmq.DONTWAIT)
 
 		if err != nil {
 			zap.L().Error("Failed to Receive Message",
 				zap.Error(err),
 			)
+			break
 		}
 
+		znm.recv <- frames
+		//address := string(frames[0])
+		//data := frames[1]
+		//
+		//reply := &structures.Reply{}
+		//
+		//err = proto.Unmarshal(data, reply)
+		//
+		//if err != nil {
+		//	zap.L().Error("Failed to Unmarshal Message",
+		//		zap.Error(err),
+		//	)
+		//	continue
+		//}
+		//
+		//zap.L().Debug("Received Message",
+		//	zap.String("address", address),
+		//	zap.Uint64("id", reply.Id),
+		//	zap.Uint32("type", reply.PayloadType),
+		//)
+
+
+		//retMsg, ok := sentMessages[reply.Id]
+		//
+		//breakOut := false
+		//
+		//if ok {
+		//	retMsg.RetChan <- reply
+		//} else {
+		//	for {
+		//		select {
+		//		case sentMsg := <-znm.sent:
+		//			if sentMsg.Msg.Id == reply.Id {
+		//				sentMsg.RetChan <- reply
+		//				breakOut = true
+		//				break
+		//			} else {
+		//				sentMessages[sentMsg.Msg.Id] = sentMsg
+		//			}
+		//		default:
+		//			breakOut = true
+		//			break
+		//		}
+		//
+		//		if breakOut {
+		//			break
+		//		}
+		//	}
+		//}
+	}
+}
+
+func (znm *FsTcpSender) processRecvMessages() {
+
+	sentMessages := make(map[uint64]*ReturnableMessage)
+
+	for frames := range znm.recv {
 		address := string(frames[0])
 		data := frames[1]
 
 		reply := &structures.Reply{}
 
-		err = proto.Unmarshal(data, reply)
+		err := proto.Unmarshal(data, reply)
 
 		if err != nil {
 			zap.L().Error("Failed to Unmarshal Message",
 				zap.Error(err),
 			)
+			continue
 		}
 
 		zap.L().Debug("Received Message",
@@ -123,8 +232,8 @@ func (znm *FsTcpSender) recvSocket() {
 				}
 			}
 		}
-	}
 
+	}
 }
 
 // TODO Socket Destroy
@@ -143,12 +252,14 @@ func (znm *FsTcpSender) Connect(remotes []string) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	go znm.sendSocket()
-	go znm.recvSocket()
+	go znm.processRecvMessages()
+	go znm.processSocket()
+	//go znm.sendMessages()
+	//go znm.recvMessages()
 }
 
 func (znm *FsTcpSender) Disconnect() {
-	znm.socket.Destroy()
+	znm.stop = true
 }
 
 func (znm *FsTcpSender) SendRequest(payloadType uint32, address string, payload *structures.RequestPayload) (*structures.ReplyPayload, error) {

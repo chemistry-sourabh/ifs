@@ -34,7 +34,7 @@ func TestConfig_LoadSuccess(t *testing.T) {
 	// Setup
 	initialCfg := ifs.FsConfig{
 		MountPoint: "/tmp",
-		CachePath: "/tmp/cache",
+		CachePath:  "/tmp/cache",
 		RemoteRoots: []*ifs.RemoteRoot{
 			{
 				Hostname: "localhost",
@@ -43,17 +43,17 @@ func TestConfig_LoadSuccess(t *testing.T) {
 			},
 		},
 		Log: &ifs.LogConfig{
-			Logging:true,
+			Logging: true,
 			Console: true,
-			Debug: false,
-			Path: "/tmp/log",
+			Debug:   false,
+			Path:    "/tmp/log",
 		},
 	}
 
 	data, _ := yaml.Marshal(initialCfg)
 	err := ioutil.WriteFile(configLocation, data, 0666)
 
-	Ok(t ,err)
+	Ok(t, err)
 
 	// Test
 	cfg := ifs.FsConfig{}
@@ -122,19 +122,19 @@ func TestAgentConfig_Load(t *testing.T) {
 
 	initialCfg := ifs.AgentConfig{
 		Address: "localhost",
-		Port: 8000,
+		Port:    8000,
 		Log: &ifs.LogConfig{
 			Logging: true,
 			Console: true,
-			Debug: false,
-			Path: "/tmp/log",
+			Debug:   false,
+			Path:    "/tmp/log",
 		},
 	}
 
 	data, _ := yaml.Marshal(initialCfg)
 	err := ioutil.WriteFile(configLocation, data, 0666)
 
-	Ok(t ,err)
+	Ok(t, err)
 
 	// Test
 	cfg := ifs.AgentConfig{}

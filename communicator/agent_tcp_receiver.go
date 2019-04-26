@@ -20,21 +20,22 @@ import (
 	"github.com/chemistry-sourabh/ifs/structures"
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
-	"gopkg.in/zeromq/goczmq.v4"
+	zmq "github.com/pebbe/zmq4"
 )
 
 type AgentTcpReceiver struct {
-	socket *goczmq.Sock
+	socket *zmq.Socket
 }
 
 func NewAgentTcpReceiver() *AgentTcpReceiver {
 	return &AgentTcpReceiver{}
 }
 
+// TODO Add Dont Wait when implementing above layer
 func (znm *AgentTcpReceiver) RecvRequest() (uint64, uint32, string, *structures.RequestPayload, error) {
 	zap.L().Debug("Listening For Requests")
 
-	frames, err := znm.socket.RecvMessage()
+	frames, err := znm.socket.RecvMessageBytes(0)
 
 	if err != nil {
 		return 0, 0, "", nil, err
@@ -73,7 +74,13 @@ func (znm *AgentTcpReceiver) SendReply(id uint64, payloadType uint32, address st
 		return err
 	}
 
-	err = znm.socket.SendMessage([][]byte{[]byte(address), data})
+	_, err = znm.socket.SendBytes([]byte(address), zmq.SNDMORE)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = znm.socket.SendMessage(data, 0)
 
 	if err != nil {
 		return err
@@ -88,10 +95,19 @@ func (znm *AgentTcpReceiver) Bind(address string) error {
 		zap.String("address", address),
 	)
 
-	socket := goczmq.NewSock(goczmq.Router)
-	socket.SetIdentity(address)
+	socket, err := zmq.NewSocket(zmq.ROUTER)
 
-	_, err := socket.Bind("tcp://" + address)
+	if err != nil {
+		return err
+	}
+
+	err = socket.SetIdentity(address)
+
+	if err != nil {
+		return err
+	}
+
+	err = socket.Bind("tcp://" + address)
 
 	if err != nil {
 		return err
@@ -104,5 +120,6 @@ func (znm *AgentTcpReceiver) Bind(address string) error {
 
 func (znm *AgentTcpReceiver) Unbind() {
 	zap.L().Debug("Destroyed Socket")
-	znm.socket.Destroy()
+	znm.socket.SetLinger(0)
+	znm.socket.Close()
 }

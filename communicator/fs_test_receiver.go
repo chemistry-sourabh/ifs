@@ -19,24 +19,31 @@ package communicator
 import (
 	"github.com/chemistry-sourabh/ifs/structures"
 	"github.com/golang/protobuf/proto"
+	zmq "github.com/pebbe/zmq4"
 	"go.uber.org/zap"
-	"gopkg.in/zeromq/goczmq.v4"
+	"time"
 )
 
 type FsTestReceiver struct {
-	socket *goczmq.Sock
+	stop   bool
+	socket *zmq.Socket
 }
 
 func (znm *FsTestReceiver) recvSocket() {
 	zap.L().Info("Listening For Messages")
 
 	for {
-		frames, err := znm.socket.RecvMessage()
+		frames, err := znm.socket.RecvMessageBytes(zmq.DONTWAIT)
 
 		if err != nil {
 			zap.L().Error("Listening Failed",
 				zap.Error(err),
 			)
+			if znm.stop {
+				break
+			}
+			time.Sleep(0)
+			continue
 		}
 
 		address := string(frames[0])
@@ -71,7 +78,15 @@ func (znm *FsTestReceiver) recvSocket() {
 			)
 		}
 
-		err = znm.socket.SendMessage([][]byte{frames[0], data})
+		_, err = znm.socket.SendBytes(frames[0], zmq.SNDMORE)
+
+		if err != nil {
+			zap.L().Error("Couldn't Send",
+				zap.Error(err),
+			)
+		}
+
+		_, err = znm.socket.SendBytes(data, 0)
 
 		if err != nil {
 			zap.L().Error("Couldn't Send",
@@ -85,6 +100,8 @@ func (znm *FsTestReceiver) recvSocket() {
 			zap.Uint32("Type", reply.PayloadType),
 		)
 	}
+	znm.socket.SetLinger(0)
+	znm.socket.Close()
 }
 
 func (znm *FsTestReceiver) Startup(address string) {
@@ -93,10 +110,25 @@ func (znm *FsTestReceiver) Startup(address string) {
 		zap.String("address", address),
 	)
 
-	socket := goczmq.NewSock(goczmq.Router)
-	socket.SetIdentity(address)
+	socket, err := zmq.NewSocket(zmq.ROUTER)
 
-	_, err := socket.Bind("tcp://" + address)
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Create Socket",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = socket.SetIdentity(address)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Set Identity",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = socket.Bind("tcp://" + address)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Bind to Socket",
@@ -111,5 +143,5 @@ func (znm *FsTestReceiver) Startup(address string) {
 }
 
 func (znm *FsTestReceiver) Disconnect() {
-	znm.socket.Destroy()
+	znm.stop = true
 }

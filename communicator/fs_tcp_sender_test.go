@@ -59,11 +59,14 @@ func TestFsTcpSender_Comm(t *testing.T) {
 
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 
+
 	for i := 0; i < 10000; i++ {
 		index := r.Intn(len(addresses))
 		_, err := fts.SendRequest(structures.FetchMessageCode, addresses[index], msg)
 		ifstest.Ok(t, err)
 	}
+
+	//time.Sleep(10 * time.Second)
 
 	ftr1.Disconnect()
 	ftr2.Disconnect()
