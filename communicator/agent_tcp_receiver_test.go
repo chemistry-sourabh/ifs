@@ -53,7 +53,6 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 		},
 	}
 
-
 	sock, err := zmq.NewSocket(zmq.ROUTER)
 	ifstest.Ok(t, err)
 
@@ -81,32 +80,40 @@ func TestAgentTcpReceiver_Comm(t *testing.T) {
 		_, err = sock.SendBytes(data, 0)
 		ifstest.Ok(t, err)
 
-		reqId, payloadType, address, recvPayload, err := atr.RecvRequest()
-		ifstest.Ok(t, err)
+		for {
 
-		ifstest.Compare(t, reqId, request.Id)
-		ifstest.Compare(t, payloadType, uint32(structures.FetchMessageCode))
-		ifstest.Compare(t, address, clientAddress)
+			reqId, payloadType, address, recvPayload, err := atr.RecvRequest()
 
-		recvFm := recvPayload.GetFetchMsg()
-		ifstest.Compare(t, fm.Path, recvFm.Path)
+			if err != nil {
+				continue
+			}
 
-		err = atr.SendReply(reqId, structures.FileMessageCode, address, replyPayload)
-		ifstest.Ok(t, err)
+			ifstest.Compare(t, reqId, request.Id)
+			ifstest.Compare(t, payloadType, uint32(structures.FetchMessageCode))
+			ifstest.Compare(t, address, clientAddress)
 
-		frames, err := sock.RecvMessageBytes(0)
-		ifstest.Ok(t, err)
+			recvFm := recvPayload.GetFetchMsg()
+			ifstest.Compare(t, fm.Path, recvFm.Path)
 
-		ifstest.Compare(t, string(frames[0]), agentAddress)
+			err = atr.SendReply(reqId, structures.FileMessageCode, address, replyPayload)
+			ifstest.Ok(t, err)
 
-		data = frames[1]
-		reply := &structures.Reply{}
-		err = proto.Unmarshal(data, reply)
-		ifstest.Ok(t, err)
+			frames, err := sock.RecvMessageBytes(0)
+			ifstest.Ok(t, err)
 
-		ifstest.Compare(t, reply.Id, reqId)
-		ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
-		ifstest.Compare(t, string(reply.Payload.GetFileMsg().File), "Hello World")
+			ifstest.Compare(t, string(frames[0]), agentAddress)
+
+			data = frames[1]
+			reply := &structures.Reply{}
+			err = proto.Unmarshal(data, reply)
+			ifstest.Ok(t, err)
+
+			ifstest.Compare(t, reply.Id, reqId)
+			ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
+			ifstest.Compare(t, string(reply.Payload.GetFileMsg().File), "Hello World")
+
+			break
+		}
 	}
 
 	atr.Unbind()

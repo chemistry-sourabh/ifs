@@ -1,5 +1,3 @@
-// +build unit
-
 /*
  * Copyright 2019 Sourabh Bollapragada
  *
@@ -19,8 +17,10 @@
 package structures_test
 
 import (
+	"fmt"
 	"github.com/chemistry-sourabh/ifs/ifstest"
 	"github.com/chemistry-sourabh/ifs/structures"
+	"go.uber.org/zap"
 	"testing"
 )
 
@@ -49,4 +49,30 @@ func TestRemotePath_Address(t *testing.T) {
 	got := remotePathObject.Address()
 
 	ifstest.Compare(t, got, "localhost:1121")
+}
+
+func TestFileMessage_CompressDecompress(t *testing.T) {
+
+	logCfg := zap.NewDevelopmentConfig()
+	log, err := logCfg.Build()
+	zap.ReplaceGlobals(log)
+
+	b := make([]byte, 1000)
+
+	ifstest.Ok(t, err)
+
+	fm := structures.FileMessage{
+		File: b,
+	}
+
+	fm.Compress()
+
+	if len(fm.File) > len(b) {
+		fmt.Println("Failed due to length")
+		t.FailNow()
+	}
+
+	fm.Decompress()
+
+	ifstest.Compare(t, fm.File, b)
 }

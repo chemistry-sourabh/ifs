@@ -35,7 +35,7 @@ func NewAgentTcpReceiver() *AgentTcpReceiver {
 func (znm *AgentTcpReceiver) RecvRequest() (uint64, uint32, string, *structures.RequestPayload, error) {
 	zap.L().Debug("Listening For Requests")
 
-	frames, err := znm.socket.RecvMessageBytes(0)
+	frames, err := znm.socket.RecvMessageBytes(zmq.DONTWAIT)
 
 	if err != nil {
 		return 0, 0, "", nil, err

@@ -17,7 +17,12 @@
 package ifstest
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"github.com/google/go-cmp/cmp"
+	"io/ioutil"
+	"os"
+	"path"
 	"runtime"
 	"testing"
 )
@@ -48,4 +53,24 @@ func NotNil(t *testing.T, got interface{}) {
 		_, file, line, _ := runtime.Caller(1)
 		t.Errorf("Got Nil in File: %s at Line: %d, %s", file, line, got)
 	}
+}
+
+
+func CreateTempFile(name string) {
+	fPath := path.Join("/tmp", name)
+	f, _ := os.Create(fPath)
+	defer f.Close()
+}
+
+func RemoveTempFile(name string) {
+	fPath := path.Join("/tmp", name)
+	os.Remove(fPath)
+}
+
+func WriteDummyData(name string, size int) []byte {
+	fPath := path.Join("/tmp", name)
+	data := make([]byte, size)
+	binary.Read(rand.Reader, binary.LittleEndian, &data)
+	ioutil.WriteFile(fPath, data, 0666)
+	return data
 }

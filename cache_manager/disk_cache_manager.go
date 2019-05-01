@@ -53,12 +53,12 @@ func NewDiskCacheManager() *DiskCacheManager {
 }
 
 //Private Methods
-func (dcm *DiskCacheManager) IsCached(rp *structures.RemotePath) bool {
+func (dcm *DiskCacheManager) isCached(rp *structures.RemotePath) bool {
 	_, ok := dcm.cached.Load(rp.PrettyString())
 	return ok
 }
 
-func (dcm *DiskCacheManager) DeleteCache() error {
+func (dcm *DiskCacheManager) deleteCache() error {
 	zap.L().Info("Deleting Cache")
 	err := os.RemoveAll(dcm.Path)
 
@@ -70,17 +70,17 @@ func (dcm *DiskCacheManager) DeleteCache() error {
 	return err
 }
 
-func (dcm *DiskCacheManager) GetNextCacheFileName() string {
+func (dcm *DiskCacheManager) getNextCacheFileName() string {
 	fileId := atomic.AddUint64(&dcm.fileId, 1)
 	return strconv.FormatUint(fileId, 10)
 }
 
-func (dcm *DiskCacheManager) Fetch(rp *structures.RemotePath) error {
+func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 
 	dcm.fetching.Lock(rp.PrettyString())
 	defer dcm.fetching.Unlock(rp.PrettyString())
 
-	if !dcm.IsCached(rp) {
+	if !dcm.isCached(rp) {
 
 		fetchMsg := &structures.FetchMessage{
 			Path: rp.Path,
@@ -98,7 +98,7 @@ func (dcm *DiskCacheManager) Fetch(rp *structures.RemotePath) error {
 			return err
 		}
 
-		fname := dcm.GetNextCacheFileName()
+		fname := dcm.getNextCacheFileName()
 		fileMsg := msg.GetFileMsg()
 
 		err = ioutil.WriteFile(path.Join(dcm.Path, fname), fileMsg.File, 0666)
@@ -130,7 +130,7 @@ func (dcm *DiskCacheManager) Run(path string, size uint64) {
 	dcm.Path = path
 	dcm.Size = size
 
-	dcm.DeleteCache()
+	dcm.deleteCache()
 }
 
 func (dcm *DiskCacheManager) Rename(path *structures.RemotePath, dst string) error {
@@ -165,7 +165,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 		return f, err
 	} else {
 
-		err := dcm.Fetch(filePath)
+		err := dcm.fetch(filePath)
 
 		if err != nil {
 			return nil, err
@@ -198,7 +198,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 //}
 //
 //func (h *hoarder) CacheCreate(remotePath *RemotePath, fd uint64) error {
-//	if !h.IsCached(remotePath) {
+//	if !h.isCached(remotePath) {
 //		fname := h.GetCacheFileName()
 //		f, err := os.Create(path.Join(h.Path, fname))
 //
