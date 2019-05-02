@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"path"
@@ -73,4 +74,10 @@ func WriteDummyData(name string, size int) []byte {
 	binary.Read(rand.Reader, binary.LittleEndian, &data)
 	ioutil.WriteFile(fPath, data, 0666)
 	return data
+}
+
+func SetupLogger() {
+	logCfg := zap.NewDevelopmentConfig()
+	logger, _ := logCfg.Build()
+	zap.ReplaceGlobals(logger)
 }

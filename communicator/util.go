@@ -14,10 +14,17 @@
  * limitations under the License.
  */
 
-package network_manager
+package communicator
 
-import "github.com/golang/protobuf/proto"
+import (
+	"strconv"
+	"strings"
+)
 
-type NetworkManager interface {
-	SendMessage(op uint32, message proto.Message) (proto.Message, error)
+func GetOtherAddress(address string) string {
+	parts := strings.Split(address, ":")
+	hostname := parts[0]
+	port, _ := strconv.Atoi(parts[1])
+
+	return hostname+":"+strconv.Itoa(port+1)
 }

@@ -18,20 +18,22 @@ package cache_manager
 
 import (
 	"github.com/chemistry-sourabh/ifs/communicator"
+	"github.com/chemistry-sourabh/ifs/file_op_executor"
 	"github.com/chemistry-sourabh/ifs/ifstest"
 	"github.com/chemistry-sourabh/ifs/structures"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
+	"time"
 )
 
 func TestDiskCacheManager_Open(t *testing.T) {
-
+	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Nm = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structures.RemotePath{
@@ -43,7 +45,7 @@ func TestDiskCacheManager_Open(t *testing.T) {
 	f, err := dcm.Open(rp, os.O_RDWR)
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, f.Name(), path.Join(cachePath, "2"))
+	ifstest.Compare(t, f.Name(), path.Join(cachePath, "1"))
 
 	data, err := ioutil.ReadAll(f)
 	ifstest.Ok(t, err)
@@ -54,14 +56,14 @@ func TestDiskCacheManager_Open(t *testing.T) {
 
 	err = os.RemoveAll(cachePath)
 	ifstest.Ok(t, err)
-
 }
 
 func TestDiskCacheManager_Open2(t *testing.T) {
+	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Nm = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structures.RemotePath{
@@ -91,11 +93,56 @@ func TestDiskCacheManager_Open2(t *testing.T) {
 	ifstest.Ok(t, err)
 }
 
+func TestDiskCacheManager_Open3(t *testing.T) {
+	ifstest.SetupLogger()
+	clientAddress := "127.0.0.1:5000"
+	agentAddress := "127.0.0.1:5002"
+	cachePath := "/tmp/test_cache"
+
+	foe := file_op_executor.NewRemoteFileOpExecutor()
+	foe.Receiver = communicator.NewAgentZmqReceiver()
+	go foe.Run(agentAddress)
+
+	ifstest.CreateTempFile("test")
+	ifstest.WriteDummyData("test", 1000)
+
+	time.Sleep(time.Second)
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender.Connect([]string{agentAddress})
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     5002,
+		Path:     "/tmp/test",
+	}
+
+	f, err := dcm.Open(rp, os.O_RDWR)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, f.Name(), path.Join(cachePath, "1"))
+
+	data, err := ioutil.ReadAll(f)
+	ifstest.Ok(t, err)
+	ifstest.Compare(t, len(data), 1000)
+
+	err = f.Close()
+	ifstest.Ok(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	ifstest.RemoveTempFile("test")
+}
+
 func TestDiskCacheManager_Rename(t *testing.T) {
+	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Nm = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structures.RemotePath{

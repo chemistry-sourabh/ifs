@@ -29,18 +29,22 @@ import (
 )
 
 func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
+	ifstest.SetupLogger()
+
 	clientAddress := "127.0.0.1:5000"
-	agentAddress := "127.0.0.1:5001"
+	agentAddress := "127.0.0.1:5012"
 	fileName := "file1"
 
 	ifstest.CreateTempFile(fileName)
 	fileData := ifstest.WriteDummyData(fileName, 1000)
 
-	atr := communicator.NewAgentTcpReceiver()
+	atr := communicator.NewAgentZmqReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
 	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
 
 	fm := &structures.FetchMessage{
 		Path: path.Join("/tmp", fileName),
@@ -52,13 +56,22 @@ func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
 		},
 	}
 
-	sock, err := zmq.NewSocket(zmq.ROUTER)
+	senderSocket, err := zmq.NewSocket(zmq.ROUTER)
 	ifstest.Ok(t, err)
 
-	err = sock.SetIdentity(clientAddress)
+	err = senderSocket.SetIdentity(clientAddress)
 	ifstest.Ok(t, err)
 
-	err = sock.Connect("tcp://" + agentAddress)
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := zmq.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -74,16 +87,16 @@ func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = sock.SendBytes([]byte(agentAddress), zmq.SNDMORE)
+	_, err = senderSocket.SendBytes([]byte(agentAddress), zmq.SNDMORE)
 	ifstest.Ok(t, err)
 
-	_, err = sock.SendBytes(data, 0)
+	_, err = senderSocket.SendBytes(data, 0)
 	ifstest.Ok(t, err)
 
-	frames, err := sock.RecvMessageBytes(0)
+	frames, err := recvSocket.RecvMessageBytes(0)
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), agentAddress)
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
 	reply := &structures.Reply{}
@@ -95,7 +108,9 @@ func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
 	ifstest.Compare(t, reply.Payload.GetFileMsg().File, fileData)
 
 	foe.Stop()
-	sock.SetLinger(0)
-	sock.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
 	ifstest.RemoveTempFile(fileName)
 }

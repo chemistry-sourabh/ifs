@@ -21,29 +21,24 @@ import (
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"go.uber.org/zap"
-	"time"
 )
 
 type FsTestReceiver struct {
-	stop   bool
-	socket *zmq.Socket
+	stop         bool
+	senderSocket *zmq.Socket
+	recvSocket   *zmq.Socket
 }
 
-func (znm *FsTestReceiver) recvSocket() {
+func (znm *FsTestReceiver) recvMessages() {
 	zap.L().Info("Listening For Messages")
 
 	for {
-		frames, err := znm.socket.RecvMessageBytes(zmq.DONTWAIT)
+		frames, err := znm.recvSocket.RecvMessageBytes(0)
 
 		if err != nil {
-			zap.L().Error("Listening Failed",
+			zap.L().Fatal("Listening Failed",
 				zap.Error(err),
 			)
-			if znm.stop {
-				break
-			}
-			time.Sleep(0)
-			continue
 		}
 
 		address := string(frames[0])
@@ -54,7 +49,7 @@ func (znm *FsTestReceiver) recvSocket() {
 		err = proto.Unmarshal(data, request)
 
 		if err != nil {
-			zap.L().Error("Unmarshalling Failed",
+			zap.L().Fatal("Unmarshalling Failed",
 				zap.Error(err),
 			)
 		}
@@ -78,7 +73,7 @@ func (znm *FsTestReceiver) recvSocket() {
 			)
 		}
 
-		_, err = znm.socket.SendBytes(frames[0], zmq.SNDMORE)
+		_, err = znm.senderSocket.SendBytes(frames[0], zmq.SNDMORE)
 
 		if err != nil {
 			zap.L().Error("Couldn't Send",
@@ -86,7 +81,7 @@ func (znm *FsTestReceiver) recvSocket() {
 			)
 		}
 
-		_, err = znm.socket.SendBytes(data, 0)
+		_, err = znm.senderSocket.SendBytes(data, 0)
 
 		if err != nil {
 			zap.L().Error("Couldn't Send",
@@ -100,8 +95,6 @@ func (znm *FsTestReceiver) recvSocket() {
 			zap.Uint32("Type", reply.PayloadType),
 		)
 	}
-	znm.socket.SetLinger(0)
-	znm.socket.Close()
 }
 
 func (znm *FsTestReceiver) Startup(address string) {
@@ -110,7 +103,7 @@ func (znm *FsTestReceiver) Startup(address string) {
 		zap.String("address", address),
 	)
 
-	socket, err := zmq.NewSocket(zmq.ROUTER)
+	recvSocket, err := zmq.NewSocket(zmq.ROUTER)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Create Socket",
@@ -119,7 +112,7 @@ func (znm *FsTestReceiver) Startup(address string) {
 		)
 	}
 
-	err = socket.SetIdentity(address)
+	err = recvSocket.SetIdentity(address)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Set Identity",
@@ -128,7 +121,7 @@ func (znm *FsTestReceiver) Startup(address string) {
 		)
 	}
 
-	err = socket.Bind("tcp://" + address)
+	err = recvSocket.Bind("tcp://" + address)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Bind to Socket",
@@ -137,11 +130,45 @@ func (znm *FsTestReceiver) Startup(address string) {
 		)
 	}
 
-	znm.socket = socket
+	znm.recvSocket = recvSocket
 
-	go znm.recvSocket()
+	senderAddress := GetOtherAddress(address)
+
+	senderSocket, err := zmq.NewSocket(zmq.ROUTER)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Create Socket",
+			zap.String("address", senderAddress),
+			zap.Error(err),
+		)
+	}
+
+	err = senderSocket.SetIdentity(senderAddress)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Set Identity",
+			zap.String("address", senderAddress),
+			zap.Error(err),
+		)
+	}
+
+	err = senderSocket.Bind("tcp://" + senderAddress)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Bind to Socket",
+			zap.String("address", senderAddress),
+			zap.Error(err),
+		)
+	}
+
+	znm.senderSocket = senderSocket
+
+	go znm.recvMessages()
 }
 
 func (znm *FsTestReceiver) Disconnect() {
-	znm.stop = true
+	znm.recvSocket.SetLinger(0)
+	znm.recvSocket.Close()
+	znm.senderSocket.SetLinger(0)
+	znm.senderSocket.Close()
 }

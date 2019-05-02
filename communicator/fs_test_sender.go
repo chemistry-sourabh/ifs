@@ -25,7 +25,9 @@ type FsTestSender struct {
 }
 
 func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload *structures.RequestPayload) (*structures.ReplyPayload, error) {
-	if payloadType == structures.FetchMessageCode {
+	switch payloadType {
+
+	case structures.FetchMessageCode:
 		b := make([]byte, 100)
 		_, err := rand.Read(b)
 
@@ -43,6 +45,9 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 			},
 		}
 
+		return payload, nil
+	case structures.OpenMessageCode:
+		payload := &structures.ReplyPayload{}
 		return payload, nil
 	}
 

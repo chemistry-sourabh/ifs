@@ -29,7 +29,7 @@ import (
 )
 
 // Use Packet
-// FetchFile is RemotePath
+// fetchFile is RemotePath
 // Read From Cache is ReadInfo
 // Write To Cache is WriteInfo
 // SetAttr To Cache is AttrInfo
@@ -38,15 +38,19 @@ import (
 type DiskCacheManager struct {
 	Path     string
 	Size     uint64
-	Nm       communicator.Sender
+	Sender   communicator.Sender
 	fileId   uint64
+	fd       uint64
+	opened   sync.Map
 	cached   sync.Map
 	fetching structures.MutexMap
 }
 
 func NewDiskCacheManager() *DiskCacheManager {
 	return &DiskCacheManager{
-		fileId:   1,
+		fileId:   0,
+		fd:       0,
+		opened:   sync.Map{},
 		cached:   sync.Map{},
 		fetching: structures.NewMutexMap(1000),
 	}
@@ -92,14 +96,14 @@ func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 			},
 		}
 
-		msg, err := dcm.Nm.SendRequest(structures.FetchMessageCode, rp.Address(), payload)
+		reply, err := dcm.Sender.SendRequest(structures.FetchMessageCode, rp.Address(), payload)
 
 		if err != nil {
 			return err
 		}
 
 		fname := dcm.getNextCacheFileName()
-		fileMsg := msg.GetFileMsg()
+		fileMsg := reply.GetFileMsg()
 
 		err = ioutil.WriteFile(path.Join(dcm.Path, fname), fileMsg.File, 0666)
 
@@ -125,6 +129,7 @@ func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 }
 
 // Interface Methods
+//TODO Change to take Config as input
 func (dcm *DiskCacheManager) Run(path string, size uint64) {
 
 	dcm.Path = path
@@ -133,18 +138,42 @@ func (dcm *DiskCacheManager) Run(path string, size uint64) {
 	dcm.deleteCache()
 }
 
-func (dcm *DiskCacheManager) Rename(path *structures.RemotePath, dst string) error {
-	if val, ok := dcm.cached.Load(path.PrettyString()); ok {
+func (dcm *DiskCacheManager) Rename(remotePath *structures.RemotePath, dst string) error {
+
+	zap.L().Debug("Rename",
+		zap.String("remote-remotePath", remotePath.PrettyString()),
+		zap.String("dst", dst),
+	)
+
+	renameMsg := &structures.RenameMessage{
+		CurrentPath: remotePath.Path,
+		NewPath:     dst,
+	}
+
+	payload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_RenameMsg{
+			RenameMsg: renameMsg,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structures.RenameMessageCode, remotePath.Address(), payload)
+
+	if err != nil {
+		return err
+	}
+
+
+	if val, ok := dcm.cached.Load(remotePath.PrettyString()); ok {
 		fname := val.(string)
 
 		dstRemotePath := &structures.RemotePath{
-			Hostname: path.Hostname,
-			Port:     path.Port,
+			Hostname: remotePath.Hostname,
+			Port:     remotePath.Port,
 			Path:     dst,
 		}
 
 		dcm.cached.Store(dstRemotePath.PrettyString(), fname)
-		dcm.cached.Delete(path.PrettyString())
+		dcm.cached.Delete(remotePath.PrettyString())
 
 		return nil
 	}
@@ -154,15 +183,40 @@ func (dcm *DiskCacheManager) Rename(path *structures.RemotePath, dst string) err
 
 func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*os.File, error) {
 
+	zap.L().Debug("Open",
+		zap.String("remote-path", filePath.PrettyString()),
+		zap.Int("flags", flags),
+	)
+
+	fd := atomic.AddUint64(&dcm.fd, 1)
+
+	openMsg := &structures.OpenMessage{
+		Fd:    fd,
+		Path:  filePath.Path,
+		Flags: int32(flags),
+	}
+
+	payload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_OpenMsg{
+			OpenMsg: openMsg,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structures.OpenMessageCode, filePath.Address(), payload)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var f *os.File
 	if val, ok := dcm.cached.Load(filePath.PrettyString()); ok {
 
-		f, err := os.OpenFile(path.Join(dcm.Path, val.(string)), flags, 0666)
+		f, err = os.OpenFile(path.Join(dcm.Path, val.(string)), flags, 0666)
 
 		if err != nil {
 			return nil, err
 		}
 
-		return f, err
 	} else {
 
 		err := dcm.fetch(filePath)
@@ -172,14 +226,17 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 		}
 
 		val, _ := dcm.cached.Load(filePath.PrettyString())
-		f, err := os.OpenFile(path.Join(dcm.Path, val.(string)), int(flags), 0666)
+		f, err = os.OpenFile(path.Join(dcm.Path, val.(string)), int(flags), 0666)
 
 		if err != nil {
 			return nil, err
 		}
 
-		return f, err
 	}
+
+	dcm.opened.Store(fd, f)
+
+	return f, err
 }
 
 //func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {

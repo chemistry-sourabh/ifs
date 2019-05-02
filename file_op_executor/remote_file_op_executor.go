@@ -21,17 +21,18 @@ import (
 	"github.com/chemistry-sourabh/ifs/structures"
 	"go.uber.org/zap"
 	"io/ioutil"
+	"os"
 )
 
 type RemoteFileOpExecutor struct {
 	Receiver communicator.Receiver
-	stop     bool
+	fp       map[uint64]*os.File
 }
 
 // TODO Add a type attribute for receiver
 func NewRemoteFileOpExecutor() *RemoteFileOpExecutor {
 	return &RemoteFileOpExecutor{
-		stop: false,
+		fp: make(map[uint64]*os.File),
 	}
 }
 
@@ -45,24 +46,8 @@ func (foe *RemoteFileOpExecutor) createErrMsg(err error) *structures.ReplyPayloa
 	}
 }
 
-func (foe *RemoteFileOpExecutor) Stop() {
-	foe.stop = true
-}
-
-func (foe *RemoteFileOpExecutor) Run(address string) {
-	err := foe.Receiver.Bind(address)
-
-	if err != nil {
-		zap.L().Fatal("Failed to Bind Receiver",
-			zap.String("address", address),
-		)
-	}
-
-	foe.Process()
-}
-
 // TODO Check Compression
-func (foe *RemoteFileOpExecutor) FetchFile(req *structures.FetchMessage) (*structures.FileMessage, error) {
+func (foe *RemoteFileOpExecutor) fetch(req *structures.FetchMessage) (*structures.FileMessage, error) {
 
 	zap.L().Debug("Processing Fetch Message",
 		zap.String("path", req.Path),
@@ -98,21 +83,47 @@ func (foe *RemoteFileOpExecutor) FetchFile(req *structures.FetchMessage) (*struc
 	return nil, err
 }
 
+func (foe *RemoteFileOpExecutor) open(req *structures.OpenMessage) error {
+
+	zap.L().Debug("Processing Open Message",
+		zap.String("path", req.Path),
+		zap.Uint64("fd", req.Fd),
+		zap.Int32("flags", req.Flags),
+	)
+
+	f, err := os.OpenFile(req.Path, int(req.Flags), 0666)
+
+	if err != nil {
+
+		zap.L().Debug("Open Error",
+			zap.String("path", req.Path),
+			zap.Uint64("fd", req.Fd),
+			zap.Int32("flags", req.Flags),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	foe.fp[req.Fd] = f
+
+	return nil
+}
+
+func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
+	return nil
+}
+
+// TODO go routines for each task
 func (foe *RemoteFileOpExecutor) Process() {
 
 	for {
 		id, payloadType, address, req, err := foe.Receiver.RecvRequest()
 
 		if err != nil {
-			zap.L().Error("Couldn't Receive Message",
+			zap.L().Fatal("Couldn't Receive Message",
 				zap.Error(err),
 			)
-
-			if foe.stop {
-				break
-			}
-
-			continue
 		}
 
 		zap.L().Debug("Processing Request",
@@ -123,7 +134,7 @@ func (foe *RemoteFileOpExecutor) Process() {
 
 		switch payloadType {
 		case structures.FetchMessageCode:
-			payload, err := foe.FetchFile(req.GetFetchMsg())
+			payload, err := foe.fetch(req.GetFetchMsg())
 
 			var reply *structures.ReplyPayload
 			var replyType uint32 = structures.ErrMessageCode
@@ -152,7 +163,48 @@ func (foe *RemoteFileOpExecutor) Process() {
 				)
 			}
 
+		case structures.OpenMessageCode:
+			err := foe.open(req.GetOpenMsg())
+
+			var reply *structures.ReplyPayload
+			var replyType uint32 = structures.ErrMessageCode
+			if err != nil {
+				reply = foe.createErrMsg(err)
+			} else {
+
+				reply = &structures.ReplyPayload{}
+				replyType = structures.OkMessageCode
+
+			}
+
+			err = foe.Receiver.SendReply(id, replyType, address, reply)
+
+			if err != nil {
+				zap.L().Warn("Failed to Send Reply",
+					zap.Uint64("id", id),
+					zap.Uint32("payloadType", payloadType),
+					zap.String("address", address),
+					zap.Error(err),
+				)
+			}
+
 		}
 	}
+
+}
+
+func (foe *RemoteFileOpExecutor) Stop() {
 	foe.Receiver.Unbind()
+}
+
+func (foe *RemoteFileOpExecutor) Run(address string) {
+	err := foe.Receiver.Bind(address)
+
+	if err != nil {
+		zap.L().Fatal("Failed to Bind Receiver",
+			zap.String("address", address),
+		)
+	}
+
+	foe.Process()
 }
