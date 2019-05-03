@@ -20,6 +20,7 @@ const RequestCodeBase = 0
 const FetchMessageCode = RequestCodeBase + 1
 const RenameMessageCode = RequestCodeBase + 2
 const OpenMessageCode = RequestCodeBase + 3
+const CreateMessageCode = RequestCodeBase + 4
 
 const ReplyCodeBase = 100
 const OkMessageCode = ReplyCodeBase + 1

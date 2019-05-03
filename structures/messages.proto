@@ -7,6 +7,7 @@ message RequestPayload {
         FetchMessage fetchMsg = 1;
         RenameMessage renameMsg = 2;
         OpenMessage openMsg = 3;
+        CreateMessage createMsg = 4;
     }
 }
 
@@ -35,6 +36,10 @@ message RemotePath {
     string path = 3;
 }
 
+message ErrMessage {
+    string error = 1;
+}
+
 message FetchMessage {
     string path = 1;
 }
@@ -54,6 +59,8 @@ message OpenMessage {
     int32 flags = 3;
 }
 
-message ErrMessage {
-    string error = 1;
+message CreateMessage {
+    uint64 fd = 1;
+    string baseDir = 2;
+    string name = 3;
 }

@@ -22,17 +22,19 @@ import (
 	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
+	"path"
+	"sync"
 )
 
 type RemoteFileOpExecutor struct {
 	Receiver communicator.Receiver
-	fp       map[uint64]*os.File
+	fp       sync.Map
 }
 
 // TODO Add a type attribute for receiver
 func NewRemoteFileOpExecutor() *RemoteFileOpExecutor {
 	return &RemoteFileOpExecutor{
-		fp: make(map[uint64]*os.File),
+		fp: sync.Map{},
 	}
 }
 
@@ -105,7 +107,7 @@ func (foe *RemoteFileOpExecutor) open(req *structures.OpenMessage) error {
 		return err
 	}
 
-	foe.fp[req.Fd] = f
+	foe.fp.Store(req.Fd, f)
 
 	return nil
 }
@@ -120,7 +122,7 @@ func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
 
 	if err != nil {
 
-		zap.L().Debug("Rename Error Response",
+		zap.L().Debug("Rename Error",
 			zap.String("path", req.CurrentPath),
 			zap.String("dest_path", req.NewPath),
 			zap.Error(err),
@@ -132,7 +134,28 @@ func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
 	return nil
 }
 
-// TODO go routines for each task
+func (foe *RemoteFileOpExecutor) create(req *structures.CreateMessage) error {
+	filePath := path.Join(req.BaseDir, req.Name)
+
+	zap.L().Debug("Processing Create Message",
+		zap.String("path", filePath),
+	)
+
+	f, err := os.Create(filePath)
+	if err != nil {
+
+		zap.L().Debug("Create Error",
+			zap.String("path", filePath),
+			zap.Error(err),
+		)
+
+	}
+
+	foe.fp.Store(req.Fd, f)
+
+	return nil
+}
+
 func (foe *RemoteFileOpExecutor) Process() {
 
 	for {
@@ -235,6 +258,35 @@ func (foe *RemoteFileOpExecutor) Process() {
 						zap.Error(err),
 					)
 				}
+			}()
+
+		case structures.CreateMessageCode:
+			go func() {
+				go func() {
+					err := foe.create(req.GetCreateMsg())
+
+					var reply *structures.ReplyPayload
+					var replyType uint32 = structures.ErrMessageCode
+					if err != nil {
+						reply = foe.createErrMsg(err)
+					} else {
+
+						reply = &structures.ReplyPayload{}
+						replyType = structures.OkMessageCode
+
+					}
+
+					err = foe.Receiver.SendReply(id, replyType, address, reply)
+
+					if err != nil {
+						zap.L().Warn("Failed to Send Reply",
+							zap.Uint64("id", id),
+							zap.Uint32("payloadType", payloadType),
+							zap.String("address", address),
+							zap.Error(err),
+						)
+					}
+				}()
 			}()
 
 		}

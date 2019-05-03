@@ -102,8 +102,8 @@ func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 			return err
 		}
 
-		fname := dcm.getNextCacheFileName()
 		fileMsg := reply.GetFileMsg()
+		fname := dcm.getNextCacheFileName()
 
 		err = ioutil.WriteFile(path.Join(dcm.Path, fname), fileMsg.File, 0666)
 
@@ -180,7 +180,7 @@ func (dcm *DiskCacheManager) Rename(remotePath *structures.RemotePath, dst strin
 	return os.ErrInvalid
 }
 
-func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*os.File, error) {
+func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (uint64, error) {
 
 	zap.L().Debug("Open",
 		zap.String("remote-path", filePath.PrettyString()),
@@ -204,7 +204,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 	_, err := dcm.Sender.SendRequest(structures.OpenMessageCode, filePath.Address(), payload)
 
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	var f *os.File
@@ -213,7 +213,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 		f, err = os.OpenFile(path.Join(dcm.Path, val.(string)), flags, 0666)
 
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
 
 	} else {
@@ -221,21 +221,69 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 		err := dcm.fetch(filePath)
 
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
 
 		val, _ := dcm.cached.Load(filePath.PrettyString())
 		f, err = os.OpenFile(path.Join(dcm.Path, val.(string)), int(flags), 0666)
 
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
 
 	}
 
 	dcm.opened.Store(fd, f)
 
-	return f, err
+	return fd, err
+}
+
+func (dcm *DiskCacheManager) Create(dirPath *structures.RemotePath, name string) (uint64, error) {
+
+	zap.L().Debug("Create",
+		zap.String("base-dir", dirPath.PrettyString()),
+		zap.String("name", name),
+	)
+
+	fd := atomic.AddUint64(&dcm.fd, 1)
+
+	createMsg := &structures.CreateMessage{
+		Fd: fd,
+		BaseDir: dirPath.Path,
+		Name: name,
+	}
+
+	payload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_CreateMsg{
+			CreateMsg: createMsg,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structures.CreateMessageCode, dirPath.Address(), payload)
+
+	if err != nil {
+		return 0, err
+	}
+
+	filePath := &structures.RemotePath{
+		Hostname: dirPath.Hostname,
+		Port: dirPath.Port,
+		Path: path.Join(dirPath.Path, name),
+	}
+
+	fname := dcm.getNextCacheFileName()
+
+	f, err := os.Create(path.Join(dcm.Path, fname))
+
+	// TODO Remote and Local will be out of sync
+	if err != nil {
+		return 0, err
+	}
+
+	dcm.cached.Store(filePath.PrettyString(), fname)
+	dcm.opened.Store(fd, f)
+
+	return fd, nil
 }
 
 //func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
@@ -253,22 +301,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (*
 //	return os.ErrNotExist
 //}
 //
-//func (h *hoarder) CacheCreate(remotePath *RemotePath, fd uint64) error {
-//	if !h.isCached(remotePath) {
-//		fname := h.GetCacheFileName()
-//		f, err := os.Create(path.Join(h.Path, fname))
-//
-//		// if error doesnt happens this will be nil right ?
-//		if err == nil {
-//			h.cached.Set(remotePath.String(), fname)
-//			h.opened.Set(strconv.FormatUint(fd, 10), f)
-//		}
-//
-//		return err
-//	}
-//
-//	return os.ErrExist
-//}
+
 //
 //func (h *hoarder) CacheDelete(remotePath *RemotePath) error {
 //	if val, ok := h.cached.Get(remotePath.String()); ok {

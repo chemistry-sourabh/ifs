@@ -42,9 +42,11 @@ func TestDiskCacheManager_Open(t *testing.T) {
 		Path:     "/tmp/test",
 	}
 
-	f, err := dcm.Open(rp, os.O_RDWR)
+	fd, err := dcm.Open(rp, os.O_RDWR)
 	ifstest.Ok(t, err)
 
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
 	ifstest.Compare(t, f.Name(), path.Join(cachePath, "1"))
 
 	data, err := ioutil.ReadAll(f)
@@ -72,18 +74,22 @@ func TestDiskCacheManager_Open2(t *testing.T) {
 		Path:     "/tmp/test",
 	}
 
-	f, err := dcm.Open(rp, os.O_RDWR)
+	fd, err := dcm.Open(rp, os.O_RDWR)
 	ifstest.Ok(t, err)
 
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
 	data, err := ioutil.ReadAll(f)
 	ifstest.Ok(t, err)
 
 	err = f.Close()
 	ifstest.Ok(t, err)
 
-	f, err = dcm.Open(rp, os.O_RDONLY)
+	fd, err = dcm.Open(rp, os.O_RDONLY)
 	ifstest.Ok(t, err)
 
+	val, _ = dcm.opened.Load(fd)
+	f = val.(*os.File)
 	data1, err := ioutil.ReadAll(f)
 	ifstest.Ok(t, err)
 
@@ -119,9 +125,11 @@ func TestDiskCacheManager_Open3(t *testing.T) {
 		Path:     "/tmp/test",
 	}
 
-	f, err := dcm.Open(rp, os.O_RDWR)
+	fd, err := dcm.Open(rp, os.O_RDWR)
 	ifstest.Ok(t, err)
 
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
 	ifstest.Compare(t, f.Name(), path.Join(cachePath, "1"))
 
 	data, err := ioutil.ReadAll(f)
@@ -151,9 +159,11 @@ func TestDiskCacheManager_Rename(t *testing.T) {
 		Path:     "/tmp/test",
 	}
 
-	f, err := dcm.Open(rp, os.O_RDWR)
+	fd, err := dcm.Open(rp, os.O_RDWR)
 	ifstest.Ok(t, err)
 
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
 	data, err := ioutil.ReadAll(f)
 	ifstest.Ok(t, err)
 
@@ -165,9 +175,11 @@ func TestDiskCacheManager_Rename(t *testing.T) {
 
 	rp.Path = "/tmp/test1"
 
-	f, err = dcm.Open(rp, os.O_RDONLY)
+	fd, err = dcm.Open(rp, os.O_RDONLY)
 	ifstest.Ok(t, err)
 
+	val, _ = dcm.opened.Load(fd)
+	f = val.(*os.File)
 	data1, err := ioutil.ReadAll(f)
 	ifstest.Ok(t, err)
 
@@ -203,9 +215,11 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 		Path:     "/tmp/test",
 	}
 
-	f, err := dcm.Open(rp, os.O_RDWR)
+	fd, err := dcm.Open(rp, os.O_RDWR)
 	ifstest.Ok(t, err)
 
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
 	data, err := ioutil.ReadAll(f)
 	ifstest.Ok(t, err)
 
@@ -217,9 +231,11 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 
 	rp.Path = "/tmp/test1"
 
-	f, err = dcm.Open(rp, os.O_RDONLY)
+	fd, err = dcm.Open(rp, os.O_RDONLY)
 	ifstest.Ok(t, err)
 
+	val, _ = dcm.opened.Load(fd)
+	f = val.(*os.File)
 	data1, err := ioutil.ReadAll(f)
 	ifstest.Ok(t, err)
 
@@ -229,4 +245,74 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	ifstest.RemoveTempFile("test1")
+}
+
+func TestDiskCacheManager_Create(t *testing.T) {
+	ifstest.SetupLogger()
+	cachePath := "/tmp/test_cache"
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
+
+	dirPath := &structures.RemotePath{
+		Hostname: "localhost",
+		Port:     8000,
+		Path:     "/tmp",
+	}
+
+	fd, err := dcm.Create(dirPath, "test")
+	ifstest.Ok(t, err)
+
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
+
+	ifstest.Compare(t, f.Name(), path.Join(cachePath, "1"))
+
+	err = f.Close()
+	ifstest.Ok(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+}
+
+func TestDiskCacheManager_Create2(t *testing.T) {
+	ifstest.SetupLogger()
+	clientAddress := "127.0.0.1:5000"
+	agentAddress := "127.0.0.1:5016"
+	cachePath := "/tmp/test_cache"
+
+	foe := file_op_executor.NewRemoteFileOpExecutor()
+	foe.Receiver = communicator.NewAgentZmqReceiver()
+	go foe.Run(agentAddress)
+
+	time.Sleep(time.Second)
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender.Connect([]string{agentAddress})
+	dcm.Run(cachePath, 100)
+
+	dirPath := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     5016,
+		Path:     "/tmp",
+	}
+
+	fd, err := dcm.Create(dirPath, "test")
+	ifstest.Ok(t, err)
+
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
+
+	err = f.Close()
+	ifstest.Ok(t, err)
+
+	_, err = os.Stat("/tmp/test")
+	ifstest.Ok(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	ifstest.RemoveTempFile("test")
 }
