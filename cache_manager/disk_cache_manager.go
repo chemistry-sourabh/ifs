@@ -162,7 +162,6 @@ func (dcm *DiskCacheManager) Rename(remotePath *structures.RemotePath, dst strin
 		return err
 	}
 
-
 	if val, ok := dcm.cached.Load(remotePath.PrettyString()); ok {
 		fname := val.(string)
 

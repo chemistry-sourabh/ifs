@@ -27,10 +27,34 @@ import (
 type AgentZmqReceiver struct {
 	senderSocket *zmq.Socket
 	recvSocket   *zmq.Socket
+	send         chan [][]byte
 }
 
 func NewAgentZmqReceiver() *AgentZmqReceiver {
-	return &AgentZmqReceiver{}
+	return &AgentZmqReceiver{
+		send: make(chan [][]byte, structures.ChannelLength),
+	}
+}
+
+func (azr *AgentZmqReceiver) sendMessages() {
+	for data := range azr.send {
+		_, err := azr.senderSocket.SendBytes(data[0], zmq.SNDMORE)
+
+		if err != nil {
+			zap.L().Fatal("Failed to Send Reply",
+				zap.Error(err),
+			)
+		}
+
+		_, err = azr.senderSocket.SendMessage(data[1], 0)
+
+		if err != nil {
+			zap.L().Fatal("Failed to Send Reply",
+				zap.Error(err),
+			)
+		}
+
+	}
 }
 
 func (azr *AgentZmqReceiver) RecvRequest() (uint64, uint32, string, *structures.RequestPayload, error) {
@@ -73,17 +97,7 @@ func (azr *AgentZmqReceiver) SendReply(id uint64, payloadType uint32, address st
 		return err
 	}
 
-	_, err = azr.senderSocket.SendBytes([]byte(address), zmq.SNDMORE)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = azr.senderSocket.SendMessage(data, 0)
-
-	if err != nil {
-		return err
-	}
+	azr.send <- [][]byte{[]byte(address), data}
 
 	return nil
 }
@@ -145,6 +159,8 @@ func (azr *AgentZmqReceiver) Bind(address string) error {
 	azr.recvSocket = recvSocket
 
 	time.Sleep(100 * time.Millisecond)
+
+	go azr.sendMessages()
 
 	return nil
 }

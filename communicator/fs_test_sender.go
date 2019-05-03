@@ -49,6 +49,9 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 	case structures.OpenMessageCode:
 		payload := &structures.ReplyPayload{}
 		return payload, nil
+	case structures.RenameMessageCode:
+		payload := &structures.ReplyPayload{}
+		return payload, nil
 	}
 
 	return nil, nil

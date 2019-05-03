@@ -176,3 +176,57 @@ func TestDiskCacheManager_Rename(t *testing.T) {
 	err = os.RemoveAll(cachePath)
 	ifstest.Ok(t, err)
 }
+
+func TestDiskCacheManager_Rename2(t *testing.T) {
+	ifstest.SetupLogger()
+	clientAddress := "127.0.0.1:5000"
+	agentAddress := "127.0.0.1:5014"
+	cachePath := "/tmp/test_cache"
+
+	foe := file_op_executor.NewRemoteFileOpExecutor()
+	foe.Receiver = communicator.NewAgentZmqReceiver()
+	go foe.Run(agentAddress)
+
+	ifstest.CreateTempFile("test")
+	ifstest.WriteDummyData("test", 1000)
+
+	time.Sleep(time.Second)
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender.Connect([]string{agentAddress})
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     5014,
+		Path:     "/tmp/test",
+	}
+
+	f, err := dcm.Open(rp, os.O_RDWR)
+	ifstest.Ok(t, err)
+
+	data, err := ioutil.ReadAll(f)
+	ifstest.Ok(t, err)
+
+	err = f.Close()
+	ifstest.Ok(t, err)
+
+	err = dcm.Rename(rp, "/tmp/test1")
+	ifstest.Ok(t, err)
+
+	rp.Path = "/tmp/test1"
+
+	f, err = dcm.Open(rp, os.O_RDONLY)
+	ifstest.Ok(t, err)
+
+	data1, err := ioutil.ReadAll(f)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, data1, data)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	ifstest.RemoveTempFile("test1")
+}

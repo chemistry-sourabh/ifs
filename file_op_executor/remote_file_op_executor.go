@@ -111,6 +111,24 @@ func (foe *RemoteFileOpExecutor) open(req *structures.OpenMessage) error {
 }
 
 func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
+	zap.L().Debug("Processing Rename Message",
+		zap.String("path", req.CurrentPath),
+		zap.String("dest_path", req.NewPath),
+	)
+
+	err := os.Rename(req.CurrentPath, req.NewPath)
+
+	if err != nil {
+
+		zap.L().Debug("Rename Error Response",
+			zap.String("path", req.CurrentPath),
+			zap.String("dest_path", req.NewPath),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
 	return nil
 }
 
@@ -134,59 +152,90 @@ func (foe *RemoteFileOpExecutor) Process() {
 
 		switch payloadType {
 		case structures.FetchMessageCode:
-			payload, err := foe.fetch(req.GetFetchMsg())
+			go func() {
+				payload, err := foe.fetch(req.GetFetchMsg())
 
-			var reply *structures.ReplyPayload
-			var replyType uint32 = structures.ErrMessageCode
-			if err != nil {
-				reply = foe.createErrMsg(err)
-			} else {
+				var reply *structures.ReplyPayload
+				var replyType uint32 = structures.ErrMessageCode
+				if err != nil {
+					reply = foe.createErrMsg(err)
+				} else {
 
-				reply = &structures.ReplyPayload{
-					Payload: &structures.ReplyPayload_FileMsg{
-						FileMsg: payload,
-					},
+					reply = &structures.ReplyPayload{
+						Payload: &structures.ReplyPayload_FileMsg{
+							FileMsg: payload,
+						},
+					}
+
+					replyType = structures.FileMessageCode
+
 				}
 
-				replyType = structures.FileMessageCode
+				err = foe.Receiver.SendReply(id, replyType, address, reply)
 
-			}
-
-			err = foe.Receiver.SendReply(id, replyType, address, reply)
-
-			if err != nil {
-				zap.L().Warn("Failed to Send Reply",
-					zap.Uint64("id", id),
-					zap.Uint32("payloadType", payloadType),
-					zap.String("address", address),
-					zap.Error(err),
-				)
-			}
+				if err != nil {
+					zap.L().Warn("Failed to Send Reply",
+						zap.Uint64("id", id),
+						zap.Uint32("payloadType", payloadType),
+						zap.String("address", address),
+						zap.Error(err),
+					)
+				}
+			}()
 
 		case structures.OpenMessageCode:
-			err := foe.open(req.GetOpenMsg())
+			go func() {
+				err := foe.open(req.GetOpenMsg())
 
-			var reply *structures.ReplyPayload
-			var replyType uint32 = structures.ErrMessageCode
-			if err != nil {
-				reply = foe.createErrMsg(err)
-			} else {
+				var reply *structures.ReplyPayload
+				var replyType uint32 = structures.ErrMessageCode
+				if err != nil {
+					reply = foe.createErrMsg(err)
+				} else {
 
-				reply = &structures.ReplyPayload{}
-				replyType = structures.OkMessageCode
+					reply = &structures.ReplyPayload{}
+					replyType = structures.OkMessageCode
 
-			}
+				}
 
-			err = foe.Receiver.SendReply(id, replyType, address, reply)
+				err = foe.Receiver.SendReply(id, replyType, address, reply)
 
-			if err != nil {
-				zap.L().Warn("Failed to Send Reply",
-					zap.Uint64("id", id),
-					zap.Uint32("payloadType", payloadType),
-					zap.String("address", address),
-					zap.Error(err),
-				)
-			}
+				if err != nil {
+					zap.L().Warn("Failed to Send Reply",
+						zap.Uint64("id", id),
+						zap.Uint32("payloadType", payloadType),
+						zap.String("address", address),
+						zap.Error(err),
+					)
+				}
+			}()
+
+		case structures.RenameMessageCode:
+			go func() {
+				err := foe.rename(req.GetRenameMsg())
+
+				var reply *structures.ReplyPayload
+				var replyType uint32 = structures.ErrMessageCode
+				if err != nil {
+					reply = foe.createErrMsg(err)
+				} else {
+
+					reply = &structures.ReplyPayload{}
+					replyType = structures.OkMessageCode
+
+				}
+
+				err = foe.Receiver.SendReply(id, replyType, address, reply)
+
+				if err != nil {
+					zap.L().Warn("Failed to Send Reply",
+						zap.Uint64("id", id),
+						zap.Uint32("payloadType", payloadType),
+						zap.String("address", address),
+						zap.Error(err),
+					)
+				}
+			}()
 
 		}
 	}
