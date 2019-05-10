@@ -24,7 +24,7 @@ type CacheManager interface {
 	Open(path *structures.RemotePath, flags uint32) (uint64, error)
 	Rename(path *structures.RemotePath, dst string) error
 	Truncate(path *structures.RemotePath) error
-	Delete(path *structures.RemotePath) error
+	Remove(path *structures.RemotePath) error
 
 	// fd functions
 	Read(fd uint64)

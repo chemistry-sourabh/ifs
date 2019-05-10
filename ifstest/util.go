@@ -18,6 +18,7 @@ package ifstest
 
 import (
 	"crypto/rand"
+	random "math/rand"
 	"encoding/binary"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
@@ -26,7 +27,10 @@ import (
 	"path"
 	"runtime"
 	"testing"
+	"time"
 )
+
+const TEST_WAIT = 10 * time.Second
 
 func Compare(t *testing.T, got interface{}, want interface{}) {
 	if !cmp.Equal(got, want) {
@@ -80,4 +84,11 @@ func SetupLogger() {
 	logCfg := zap.NewDevelopmentConfig()
 	logger, _ := logCfg.Build()
 	zap.ReplaceGlobals(logger)
+}
+
+// TODO Check if port and port+1 are open
+func GetOpenPort() uint16 {
+	r := random.New(random.NewSource(time.Now().UnixNano()))
+	port := r.Intn(60000) + 5000
+	return uint16(port)
 }

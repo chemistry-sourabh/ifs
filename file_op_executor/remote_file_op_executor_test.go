@@ -24,15 +24,19 @@ import (
 	zmq "github.com/pebbe/zmq4"
 	"math/rand"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 )
 
-func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
+func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 
 	clientAddress := "127.0.0.1:5000"
-	agentAddress := "127.0.0.1:5012"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 
 	ifstest.CreateTempFile(fileName)
@@ -56,7 +60,10 @@ func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
 		},
 	}
 
-	senderSocket, err := zmq.NewSocket(zmq.ROUTER)
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
 	ifstest.Ok(t, err)
 
 	err = senderSocket.SetIdentity(clientAddress)
@@ -65,7 +72,7 @@ func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
 	err = senderSocket.Connect("tcp://" + agentAddress)
 	ifstest.Ok(t, err)
 
-	recvSocket, err := zmq.NewSocket(zmq.ROUTER)
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
 	ifstest.Ok(t, err)
 
 	err = recvSocket.SetIdentity(clientAddress)
@@ -107,10 +114,23 @@ func TestRemoteFileOpExecutor_FetchFile(t *testing.T) {
 	ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
 	ifstest.Compare(t, reply.Payload.GetFileMsg().File, fileData)
 
-	foe.Stop()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
 	recvSocket.SetLinger(0)
 	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
+}
+
+func TestRemoteFileOpExecutor_Open(t *testing.T) {
+}
+
+func TestRemoteFileOpExecutor_Create(t *testing.T) {
+}
+
+func TestRemoteFileOpExecutor_Rename(t *testing.T) {
+}
+
+func TestRemoteFileOpExecutor_Remove(t *testing.T) {
 }

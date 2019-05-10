@@ -24,11 +24,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func TestDiskCacheManager_Open(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
 
@@ -58,9 +61,12 @@ func TestDiskCacheManager_Open(t *testing.T) {
 
 	err = os.RemoveAll(cachePath)
 	ifstest.Ok(t, err)
+
 }
 
 func TestDiskCacheManager_Open2(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
 
@@ -100,9 +106,12 @@ func TestDiskCacheManager_Open2(t *testing.T) {
 }
 
 func TestDiskCacheManager_Open3(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
-	agentAddress := "127.0.0.1:5002"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -121,7 +130,7 @@ func TestDiskCacheManager_Open3(t *testing.T) {
 
 	rp := &structures.RemotePath{
 		Hostname: "127.0.0.1",
-		Port:     5002,
+		Port:     uint32(agentPort),
 		Path:     "/tmp/test",
 	}
 
@@ -143,9 +152,14 @@ func TestDiskCacheManager_Open3(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	ifstest.RemoveTempFile("test")
+
+	dcm.Sender.Disconnect()
+	foe.Receiver.Unbind()
 }
 
 func TestDiskCacheManager_Rename(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
 
@@ -190,9 +204,12 @@ func TestDiskCacheManager_Rename(t *testing.T) {
 }
 
 func TestDiskCacheManager_Rename2(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
-	agentAddress := "127.0.0.1:5014"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -211,7 +228,7 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 
 	rp := &structures.RemotePath{
 		Hostname: "127.0.0.1",
-		Port:     5014,
+		Port:     uint32(agentPort),
 		Path:     "/tmp/test",
 	}
 
@@ -245,9 +262,14 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	ifstest.RemoveTempFile("test1")
+
+	dcm.Sender.Disconnect()
+	foe.Receiver.Unbind()
 }
 
 func TestDiskCacheManager_Create(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
 
@@ -277,9 +299,12 @@ func TestDiskCacheManager_Create(t *testing.T) {
 }
 
 func TestDiskCacheManager_Create2(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
-	agentAddress := "127.0.0.1:5016"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -295,7 +320,7 @@ func TestDiskCacheManager_Create2(t *testing.T) {
 
 	dirPath := &structures.RemotePath{
 		Hostname: "127.0.0.1",
-		Port:     5016,
+		Port:     uint32(agentPort),
 		Path:     "/tmp",
 	}
 
@@ -315,4 +340,100 @@ func TestDiskCacheManager_Create2(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	ifstest.RemoveTempFile("test")
+
+	dcm.Sender.Disconnect()
+	foe.Receiver.Unbind()
+}
+
+func TestDiskCacheManager_Remove(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
+	ifstest.SetupLogger()
+	cachePath := "/tmp/test_cache"
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
+
+	dirPath := &structures.RemotePath{
+		Hostname: "localhost",
+		Port:     8000,
+		Path:     "/tmp",
+	}
+
+	fd, err := dcm.Create(dirPath, "test")
+	ifstest.Ok(t, err)
+
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
+
+	err = f.Close()
+	ifstest.Ok(t, err)
+
+	filePath := &structures.RemotePath{
+		Hostname: "localhost",
+		Port:     8000,
+		Path:     "/tmp/test",
+	}
+
+	err = dcm.Remove(filePath)
+
+	_, err = os.Stat(path.Join(cachePath, "1"))
+	ifstest.Err(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+}
+
+func TestDiskCacheManager_Remove2(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
+	ifstest.SetupLogger()
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	cachePath := "/tmp/test_cache"
+
+	foe := file_op_executor.NewRemoteFileOpExecutor()
+	foe.Receiver = communicator.NewAgentZmqReceiver()
+	go foe.Run(agentAddress)
+
+	time.Sleep(time.Second)
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender.Connect([]string{agentAddress})
+	dcm.Run(cachePath, 100)
+
+	dirPath := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     uint32(agentPort),
+		Path:     "/tmp",
+	}
+
+	fd, err := dcm.Create(dirPath, "test")
+	ifstest.Ok(t, err)
+
+	val, _ := dcm.opened.Load(fd)
+	f := val.(*os.File)
+
+	err = f.Close()
+	ifstest.Ok(t, err)
+
+	filePath := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     uint32(agentPort),
+		Path:     "/tmp/test",
+	}
+
+	err = dcm.Remove(filePath)
+
+	_, err = os.Stat("/tmp/test")
+	ifstest.Err(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	dcm.Sender.Disconnect()
+	foe.Receiver.Unbind()
 }

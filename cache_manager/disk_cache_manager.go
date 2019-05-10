@@ -286,6 +286,41 @@ func (dcm *DiskCacheManager) Create(dirPath *structures.RemotePath, name string)
 	return fd, nil
 }
 
+func (dcm *DiskCacheManager) Remove(filePath *structures.RemotePath) error {
+
+	zap.L().Debug("Remove",
+		zap.String("remote-path", filePath.PrettyString()),
+	)
+
+	removeMsg := &structures.RemoveMessage{
+		Path: filePath.Path,
+	}
+
+	payload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_RemoveMsg{
+			RemoveMsg: removeMsg,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structures.RemoveMessageCode, filePath.Address(), payload)
+
+	if err != nil {
+		return err
+	}
+
+	// TODO Think About keeping stuff in sync
+	val, _ := dcm.cached.Load(filePath.PrettyString())
+	fname := val.(string)
+
+	err = os.Remove(path.Join(dcm.Path, fname))
+
+	if err == nil {
+		dcm.cached.Delete(filePath.PrettyString())
+	}
+
+	return err
+}
+
 //func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
 //	// TODO Log the error if any ?
 //	Talker().sendRequest(WriteFileRequest, hostname, writeInfo)

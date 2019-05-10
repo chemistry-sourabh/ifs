@@ -21,14 +21,17 @@ import (
 	"github.com/chemistry-sourabh/ifs/structures"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func TestAgentZmqReceiver_Comm(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
-	agentAddress := "127.0.0.1:5004"
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
 
 	azr := NewAgentZmqReceiver()
 	err := azr.Bind(agentAddress)
@@ -54,7 +57,10 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		},
 	}
 
-	senderSocket, err := zmq.NewSocket(zmq.ROUTER)
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
 	ifstest.Ok(t, err)
 
 	err = senderSocket.SetIdentity(clientAddress)
@@ -63,7 +69,7 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 	err = senderSocket.Connect("tcp://" + agentAddress)
 	ifstest.Ok(t, err)
 
-	recvSocket, err := zmq.NewSocket(zmq.ROUTER)
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
 	ifstest.Ok(t, err)
 
 	err = recvSocket.SetIdentity(clientAddress)
@@ -90,42 +96,37 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		_, err = senderSocket.SendBytes(data, 0)
 		ifstest.Ok(t, err)
 
-		for {
+		reqId, payloadType, recvPayload, err := azr.RecvRequest()
+		ifstest.Ok(t, err)
 
-			reqId, payloadType, address, recvPayload, err := azr.RecvRequest()
-			ifstest.Ok(t, err)
+		ifstest.Compare(t, reqId, request.Id)
+		ifstest.Compare(t, payloadType, uint32(structures.FetchMessageCode))
 
-			ifstest.Compare(t, reqId, request.Id)
-			ifstest.Compare(t, payloadType, uint32(structures.FetchMessageCode))
-			ifstest.Compare(t, address, clientAddress)
+		recvFm := recvPayload.GetFetchMsg()
+		ifstest.Compare(t, fm.Path, recvFm.Path)
 
-			recvFm := recvPayload.GetFetchMsg()
-			ifstest.Compare(t, fm.Path, recvFm.Path)
+		err = azr.SendReply(reqId, structures.FileMessageCode, replyPayload)
+		ifstest.Ok(t, err)
 
-			err = azr.SendReply(reqId, structures.FileMessageCode, address, replyPayload)
-			ifstest.Ok(t, err)
+		frames, err := recvSocket.RecvMessageBytes(0)
+		ifstest.Ok(t, err)
 
-			frames, err := recvSocket.RecvMessageBytes(0)
-			ifstest.Ok(t, err)
+		ifstest.Compare(t, string(frames[0]), GetOtherAddress(agentAddress))
 
-			ifstest.Compare(t, string(frames[0]), GetOtherAddress(agentAddress))
+		data = frames[1]
+		reply := &structures.Reply{}
+		err = proto.Unmarshal(data, reply)
+		ifstest.Ok(t, err)
 
-			data = frames[1]
-			reply := &structures.Reply{}
-			err = proto.Unmarshal(data, reply)
-			ifstest.Ok(t, err)
-
-			ifstest.Compare(t, reply.Id, reqId)
-			ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
-			ifstest.Compare(t, string(reply.Payload.GetFileMsg().File), "Hello World")
-
-			break
-		}
+		ifstest.Compare(t, reply.Id, reqId)
+		ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
+		ifstest.Compare(t, string(reply.Payload.GetFileMsg().File), "Hello World")
 	}
 
-	azr.Unbind()
 	senderSocket.SetLinger(0)
 	senderSocket.Close()
 	recvSocket.SetLinger(0)
 	recvSocket.Close()
+	azr.Unbind()
+	ctx.Term()
 }

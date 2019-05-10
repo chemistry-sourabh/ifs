@@ -29,6 +29,6 @@ type Sender interface {
 type Receiver interface {
 	Bind(address string) error
 	Unbind()
-	RecvRequest() (uint64, uint32, string, *structures.RequestPayload, error)
-	SendReply(id uint64, payloadType uint32, address string, payload *structures.ReplyPayload) error
+	RecvRequest() (uint64, uint32, *structures.RequestPayload, error)
+	SendReply(id uint64, payloadType uint32, payload *structures.ReplyPayload) error
 }

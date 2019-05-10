@@ -24,18 +24,69 @@ import (
 )
 
 type FsTestReceiver struct {
-	stop         bool
-	senderSocket *zmq.Socket
-	recvSocket   *zmq.Socket
+	ctx           *zmq.Context
+	senderAddress string
+	recvAddress   string
 }
 
-func (znm *FsTestReceiver) recvMessages() {
+func (ftr *FsTestReceiver) createSocket(address string) *zmq.Socket {
+	socket, err := ftr.ctx.NewSocket(zmq.ROUTER)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Create Socket",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = socket.SetIdentity(address)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Set Identity",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = socket.SetLinger(0)
+
+	if err != nil {
+		zap.L().Fatal("Failed to Set Linger",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = socket.Bind("tcp://" + address)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Bind to Socket",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	return socket
+}
+
+func (ftr *FsTestReceiver) recvMessages() {
+	zap.L().Info("Creating Sockets")
+
+	recvSocket := ftr.createSocket(ftr.recvAddress)
+	senderSocket := ftr.createSocket(ftr.senderAddress)
+
 	zap.L().Info("Listening For Messages")
 
 	for {
-		frames, err := znm.recvSocket.RecvMessageBytes(0)
+		frames, err := recvSocket.RecvMessageBytes(0)
 
 		if err != nil {
+
+			if err.Error() == "Context was terminated" {
+				zap.L().Debug("Context was terminated")
+				break
+			}
+
 			zap.L().Fatal("Listening Failed",
 				zap.Error(err),
 			)
@@ -73,15 +124,7 @@ func (znm *FsTestReceiver) recvMessages() {
 			)
 		}
 
-		_, err = znm.senderSocket.SendBytes(frames[0], zmq.SNDMORE)
-
-		if err != nil {
-			zap.L().Error("Couldn't Send",
-				zap.Error(err),
-			)
-		}
-
-		_, err = znm.senderSocket.SendBytes(data, 0)
+		_, err = senderSocket.SendMessage([][]byte{frames[0], data})
 
 		if err != nil {
 			zap.L().Error("Couldn't Send",
@@ -95,80 +138,55 @@ func (znm *FsTestReceiver) recvMessages() {
 			zap.Uint32("Type", reply.PayloadType),
 		)
 	}
+
+	err := recvSocket.Close()
+
+	if err != nil {
+		zap.L().Fatal("Failed to Close Socket",
+			zap.Error(err),
+		)
+	}
+
+	err = senderSocket.Close()
+
+	if err != nil {
+		zap.L().Fatal("Failed to Close Socket",
+			zap.Error(err),
+		)
+	}
 }
 
-func (znm *FsTestReceiver) Startup(address string) {
+func (ftr *FsTestReceiver) Bind(address string) {
+
+	ctx, err := zmq.NewContext()
+
+	if err != nil {
+		zap.L().Fatal("Failed creating context",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
 
 	zap.L().Info("Starting Agent",
 		zap.String("address", address),
 	)
 
-	recvSocket, err := zmq.NewSocket(zmq.ROUTER)
 
-	if err != nil {
-		zap.L().Fatal("Agent Couldn't Create Socket",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
+	ftr.ctx = ctx
+	ftr.recvAddress = address
+	ftr.senderAddress = GetOtherAddress(address)
 
-	err = recvSocket.SetIdentity(address)
-
-	if err != nil {
-		zap.L().Fatal("Agent Couldn't Set Identity",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
-
-	err = recvSocket.Bind("tcp://" + address)
-
-	if err != nil {
-		zap.L().Fatal("Agent Couldn't Bind to Socket",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
-
-	znm.recvSocket = recvSocket
-
-	senderAddress := GetOtherAddress(address)
-
-	senderSocket, err := zmq.NewSocket(zmq.ROUTER)
-
-	if err != nil {
-		zap.L().Fatal("Agent Couldn't Create Socket",
-			zap.String("address", senderAddress),
-			zap.Error(err),
-		)
-	}
-
-	err = senderSocket.SetIdentity(senderAddress)
-
-	if err != nil {
-		zap.L().Fatal("Agent Couldn't Set Identity",
-			zap.String("address", senderAddress),
-			zap.Error(err),
-		)
-	}
-
-	err = senderSocket.Bind("tcp://" + senderAddress)
-
-	if err != nil {
-		zap.L().Fatal("Agent Couldn't Bind to Socket",
-			zap.String("address", senderAddress),
-			zap.Error(err),
-		)
-	}
-
-	znm.senderSocket = senderSocket
-
-	go znm.recvMessages()
+	go ftr.recvMessages()
 }
 
-func (znm *FsTestReceiver) Disconnect() {
-	znm.recvSocket.SetLinger(0)
-	znm.recvSocket.Close()
-	znm.senderSocket.SetLinger(0)
-	znm.senderSocket.Close()
+func (ftr *FsTestReceiver) Unbind() {
+
+	err := ftr.ctx.Term()
+
+	if err != nil {
+		zap.L().Fatal("Failed to Context Terminate",
+			zap.Error(err),
+		)
+	}
+
 }

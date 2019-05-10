@@ -20,6 +20,7 @@ import (
 	"github.com/chemistry-sourabh/ifs/structures"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"sync/atomic"
 	"time"
@@ -31,108 +32,91 @@ type ReturnableMessage struct {
 }
 
 type FsZmqSender struct {
-	msgId        uint64
-	senderSocket *zmq.Socket
-	recvSocket   *zmq.Socket
-	stop         bool
-	send         chan [][]byte
-	sent         chan *ReturnableMessage
+	msgId             uint64
+	ctx               *zmq.Context
+	clientAddress     string
+	senderEndpoints   []string
+	receiverEndpoints []string
+	//senderSocket      *zmq.Socket
+	//recvSocket        *zmq.Socket
+	send chan [][]byte
+	sent chan *ReturnableMessage
 }
 
 func NewFsZmqSender(address string) *FsZmqSender {
 
-	zap.L().Debug("Creating Sender Socket",
-		zap.String("address", address),
-	)
-
-	senderSocket, err := zmq.NewSocket(zmq.ROUTER)
+	ctx, err := zmq.NewContext()
 
 	if err != nil {
-		zap.L().Fatal("Failed to Create Socket",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
-
-	err = senderSocket.SetIdentity(address)
-
-	if err != nil {
-		zap.L().Fatal("Failed to Set Identity",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
-
-	err = senderSocket.SetLinger(0)
-
-	if err != nil {
-		zap.L().Fatal("Failed to Set Linger",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
-
-	zap.L().Debug("Creating Receiver Socket",
-		zap.String("address", address),
-	)
-
-	recvSocket, err := zmq.NewSocket(zmq.ROUTER)
-
-	if err != nil {
-		zap.L().Fatal("Failed to Create Socket",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
-
-	err = recvSocket.SetIdentity(address)
-
-	if err != nil {
-		zap.L().Fatal("Failed to Set Identity",
-			zap.String("address", address),
-			zap.Error(err),
-		)
-	}
-
-	err = recvSocket.SetLinger(0)
-
-	if err != nil {
-		zap.L().Fatal("Failed to Set Linger",
+		zap.L().Fatal("Failed to Create Context",
 			zap.String("address", address),
 			zap.Error(err),
 		)
 	}
 
 	return &FsZmqSender{
-		msgId:        0,
-		senderSocket: senderSocket,
-		recvSocket:   recvSocket,
-		stop:         false,
-		send:         make(chan [][]byte, structures.ChannelLength),
-		sent:         make(chan *ReturnableMessage, structures.ChannelLength),
+		msgId:         0,
+		ctx:           ctx,
+		clientAddress: address,
+		send:          make(chan [][]byte, structures.ChannelLength),
+		sent:          make(chan *ReturnableMessage, structures.ChannelLength),
 	}
 }
 
-//func (znm *FsZmqSender) processSocket() {
-//	for {
-//		time.Sleep(0)
-//		if znm.stop {
-//			break
-//		}
-//
-//		znm.sendMessages()
-//		znm.recvMessages()
-//
-//	}
-//
-//	znm.senderSocket.SetLinger(0)
-//	znm.senderSocket.Close()
-//}
+func (fzs *FsZmqSender) createSocket(address string, endpoints []string) *zmq.Socket {
+	socket, err := fzs.ctx.NewSocket(zmq.ROUTER)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Create Socket",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = socket.SetIdentity(address)
+
+	if err != nil {
+		zap.L().Fatal("Agent Couldn't Set Identity",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	err = socket.SetLinger(0)
+
+	if err != nil {
+		zap.L().Fatal("Failed to Set Linger",
+			zap.String("address", address),
+			zap.Error(err),
+		)
+	}
+
+	for i := 0; i < len(endpoints); i++ {
+		err := socket.Connect(endpoints[i])
+
+		if err != nil {
+			zap.L().Fatal("Failed to Connect",
+				zap.String("address", endpoints[i]),
+			)
+		}
+
+		zap.L().Debug("Connected",
+			zap.String("address", endpoints[i]),
+		)
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return socket
+}
 
 func (fzs *FsZmqSender) sendMessages() {
+
+	senderSocket := fzs.createSocket(fzs.clientAddress, fzs.senderEndpoints)
+
 	for data := range fzs.send {
 
-		_, err := fzs.senderSocket.SendBytes(data[0], zmq.SNDMORE)
+		_, err := senderSocket.SendMessage(data)
 
 		if err != nil {
 			zap.L().Fatal("Failed to Send Message",
@@ -140,14 +124,14 @@ func (fzs *FsZmqSender) sendMessages() {
 			)
 		}
 
-		_, err = fzs.senderSocket.SendBytes(data[1], 0)
+	}
 
-		if err != nil {
-			zap.L().Fatal("Failed to Send Message",
-				zap.Error(err),
-			)
-		}
+	err := senderSocket.Close()
 
+	if err != nil {
+		zap.L().Fatal("Failed to Close Sender Socket",
+			zap.Error(err),
+		)
 	}
 }
 
@@ -155,11 +139,18 @@ func (fzs *FsZmqSender) recvMessages() {
 
 	sentMessages := make(map[uint64]*ReturnableMessage)
 
+	recvSocket := fzs.createSocket(fzs.clientAddress, fzs.receiverEndpoints)
+
 	for {
 
-		frames, err := fzs.recvSocket.RecvMessageBytes(0)
+		frames, err := recvSocket.RecvMessageBytes(0)
 
 		if err != nil {
+
+			if err.Error() == "Context was terminated" {
+				break
+			}
+
 			zap.L().Fatal("Failed to Receive Message",
 				zap.Error(err),
 			)
@@ -213,54 +204,46 @@ func (fzs *FsZmqSender) recvMessages() {
 		}
 
 	}
+
+	err := recvSocket.Close()
+
+	if err != nil {
+		zap.L().Fatal("Failed to Close Recv Socket",
+			zap.Error(err),
+		)
+	}
 }
 
 // TODO Socket Destroy
 func (fzs *FsZmqSender) Connect(remotes []string) {
 
-	var recvRemotes []string
+	var recvEndpoints []string
+	var senderEndpoints []string
 
 	for i := 0; i < len(remotes); i++ {
-		recvRemotes = append(recvRemotes, GetOtherAddress(remotes[i]))
+		recvEndpoints = append(recvEndpoints, "tcp://"+GetOtherAddress(remotes[i]))
 	}
 
 	for i := 0; i < len(remotes); i++ {
-		err := fzs.senderSocket.Connect("tcp://" + remotes[i])
-
-		if err != nil {
-			zap.L().Fatal("Failed to Connect",
-				zap.String("address", remotes[i]),
-			)
-		}
-
-		zap.L().Debug("Connected",
-			zap.String("address", remotes[i]),
-		)
-
-		err = fzs.recvSocket.Connect("tcp://" + recvRemotes[i])
-
-		if err != nil {
-			zap.L().Fatal("Failed to Connect",
-				zap.String("address", recvRemotes[i]),
-			)
-		}
-
-		zap.L().Debug("Connected",
-			zap.String("address", recvRemotes[i]),
-		)
-
-		time.Sleep(100 * time.Millisecond)
+		senderEndpoints = append(senderEndpoints, "tcp://"+remotes[i])
 	}
+
+	fzs.senderEndpoints = senderEndpoints
+	fzs.receiverEndpoints = recvEndpoints
 
 	go fzs.sendMessages()
 	go fzs.recvMessages()
 }
 
 func (fzs *FsZmqSender) Disconnect() {
-	fzs.recvSocket.SetLinger(0)
-	fzs.recvSocket.Close()
-	fzs.senderSocket.SetLinger(0)
-	fzs.senderSocket.Close()
+	close(fzs.send)
+	err := fzs.ctx.Term()
+
+	if err != nil {
+		zap.L().Fatal("Failed to Destroy Context",
+			zap.Error(err),
+		)
+	}
 }
 
 func (fzs *FsZmqSender) SendRequest(payloadType uint32, address string, payload *structures.RequestPayload) (*structures.ReplyPayload, error) {
@@ -289,6 +272,10 @@ func (fzs *FsZmqSender) SendRequest(payloadType uint32, address string, payload 
 
 	//TODO Timeout
 	reply := <-retMsg.RetChan
+
+	if reply.PayloadType == structures.ErrMessageCode {
+		return nil, errors.New(reply.GetPayload().GetErrMsg().Error)
+	}
 
 	return reply.Payload, nil
 }

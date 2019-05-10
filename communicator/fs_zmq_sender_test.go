@@ -20,16 +20,19 @@ import (
 	"github.com/chemistry-sourabh/ifs/ifstest"
 	"github.com/chemistry-sourabh/ifs/structures"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func TestFsZmqSender_Comm(t *testing.T) {
+	//time.Sleep(ifstest.TEST_WAIT)
+
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
-	agent1Address := "127.0.0.1:5006"
-	agent2Address := "127.0.0.1:5008"
-	agent3Address := "127.0.0.1:5010"
+	agent1Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
+	agent2Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
+	agent3Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
 
 	addresses := []string{
 		agent1Address,
@@ -42,9 +45,9 @@ func TestFsZmqSender_Comm(t *testing.T) {
 	ftr2 := &FsTestReceiver{}
 	ftr3 := &FsTestReceiver{}
 
-	ftr1.Startup(agent1Address)
-	ftr2.Startup(agent2Address)
-	ftr3.Startup(agent3Address)
+	ftr1.Bind(agent1Address)
+	ftr2.Bind(agent2Address)
+	ftr3.Bind(agent3Address)
 
 	fzs.Connect(addresses)
 
@@ -69,8 +72,8 @@ func TestFsZmqSender_Comm(t *testing.T) {
 
 	//time.Sleep(10 * time.Second)
 
-	ftr1.Disconnect()
-	ftr2.Disconnect()
-	ftr3.Disconnect()
 	fzs.Disconnect()
+	ftr1.Unbind()
+	ftr2.Unbind()
+	ftr3.Unbind()
 }

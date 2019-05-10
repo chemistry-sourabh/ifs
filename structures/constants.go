@@ -21,17 +21,11 @@ const FetchMessageCode = RequestCodeBase + 1
 const RenameMessageCode = RequestCodeBase + 2
 const OpenMessageCode = RequestCodeBase + 3
 const CreateMessageCode = RequestCodeBase + 4
+const RemoveMessageCode = RequestCodeBase + 5
 
 const ReplyCodeBase = 100
 const OkMessageCode = ReplyCodeBase + 1
 const ErrMessageCode = ReplyCodeBase + 2
 const FileMessageCode = ReplyCodeBase + 3
 
-const ResponseBase = 30
-const StatResponse = ResponseBase + 0
-const StatsResponse = ResponseBase + 1
-const FileDataResponse = ResponseBase + 2
-const WriteResponse = ResponseBase + 3
-const ErrorResponse = ResponseBase + 4
-
-const ChannelLength = 100
+const ChannelLength = 1000

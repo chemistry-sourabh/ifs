@@ -8,6 +8,7 @@ message RequestPayload {
         RenameMessage renameMsg = 2;
         OpenMessage openMsg = 3;
         CreateMessage createMsg = 4;
+        RemoveMessage removeMsg = 5;
     }
 }
 
@@ -63,4 +64,8 @@ message CreateMessage {
     uint64 fd = 1;
     string baseDir = 2;
     string name = 3;
+}
+
+message RemoveMessage {
+    string path = 1;
 }
