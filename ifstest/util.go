@@ -18,19 +18,17 @@ package ifstest
 
 import (
 	"crypto/rand"
-	random "math/rand"
 	"encoding/binary"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"io/ioutil"
+	random "math/rand"
 	"os"
 	"path"
 	"runtime"
 	"testing"
 	"time"
 )
-
-const TEST_WAIT = 10 * time.Second
 
 func Compare(t *testing.T, got interface{}, want interface{}) {
 	if !cmp.Equal(got, want) {
@@ -60,7 +58,6 @@ func NotNil(t *testing.T, got interface{}) {
 	}
 }
 
-
 func CreateTempFile(name string) {
 	fPath := path.Join("/tmp", name)
 	f, _ := os.Create(fPath)
@@ -81,9 +78,12 @@ func WriteDummyData(name string, size int) []byte {
 }
 
 func SetupLogger() {
-	logCfg := zap.NewDevelopmentConfig()
-	logger, _ := logCfg.Build()
-	zap.ReplaceGlobals(logger)
+	val := os.Getenv("IFS_TEST")
+	if val == "1" {
+		logCfg := zap.NewDevelopmentConfig()
+		logger, _ := logCfg.Build()
+		zap.ReplaceGlobals(logger)
+	}
 }
 
 // TODO Check if port and port+1 are open
