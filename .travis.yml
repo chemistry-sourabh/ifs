@@ -11,7 +11,13 @@ go:
 sudo: enabled
 
 install:
-  - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev libsodium-dev libzmq3-dev protobuf-compiler
+  - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev libsodium-dev libzmq3-dev
+  - curl -OL https://github.com/google/protobuf/releases/download/v3.3.0/protoc-3.3.0-linux-x86_64.zip
+  - unzip protoc-3.3.0-linux-x86_64.zip -d protoc3
+  - sudo mv protoc3/bin/* /usr/local/bin/
+  - sudo mv protoc3/include/* /usr/local/include/
+  - sudo chown $USER /usr/local/bin/protoc
+  - sudo chown -R $USER /usr/local/include/google
   - go get -u github.com/golang/protobuf/protoc-gen-go
 
 before_script:
