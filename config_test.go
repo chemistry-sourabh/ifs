@@ -18,6 +18,7 @@ package ifs_test
 
 import (
 	"github.com/chemistry-sourabh/ifs"
+	"github.com/chemistry-sourabh/ifs/ifstest"
 	"github.com/chemistry-sourabh/ifs/structures"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -51,19 +52,19 @@ func TestConfig_LoadSuccess(t *testing.T) {
 	data, _ := yaml.Marshal(initialCfg)
 	err := ioutil.WriteFile(configLocation, data, 0666)
 
-	Ok(t, err)
+	ifstest.Ok(t, err)
 
 	// Test
 	cfg := ifs.FsConfig{}
 	err = cfg.Load(configLocation)
 
-	Ok(t, err)
+	ifstest.Ok(t, err)
 
-	Compare(t, initialCfg, cfg)
+	ifstest.Compare(t, initialCfg, cfg)
 
 	// Cleanup
 	err = os.Remove(configLocation)
-	Ok(t, err)
+	ifstest.Ok(t, err)
 }
 
 func TestConfig_LoadFailure(t *testing.T) {
@@ -71,7 +72,7 @@ func TestConfig_LoadFailure(t *testing.T) {
 	cfg := ifs.FsConfig{}
 	err := cfg.Load(configLocation)
 
-	Err(t, err)
+	ifstest.Err(t, err)
 }
 
 func TestRemoteRoot_StringArray(t *testing.T) {
@@ -86,7 +87,7 @@ func TestRemoteRoot_StringArray(t *testing.T) {
 
 	result := []string{"localhost:11211@/tmp/hello", "localhost:11211@/tmp/bye"}
 
-	Compare(t, paths, result)
+	ifstest.Compare(t, paths, result)
 }
 
 func TestRemoteRoot_RemotePaths(t *testing.T) {
@@ -112,7 +113,7 @@ func TestRemoteRoot_RemotePaths(t *testing.T) {
 		},
 	}
 
-	Compare(t, remotePaths, result)
+	ifstest.Compare(t, remotePaths, result)
 
 }
 
@@ -132,17 +133,17 @@ func TestAgentConfig_Load(t *testing.T) {
 	data, _ := yaml.Marshal(initialCfg)
 	err := ioutil.WriteFile(configLocation, data, 0666)
 
-	Ok(t, err)
+	ifstest.Ok(t, err)
 
 	// Test
 	cfg := ifs.AgentConfig{}
 	err = cfg.Load(configLocation)
 
-	Ok(t, err)
+	ifstest.Ok(t, err)
 
-	Compare(t, initialCfg, cfg)
+	ifstest.Compare(t, initialCfg, cfg)
 
 	// Cleanup
 	err = os.Remove(configLocation)
-	Ok(t, err)
+	ifstest.Ok(t, err)
 }
