@@ -12,11 +12,13 @@ sudo: enabled
 
 install:
   - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev libsodium-dev libzmq3-dev
+  - go get -u github.com/golang/protobuf/protoc-gen-go
 
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
   - ./cc-test-reporter before-build
+  - protoc -I=./ --go_out=./structures/ ./structures/messages.proto
   - go get -v -t ./...
   - go build -v ./...
 
