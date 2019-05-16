@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"sync"
+	"time"
 )
 
 type AgentZmqReceiver struct {
@@ -88,6 +89,8 @@ func (azr *AgentZmqReceiver) createSocket(address string) *zmq.Socket {
 			zap.Error(err),
 		)
 	}
+
+	time.Sleep(100 * time.Millisecond)
 
 	return socket
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"math/rand"
+	"os"
 	"path"
 	"strconv"
 	"testing"
@@ -30,8 +31,6 @@ import (
 )
 
 func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
-	//time.Sleep(ifstest.TEST_WAIT)
-
 	ifstest.SetupLogger()
 
 	clientAddress := "127.0.0.1:5000"
@@ -94,10 +93,7 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendBytes([]byte(agentAddress), zmq.SNDMORE)
-	ifstest.Ok(t, err)
-
-	_, err = senderSocket.SendBytes(data, 0)
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
 	ifstest.Ok(t, err)
 
 	frames, err := recvSocket.RecvMessageBytes(0)
@@ -124,13 +120,487 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 }
 
 func TestRemoteFileOpExecutor_Open(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+
+	ifstest.CreateTempFile(fileName)
+
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	om := &structures.OpenMessage{
+		Fd: 1,
+		Path: path.Join("/tmp", fileName),
+		Flags: int32(os.O_RDONLY),
+	}
+
+	requestPayload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_OpenMsg{
+			OpenMsg: om,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.OpenMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structures.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+
+	val, _ := foe.fp.Load(uint64(1))
+	val.(*os.File).Close()
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Create(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	cm := &structures.CreateMessage{
+		Fd: 1,
+		BaseDir:"/tmp",
+		Name: fileName,
+	}
+
+	requestPayload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_CreateMsg{
+			CreateMsg: cm,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.CreateMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structures.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+
+	val, _ := foe.fp.Load(uint64(1))
+	val.(*os.File).Close()
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Rename(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+	newFileName := "file2"
+
+	ifstest.CreateTempFile(fileName)
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	rm := &structures.RenameMessage{
+		CurrentPath: path.Join("/tmp", fileName),
+		NewPath: path.Join("/tmp", newFileName),
+	}
+
+	requestPayload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_RenameMsg{
+			RenameMsg: rm,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.RenameMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structures.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+
+	_, err = os.Stat(path.Join("/tmp", fileName))
+	ifstest.Err(t, err)
+
+	_, err = os.Stat(path.Join("/tmp", newFileName))
+	ifstest.Ok(t, err)
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+	ifstest.RemoveTempFile(newFileName)
 }
 
 func TestRemoteFileOpExecutor_Remove(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+
+	ifstest.CreateTempFile(fileName)
+
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	rm := &structures.RemoveMessage{
+		Path: path.Join("/tmp", fileName),
+	}
+
+	requestPayload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_RemoveMsg{
+			RemoveMsg: rm,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.RemoveMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structures.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+
+	_, err = os.Stat(path.Join("/tmp", fileName))
+	ifstest.Err(t, err)
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+
+}
+
+func TestRemoteFileOpExecutor_Close(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+
+	ifstest.CreateTempFile(fileName)
+
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	om := &structures.OpenMessage{
+		Fd: 1,
+		Path: path.Join("/tmp", fileName),
+		Flags: int32(os.O_RDONLY),
+	}
+
+	requestPayload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_OpenMsg{
+			OpenMsg: om,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.OpenMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	_, err = recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	// Send Close Request
+	cm := &structures.CloseMessage{
+		Fd: 1,
+	}
+
+	requestPayload = &structures.RequestPayload{
+		Payload: &structures.RequestPayload_CloseMsg{
+			CloseMsg: cm,
+		},
+	}
+
+	reqId = rand.Uint64()
+
+	request = &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.CloseMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err = proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structures.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+
+	_, ok := foe.fp.Load(uint64(1))
+	ifstest.Compare(t, ok, false)
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+	ifstest.RemoveTempFile(fileName)
 }

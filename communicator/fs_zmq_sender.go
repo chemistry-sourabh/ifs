@@ -91,6 +91,8 @@ func (fzs *FsZmqSender) createSocket(address string, endpoints []string) *zmq.So
 		)
 	}
 
+	time.Sleep(100 * time.Millisecond)
+
 	for i := 0; i < len(endpoints); i++ {
 		err := socket.Connect(endpoints[i])
 
@@ -137,6 +139,7 @@ func (fzs *FsZmqSender) sendMessages() {
 
 func (fzs *FsZmqSender) recvMessages() {
 
+	// TODO Make Global Dict
 	sentMessages := make(map[uint64]*ReturnableMessage)
 
 	recvSocket := fzs.createSocket(fzs.clientAddress, fzs.receiverEndpoints)

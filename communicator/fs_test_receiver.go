@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"go.uber.org/zap"
+	"time"
 )
 
 type FsTestReceiver struct {
@@ -65,6 +66,8 @@ func (ftr *FsTestReceiver) createSocket(address string) *zmq.Socket {
 			zap.Error(err),
 		)
 	}
+
+	time.Sleep(100 * time.Millisecond)
 
 	return socket
 }

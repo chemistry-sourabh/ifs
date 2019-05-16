@@ -170,6 +170,41 @@ func (foe *RemoteFileOpExecutor) remove(req *structures.RemoveMessage) error {
 	return err
 }
 
+func (foe *RemoteFileOpExecutor) close(req *structures.CloseMessage) error {
+	zap.L().Debug("Processing Close Message",
+		zap.Uint64("fd", req.Fd),
+	)
+
+	val, ok := foe.fp.Load(req.Fd)
+
+	if !ok {
+
+		zap.L().Error("Close Error",
+			zap.Uint64("fd", req.Fd),
+			zap.Error(os.ErrInvalid),
+		)
+
+		return os.ErrInvalid
+	}
+
+	f := val.(*os.File)
+	err := f.Close()
+
+	if err != nil {
+
+		zap.L().Error("Close Error",
+			zap.Uint64("fd", req.Fd),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	foe.fp.Delete(req.Fd)
+
+	return nil
+}
+
 func (foe *RemoteFileOpExecutor) Process() {
 
 	for {
@@ -217,7 +252,7 @@ func (foe *RemoteFileOpExecutor) Process() {
 			}()
 
 		case structures.OpenMessageCode, structures.RenameMessageCode, structures.CreateMessageCode,
-			 structures.RemoveMessageCode:
+			 structures.RemoveMessageCode, structures.CloseMessageCode:
 			go func() {
 				var err error
 				switch payloadType {
@@ -229,6 +264,8 @@ func (foe *RemoteFileOpExecutor) Process() {
 					err = foe.create(req.GetCreateMsg())
 				case structures.RemoveMessageCode:
 					err = foe.remove(req.GetRemoveMsg())
+				case structures.CloseMessageCode:
+					err = foe.close(req.GetCloseMsg())
 				}
 
 				var reply *structures.ReplyPayload

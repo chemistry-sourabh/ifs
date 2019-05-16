@@ -9,6 +9,7 @@ message RequestPayload {
         OpenMessage openMsg = 3;
         CreateMessage createMsg = 4;
         RemoveMessage removeMsg = 5;
+        CloseMessage closeMsg = 6;
     }
 }
 
@@ -68,4 +69,8 @@ message CreateMessage {
 
 message RemoveMessage {
     string path = 1;
+}
+
+message CloseMessage {
+    uint64 fd = 1;
 }

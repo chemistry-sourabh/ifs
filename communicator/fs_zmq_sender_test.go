@@ -70,8 +70,6 @@ func TestFsZmqSender_Comm(t *testing.T) {
 		ifstest.Ok(t, err)
 	}
 
-	//time.Sleep(10 * time.Second)
-
 	fzs.Disconnect()
 	ftr1.Unbind()
 	ftr2.Unbind()

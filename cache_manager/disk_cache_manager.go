@@ -62,16 +62,24 @@ func (dcm *DiskCacheManager) isCached(rp *structures.RemotePath) bool {
 	return ok
 }
 
-func (dcm *DiskCacheManager) deleteCache() error {
+func (dcm *DiskCacheManager) deleteCache() {
 	zap.L().Info("Deleting Cache")
 	err := os.RemoveAll(dcm.Path)
 
 	if err != nil {
-		return err
+		zap.L().Fatal("Failed to Delete Cache",
+			zap.Error(err),
+		)
 	}
 
 	err = os.MkdirAll(dcm.Path, 0755)
-	return err
+
+	if err != nil {
+		zap.L().Fatal("Failed to Mkdir",
+			zap.Error(err),
+		)
+	}
+
 }
 
 func (dcm *DiskCacheManager) getNextCacheFileName() string {
@@ -248,9 +256,9 @@ func (dcm *DiskCacheManager) Create(dirPath *structures.RemotePath, name string)
 	fd := atomic.AddUint64(&dcm.fd, 1)
 
 	createMsg := &structures.CreateMessage{
-		Fd: fd,
+		Fd:      fd,
 		BaseDir: dirPath.Path,
-		Name: name,
+		Name:    name,
 	}
 
 	payload := &structures.RequestPayload{
@@ -267,8 +275,8 @@ func (dcm *DiskCacheManager) Create(dirPath *structures.RemotePath, name string)
 
 	filePath := &structures.RemotePath{
 		Hostname: dirPath.Hostname,
-		Port: dirPath.Port,
-		Path: path.Join(dirPath.Path, name),
+		Port:     dirPath.Port,
+		Path:     path.Join(dirPath.Path, name),
 	}
 
 	fname := dcm.getNextCacheFileName()
@@ -309,16 +317,53 @@ func (dcm *DiskCacheManager) Remove(filePath *structures.RemotePath) error {
 	}
 
 	// TODO Think About keeping stuff in sync
-	val, _ := dcm.cached.Load(filePath.PrettyString())
-	fname := val.(string)
+	if val, ok := dcm.cached.Load(filePath.PrettyString()); ok {
 
-	err = os.Remove(path.Join(dcm.Path, fname))
+		fname := val.(string)
 
-	if err == nil {
+		err = os.Remove(path.Join(dcm.Path, fname))
+
+		if err != nil {
+			return err
+		}
+
 		dcm.cached.Delete(filePath.PrettyString())
 	}
 
 	return err
+}
+
+func (dcm *DiskCacheManager) Close(filePath *structures.RemotePath, fd uint64) error {
+
+	zap.L().Debug("Close",
+		zap.String("remote-path", filePath.PrettyString()),
+		zap.Uint64("fd", fd),
+	)
+
+	closeMsg := &structures.CloseMessage{
+		Fd: fd,
+	}
+
+	payload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_CloseMsg{
+			CloseMsg: closeMsg,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structures.CloseMessageCode, filePath.Address(), payload)
+
+	if err != nil {
+		return err
+	}
+
+	if val, ok := dcm.opened.Load(fd); ok {
+		f := val.(*os.File)
+		err = f.Close()
+		dcm.opened.Delete(fd)
+		return err
+	}
+
+	return os.ErrInvalid
 }
 
 //func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
@@ -392,14 +437,6 @@ func (dcm *DiskCacheManager) Remove(filePath *structures.RemotePath) error {
 //	return 0, os.ErrInvalid
 //}
 //
-//func (h *hoarder) CacheClose(fd uint64) error {
-//	if val, ok := h.opened.Get(strconv.FormatUint(fd, 10)); ok {
-//		f := val.(*os.File)
-//		return f.Close()
-//	}
-//
-//	return os.ErrInvalid
-//}
 
 //func (h *Hoarder) CacheFlush(fd uint64) error {
 //	if val, ok := h.opened.Load(fd); ok {

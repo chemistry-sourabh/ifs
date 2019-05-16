@@ -22,6 +22,7 @@ const RenameMessageCode = RequestCodeBase + 2
 const OpenMessageCode = RequestCodeBase + 3
 const CreateMessageCode = RequestCodeBase + 4
 const RemoveMessageCode = RequestCodeBase + 5
+const CloseMessageCode = RequestCodeBase + 6
 
 const ReplyCodeBase = 100
 const OkMessageCode = ReplyCodeBase + 1

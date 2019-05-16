@@ -6,12 +6,12 @@ dist: xenial
 language: go
 
 go:
-  - "1.12.4"
+  - "1.12.5"
 
 sudo: enabled
 
 install:
-  - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev libsodium-dev libzmq3-dev libczmq-dev
+  - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev libsodium-dev libzmq3-dev
 
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
