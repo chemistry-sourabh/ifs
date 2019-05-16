@@ -11,7 +11,7 @@ go:
 sudo: enabled
 
 install:
-  - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev libsodium-dev libzmq3-dev
+  - sudo apt-get update && sudo apt-get install -y libfuse2 libfuse-dev libsodium-dev libzmq3-dev protobuf-compiler
   - go get -u github.com/golang/protobuf/protoc-gen-go
 
 before_script:
@@ -23,7 +23,7 @@ before_script:
   - go build -v ./...
 
 script:
-  - go test -v -coverprofile c.out -tags="unit integration" ./...
+  - go test -v -coverprofile c.out ./...
 
 after_script:
   - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
