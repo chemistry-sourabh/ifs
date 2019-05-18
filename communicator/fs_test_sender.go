@@ -35,13 +35,13 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 			return nil, err
 		}
 
-		msg := &structures.FileMessage{
-			File: b,
+		msg := &structures.DataMessage{
+			Data: b,
 		}
 
 		payload := &structures.ReplyPayload{
-			Payload: &structures.ReplyPayload_FileMsg{
-				FileMsg: msg,
+			Payload: &structures.ReplyPayload_DataMsg{
+				DataMsg: msg,
 			},
 		}
 

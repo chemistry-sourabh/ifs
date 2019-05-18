@@ -49,34 +49,32 @@ func (foe *RemoteFileOpExecutor) createErrMsg(err error) *structures.ReplyPayloa
 }
 
 // TODO Check Compression
-func (foe *RemoteFileOpExecutor) fetch(req *structures.FetchMessage) (*structures.FileMessage, error) {
+func (foe *RemoteFileOpExecutor) fetch(req *structures.FetchMessage) (*structures.DataMessage, error) {
 
 	zap.L().Debug("Processing Fetch Message",
-		zap.String("path", req.Path),
+		zap.String("path", req.GetPath()),
 	)
 
-	fileMsg := &structures.FileMessage{}
-	filePath := req.Path
-
-	data, err := ioutil.ReadFile(filePath)
+	dataMsg := &structures.DataMessage{}
+	data, err := ioutil.ReadFile(req.GetPath())
 
 	if err == nil {
 
-		fileMsg.File = data
+		dataMsg.Data = data
 
-		//fileMsg.Compress()
+		//dataMsg.Compress()
 
 		zap.L().Debug("Fetch Response",
-			zap.String("path", filePath),
+			zap.String("path", req.GetPath()),
 			zap.Int("size", len(data)),
-			zap.Int("compressed_size", len(fileMsg.File)),
+			zap.Int("compressed_size", len(dataMsg.GetData())),
 		)
 
-		return fileMsg, err
+		return dataMsg, err
 
 	} else {
 		zap.L().Error("Fetch Error",
-			zap.String("path", filePath),
+			zap.String("path", req.GetPath()),
 			zap.Error(err),
 		)
 
@@ -88,42 +86,42 @@ func (foe *RemoteFileOpExecutor) fetch(req *structures.FetchMessage) (*structure
 func (foe *RemoteFileOpExecutor) open(req *structures.OpenMessage) error {
 
 	zap.L().Debug("Processing Open Message",
-		zap.String("path", req.Path),
-		zap.Uint64("fd", req.Fd),
-		zap.Int32("flags", req.Flags),
+		zap.String("path", req.GetPath()),
+		zap.Uint64("fd", req.GetFd()),
+		zap.Uint32("flags", req.GetFlags()),
 	)
 
-	f, err := os.OpenFile(req.Path, int(req.Flags), 0666)
+	f, err := os.OpenFile(req.GetPath(), int(req.GetFlags()), 0666)
 
 	if err != nil {
 
 		zap.L().Error("Open Error",
-			zap.String("path", req.Path),
-			zap.Uint64("fd", req.Fd),
-			zap.Int32("flags", req.Flags),
+			zap.String("path", req.GetPath()),
+			zap.Uint64("fd", req.GetFd()),
+			zap.Uint32("flags", req.GetFlags()),
 			zap.Error(err),
 		)
 
 		return err
 	}
 
-	foe.fp.Store(req.Fd, f)
+	foe.fp.Store(req.GetFd(), f)
 
 	return nil
 }
 
 func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
 	zap.L().Debug("Processing Rename Message",
-		zap.String("path", req.CurrentPath),
-		zap.String("dest_path", req.NewPath),
+		zap.String("path", req.GetCurrentPath()),
+		zap.String("dest_path", req.GetNewPath()),
 	)
 
-	err := os.Rename(req.CurrentPath, req.NewPath)
+	err := os.Rename(req.GetCurrentPath(), req.GetNewPath())
 
 	if err != nil {
 		zap.L().Error("Rename Error",
-			zap.String("path", req.CurrentPath),
-			zap.String("dest_path", req.NewPath),
+			zap.String("path", req.GetCurrentPath()),
+			zap.String("dest_path", req.GetNewPath()),
 			zap.Error(err),
 		)
 	}
@@ -132,7 +130,7 @@ func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
 }
 
 func (foe *RemoteFileOpExecutor) create(req *structures.CreateMessage) error {
-	filePath := path.Join(req.BaseDir, req.Name)
+	filePath := path.Join(req.GetBaseDir(), req.GetName())
 
 	zap.L().Debug("Processing Create Message",
 		zap.String("path", filePath),
@@ -148,21 +146,21 @@ func (foe *RemoteFileOpExecutor) create(req *structures.CreateMessage) error {
 		return err
 	}
 
-	foe.fp.Store(req.Fd, f)
+	foe.fp.Store(req.GetFd(), f)
 
 	return nil
 }
 
 func (foe *RemoteFileOpExecutor) remove(req *structures.RemoveMessage) error {
 	zap.L().Debug("Processing Remove Message",
-		zap.String("path", req.Path),
+		zap.String("path", req.GetPath()),
 	)
 
-	err := os.Remove(req.Path)
+	err := os.Remove(req.GetPath())
 
 	if err != nil {
 		zap.L().Error("Remove Error",
-			zap.String("path", req.Path),
+			zap.String("path", req.GetPath()),
 			zap.Error(err),
 		)
 	}
@@ -172,15 +170,15 @@ func (foe *RemoteFileOpExecutor) remove(req *structures.RemoveMessage) error {
 
 func (foe *RemoteFileOpExecutor) close(req *structures.CloseMessage) error {
 	zap.L().Debug("Processing Close Message",
-		zap.Uint64("fd", req.Fd),
+		zap.Uint64("fd", req.GetFd()),
 	)
 
-	val, ok := foe.fp.Load(req.Fd)
+	val, ok := foe.fp.Load(req.GetFd())
 
 	if !ok {
 
 		zap.L().Error("Close Error",
-			zap.Uint64("fd", req.Fd),
+			zap.Uint64("fd", req.GetFd()),
 			zap.Error(os.ErrInvalid),
 		)
 
@@ -193,31 +191,31 @@ func (foe *RemoteFileOpExecutor) close(req *structures.CloseMessage) error {
 	if err != nil {
 
 		zap.L().Error("Close Error",
-			zap.Uint64("fd", req.Fd),
+			zap.Uint64("fd", req.GetFd()),
 			zap.Error(err),
 		)
 
 		return err
 	}
 
-	foe.fp.Delete(req.Fd)
+	foe.fp.Delete(req.GetFd())
 
 	return nil
 }
 
 func (foe *RemoteFileOpExecutor) truncate(req *structures.TruncateMessage) error {
 	zap.L().Debug("Processing Truncate Message",
-		zap.String("path", req.Path),
-		zap.Uint64("size", req.Size),
+		zap.String("path", req.GetPath()),
+		zap.Uint64("size", req.GetSize()),
 	)
 
-	err := os.Truncate(req.Path, int64(req.Size))
+	err := os.Truncate(req.Path, int64(req.GetSize()))
 
 	if err != nil {
 
 		zap.L().Error("Truncate Error",
-			zap.String("path", req.Path),
-			zap.Uint64("size", req.Size),
+			zap.String("path", req.GetPath()),
+			zap.Uint64("size", req.GetSize()),
 			zap.Error(err),
 		)
 
@@ -253,8 +251,8 @@ func (foe *RemoteFileOpExecutor) Process() {
 				} else {
 
 					reply = &structures.ReplyPayload{
-						Payload: &structures.ReplyPayload_FileMsg{
-							FileMsg: payload,
+						Payload: &structures.ReplyPayload_DataMsg{
+							DataMsg: payload,
 						},
 					}
 

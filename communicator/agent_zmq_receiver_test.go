@@ -47,13 +47,13 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		},
 	}
 
-	fileMsg := &structures.FileMessage{
-		File: []byte("Hello World"),
+	dataMsg := &structures.DataMessage{
+		Data: []byte("Hello World"),
 	}
 
 	replyPayload := &structures.ReplyPayload{
-		Payload: &structures.ReplyPayload_FileMsg{
-			FileMsg: fileMsg,
+		Payload: &structures.ReplyPayload_DataMsg{
+			DataMsg: dataMsg,
 		},
 	}
 
@@ -120,7 +120,7 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 
 		ifstest.Compare(t, reply.Id, reqId)
 		ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
-		ifstest.Compare(t, string(reply.Payload.GetFileMsg().File), "Hello World")
+		ifstest.Compare(t, string(reply.Payload.GetDataMsg().GetData()), "Hello World")
 	}
 
 	senderSocket.SetLinger(0)

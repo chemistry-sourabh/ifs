@@ -58,7 +58,7 @@ func NewDiskCacheManager() *DiskCacheManager {
 
 //Private Methods
 func (dcm *DiskCacheManager) isCached(rp *structures.RemotePath) bool {
-	_, ok := dcm.cached.Load(rp.PrettyString())
+	_, ok := dcm.cached.Load(rp.String())
 	return ok
 }
 
@@ -89,8 +89,8 @@ func (dcm *DiskCacheManager) getNextCacheFileName() string {
 
 func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 
-	dcm.fetching.Lock(rp.PrettyString())
-	defer dcm.fetching.Unlock(rp.PrettyString())
+	dcm.fetching.Lock(rp.String())
+	defer dcm.fetching.Unlock(rp.String())
 
 	if !dcm.isCached(rp) {
 
@@ -110,17 +110,17 @@ func (dcm *DiskCacheManager) fetch(rp *structures.RemotePath) error {
 			return err
 		}
 
-		fileMsg := reply.GetFileMsg()
+		dataMsg := reply.GetDataMsg()
 		fname := dcm.getNextCacheFileName()
 
-		err = ioutil.WriteFile(path.Join(dcm.Path, fname), fileMsg.File, 0666)
+		err = ioutil.WriteFile(path.Join(dcm.Path, fname), dataMsg.GetData(), 0666)
 
 		if err != nil {
 			return err
 		}
 
-		val, ok := dcm.cached.Load(rp.PrettyString())
-		dcm.cached.Store(rp.PrettyString(), fname)
+		val, ok := dcm.cached.Load(rp.String())
+		dcm.cached.Store(rp.String(), fname)
 		if ok {
 			oldFname := val.(string)
 			err = os.Remove(path.Join(dcm.Path, oldFname))
@@ -149,7 +149,7 @@ func (dcm *DiskCacheManager) Run(path string, size uint64) {
 func (dcm *DiskCacheManager) Rename(remotePath *structures.RemotePath, dst string) error {
 
 	zap.L().Debug("Rename",
-		zap.String("remote-remotePath", remotePath.PrettyString()),
+		zap.String("remote-remotePath", remotePath.String()),
 		zap.String("dst", dst),
 	)
 
@@ -170,7 +170,7 @@ func (dcm *DiskCacheManager) Rename(remotePath *structures.RemotePath, dst strin
 		return err
 	}
 
-	if val, ok := dcm.cached.Load(remotePath.PrettyString()); ok {
+	if val, ok := dcm.cached.Load(remotePath.String()); ok {
 		fname := val.(string)
 
 		dstRemotePath := &structures.RemotePath{
@@ -179,8 +179,8 @@ func (dcm *DiskCacheManager) Rename(remotePath *structures.RemotePath, dst strin
 			Path:     dst,
 		}
 
-		dcm.cached.Store(dstRemotePath.PrettyString(), fname)
-		dcm.cached.Delete(remotePath.PrettyString())
+		dcm.cached.Store(dstRemotePath.String(), fname)
+		dcm.cached.Delete(remotePath.String())
 
 		return nil
 	}
@@ -188,11 +188,11 @@ func (dcm *DiskCacheManager) Rename(remotePath *structures.RemotePath, dst strin
 	return os.ErrInvalid
 }
 
-func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (uint64, error) {
+func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags uint32) (uint64, error) {
 
 	zap.L().Debug("Open",
-		zap.String("remote-path", filePath.PrettyString()),
-		zap.Int("flags", flags),
+		zap.String("remote-path", filePath.String()),
+		zap.Uint32("flags", flags),
 	)
 
 	fd := atomic.AddUint64(&dcm.fd, 1)
@@ -200,7 +200,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (u
 	openMsg := &structures.OpenMessage{
 		Fd:    fd,
 		Path:  filePath.Path,
-		Flags: int32(flags),
+		Flags: flags,
 	}
 
 	payload := &structures.RequestPayload{
@@ -216,9 +216,9 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (u
 	}
 
 	var f *os.File
-	if val, ok := dcm.cached.Load(filePath.PrettyString()); ok {
+	if val, ok := dcm.cached.Load(filePath.String()); ok {
 
-		f, err = os.OpenFile(path.Join(dcm.Path, val.(string)), flags, 0666)
+		f, err = os.OpenFile(path.Join(dcm.Path, val.(string)), int(flags), 0666)
 
 		if err != nil {
 			return 0, err
@@ -232,7 +232,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (u
 			return 0, err
 		}
 
-		val, _ := dcm.cached.Load(filePath.PrettyString())
+		val, _ := dcm.cached.Load(filePath.String())
 		f, err = os.OpenFile(path.Join(dcm.Path, val.(string)), int(flags), 0666)
 
 		if err != nil {
@@ -241,7 +241,10 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (u
 
 	}
 
-	dcm.opened.Store(fd, f)
+	dcm.opened.Store(fd, &structures.RemoteFileHandle{
+		FilePath: filePath,
+		Fp:       f,
+	})
 
 	return fd, err
 }
@@ -249,7 +252,7 @@ func (dcm *DiskCacheManager) Open(filePath *structures.RemotePath, flags int) (u
 func (dcm *DiskCacheManager) Create(dirPath *structures.RemotePath, name string) (uint64, error) {
 
 	zap.L().Debug("Create",
-		zap.String("base-dir", dirPath.PrettyString()),
+		zap.String("base-dir", dirPath.String()),
 		zap.String("name", name),
 	)
 
@@ -288,8 +291,11 @@ func (dcm *DiskCacheManager) Create(dirPath *structures.RemotePath, name string)
 		return 0, err
 	}
 
-	dcm.cached.Store(filePath.PrettyString(), fname)
-	dcm.opened.Store(fd, f)
+	dcm.cached.Store(filePath.String(), fname)
+	dcm.opened.Store(fd, &structures.RemoteFileHandle{
+		FilePath: filePath,
+		Fp:       f,
+	})
 
 	return fd, nil
 }
@@ -297,7 +303,7 @@ func (dcm *DiskCacheManager) Create(dirPath *structures.RemotePath, name string)
 func (dcm *DiskCacheManager) Remove(filePath *structures.RemotePath) error {
 
 	zap.L().Debug("Remove",
-		zap.String("remote-path", filePath.PrettyString()),
+		zap.String("remote-path", filePath.String()),
 	)
 
 	removeMsg := &structures.RemoveMessage{
@@ -317,7 +323,7 @@ func (dcm *DiskCacheManager) Remove(filePath *structures.RemotePath) error {
 	}
 
 	// TODO Think About keeping stuff in sync
-	if val, ok := dcm.cached.Load(filePath.PrettyString()); ok {
+	if val, ok := dcm.cached.Load(filePath.String()); ok {
 
 		fname := val.(string)
 
@@ -327,40 +333,47 @@ func (dcm *DiskCacheManager) Remove(filePath *structures.RemotePath) error {
 			return err
 		}
 
-		dcm.cached.Delete(filePath.PrettyString())
+		dcm.cached.Delete(filePath.String())
 	}
 
 	return nil
 }
 
-func (dcm *DiskCacheManager) Close(filePath *structures.RemotePath, fd uint64) error {
+func (dcm *DiskCacheManager) Close(fd uint64) error {
 
 	zap.L().Debug("Close",
-		zap.String("remote-path", filePath.PrettyString()),
 		zap.Uint64("fd", fd),
 	)
 
-	closeMsg := &structures.CloseMessage{
-		Fd: fd,
-	}
-
-	payload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_CloseMsg{
-			CloseMsg: closeMsg,
-		},
-	}
-
-	_, err := dcm.Sender.SendRequest(structures.CloseMessageCode, filePath.Address(), payload)
-
-	if err != nil {
-		return err
-	}
-
 	if val, ok := dcm.opened.Load(fd); ok {
-		f := val.(*os.File)
-		err = f.Close()
+
+		fh := val.(*structures.RemoteFileHandle)
+
+		closeMsg := &structures.CloseMessage{
+			Fd: fd,
+		}
+
+		payload := &structures.RequestPayload{
+			Payload: &structures.RequestPayload_CloseMsg{
+				CloseMsg: closeMsg,
+			},
+		}
+
+		_, err := dcm.Sender.SendRequest(structures.CloseMessageCode, fh.FilePath.Address(), payload)
+
+		if err != nil {
+			return err
+		}
+
+		err = fh.Fp.Close()
+
+		if err != nil {
+			return err
+		}
+
 		dcm.opened.Delete(fd)
-		return err
+
+		return nil
 	}
 
 	return os.ErrInvalid
@@ -369,7 +382,7 @@ func (dcm *DiskCacheManager) Close(filePath *structures.RemotePath, fd uint64) e
 func (dcm *DiskCacheManager) Truncate(filePath *structures.RemotePath, size uint64) error {
 
 	zap.L().Debug("Truncate",
-		zap.String("remote-path", filePath.PrettyString()),
+		zap.String("remote-path", filePath.String()),
 		zap.Uint64("size", size),
 	)
 
@@ -390,8 +403,7 @@ func (dcm *DiskCacheManager) Truncate(filePath *structures.RemotePath, size uint
 		return err
 	}
 
-
-	if val, ok := dcm.cached.Load(filePath.PrettyString()); ok {
+	if val, ok := dcm.cached.Load(filePath.String()); ok {
 		err := os.Truncate(path.Join(dcm.Path, val.(string)), int64(size))
 
 		if err != nil {
@@ -402,6 +414,18 @@ func (dcm *DiskCacheManager) Truncate(filePath *structures.RemotePath, size uint
 	return nil
 }
 
+func (dcm *DiskCacheManager) Flush(fd uint64) error {
+
+	return nil
+}
+
+func (dcm *DiskCacheManager) Read(fd uint64, offset uint64, size uint64) ([]byte, error) {
+	return nil, nil
+}
+
+func (dcm *DiskCacheManager) Write(fd uint64, offset uint64, data []byte) (int, error) {
+	return 0, nil
+}
 
 //func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
 //	// TODO Log the error if any ?

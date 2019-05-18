@@ -24,16 +24,14 @@ type CacheManager interface {
 	Open(path *structures.RemotePath, flags uint32) (uint64, error)
 	Rename(path *structures.RemotePath, dst string) error
 	Truncate(path *structures.RemotePath, size uint64) error
+	Create(dirPath *structures.RemotePath, name string) (uint64, error)
 	Remove(path *structures.RemotePath) error
 
 	// fd functions
-	Read(fd uint64)
-	Write(fd uint64)
-	Close(path *structures.RemotePath, fd uint64)
+	Read(fd uint64, offset uint64, size uint64) ([]byte, error)
+	Write(fd uint64, offset uint64, data []byte) (int, error)
+	Close(fd uint64)
+	Flush(fd uint64)
 
 	Run(path string, size uint64)
 }
-
-//func NewCacheManager() *CacheManager {
-//	return NewDiskCacheManager()
-//}

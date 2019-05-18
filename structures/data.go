@@ -24,10 +24,10 @@ import (
 )
 
 // TODO Skip compression if file is too small
-func (fm *FileMessage) Compress() {
+func (dm *DataMessage) Compress() {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
-	_, err := w.Write(fm.File)
+	_, err := w.Write(dm.Data)
 	if err != nil {
 		zap.L().Fatal("Compression Failed",
 			zap.Error(err),
@@ -41,12 +41,12 @@ func (fm *FileMessage) Compress() {
 		)
 	}
 
-	fm.File = b.Bytes()
+	dm.Data = b.Bytes()
 }
 
-func (fm *FileMessage) Decompress() {
+func (dm *DataMessage) Decompress() {
 	var b bytes.Buffer
-	b.Write(fm.File)
+	b.Write(dm.Data)
 	r, err := zlib.NewReader(&b)
 
 	if err != nil && err != io.EOF {
@@ -63,7 +63,7 @@ func (fm *FileMessage) Decompress() {
 		)
 	}
 
-	fm.File = out.Bytes()
+	dm.Data = out.Bytes()
 	err = r.Close()
 
 	if err != nil {

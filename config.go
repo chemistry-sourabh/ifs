@@ -59,7 +59,7 @@ func (rr *RemoteRoot) RemotePaths() []*structures.RemotePath {
 	for _, path := range rr.Paths {
 		remotePaths = append(remotePaths, &structures.RemotePath{
 			Hostname: rr.Hostname,
-			Port:     uint32(rr.Port),
+			Port:     rr.Port,
 			Path:     path,
 		})
 	}

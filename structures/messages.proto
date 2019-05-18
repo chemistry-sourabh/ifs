@@ -17,7 +17,7 @@ message RequestPayload {
 message ReplyPayload {
     oneof payload {
         ErrMessage errMsg = 1;
-        FileMessage fileMsg = 2;
+        DataMessage dataMsg = 2;
     }
 }
 
@@ -33,12 +33,6 @@ message Reply {
     ReplyPayload payload = 3;
 }
 
-message RemotePath {
-    string hostname = 1;
-    uint32 port = 2;
-    string path = 3;
-}
-
 message ErrMessage {
     string error = 1;
 }
@@ -47,8 +41,8 @@ message FetchMessage {
     string path = 1;
 }
 
-message FileMessage {
-    bytes file = 1;
+message DataMessage {
+    bytes data = 1;
 }
 
 message RenameMessage {
@@ -59,7 +53,7 @@ message RenameMessage {
 message OpenMessage {
     uint64 fd = 1;
     string path = 2;
-    int32 flags = 3;
+    uint32 flags = 3;
 }
 
 message CreateMessage {

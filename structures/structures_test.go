@@ -33,7 +33,7 @@ var remotePathObject = structures.RemotePath{
 }
 
 func TestRemotePath_PrettyString(t *testing.T) {
-	got := remotePathObject.PrettyString()
+	got := remotePathObject.String()
 
 	ifstest.Compare(t, got, remotePath)
 }
@@ -61,18 +61,18 @@ func TestFileMessage_CompressDecompress(t *testing.T) {
 
 	ifstest.Ok(t, err)
 
-	fm := structures.FileMessage{
-		File: b,
+	dm := structures.DataMessage{
+		Data: b,
 	}
 
-	fm.Compress()
+	dm.Compress()
 
-	if len(fm.File) > len(b) {
+	if len(dm.GetData()) > len(b) {
 		fmt.Println("Failed due to length")
 		t.FailNow()
 	}
 
-	fm.Decompress()
+	dm.Decompress()
 
-	ifstest.Compare(t, fm.File, b)
+	ifstest.Compare(t, dm.GetData(), b)
 }

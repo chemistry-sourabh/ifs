@@ -108,7 +108,7 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 
 	ifstest.Compare(t, reply.Id, reqId)
 	ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
-	ifstest.Compare(t, reply.Payload.GetFileMsg().File, fileData)
+	ifstest.Compare(t, reply.Payload.GetDataMsg().Data, fileData)
 
 	recvSocket.SetLinger(0)
 	recvSocket.Close()
@@ -140,7 +140,7 @@ func TestRemoteFileOpExecutor_Open(t *testing.T) {
 	om := &structures.OpenMessage{
 		Fd: 1,
 		Path: path.Join("/tmp", fileName),
-		Flags: int32(os.O_RDONLY),
+		Flags: uint32(os.O_RDONLY),
 	}
 
 	requestPayload := &structures.RequestPayload{
@@ -506,7 +506,7 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 	om := &structures.OpenMessage{
 		Fd: 1,
 		Path: path.Join("/tmp", fileName),
-		Flags: int32(os.O_RDONLY),
+		Flags: uint32(os.O_RDONLY),
 	}
 
 	requestPayload := &structures.RequestPayload{
