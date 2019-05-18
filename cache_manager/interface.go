@@ -23,13 +23,13 @@ import (
 type CacheManager interface {
 	Open(path *structures.RemotePath, flags uint32) (uint64, error)
 	Rename(path *structures.RemotePath, dst string) error
-	Truncate(path *structures.RemotePath) error
+	Truncate(path *structures.RemotePath, size uint64) error
 	Remove(path *structures.RemotePath) error
 
 	// fd functions
 	Read(fd uint64)
 	Write(fd uint64)
-	Close(fd uint64)
+	Close(path *structures.RemotePath, fd uint64)
 
 	Run(path string, size uint64)
 }

@@ -10,6 +10,7 @@ message RequestPayload {
         CreateMessage createMsg = 4;
         RemoveMessage removeMsg = 5;
         CloseMessage closeMsg = 6;
+        TruncateMessage truncateMsg = 7;
     }
 }
 
@@ -73,4 +74,9 @@ message RemoveMessage {
 
 message CloseMessage {
     uint64 fd = 1;
+}
+
+message TruncateMessage {
+    string path = 1;
+    uint64 size = 2;
 }

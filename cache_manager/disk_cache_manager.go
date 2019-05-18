@@ -330,7 +330,7 @@ func (dcm *DiskCacheManager) Remove(filePath *structures.RemotePath) error {
 		dcm.cached.Delete(filePath.PrettyString())
 	}
 
-	return err
+	return nil
 }
 
 func (dcm *DiskCacheManager) Close(filePath *structures.RemotePath, fd uint64) error {
@@ -366,39 +366,51 @@ func (dcm *DiskCacheManager) Close(filePath *structures.RemotePath, fd uint64) e
 	return os.ErrInvalid
 }
 
+func (dcm *DiskCacheManager) Truncate(filePath *structures.RemotePath, size uint64) error {
+
+	zap.L().Debug("Truncate",
+		zap.String("remote-path", filePath.PrettyString()),
+		zap.Uint64("size", size),
+	)
+
+	truncateMessage := &structures.TruncateMessage{
+		Path: filePath.Path,
+		Size: size,
+	}
+
+	payload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_TruncateMsg{
+			TruncateMsg: truncateMessage,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structures.TruncateMessageCode, filePath.Address(), payload)
+
+	if err != nil {
+		return err
+	}
+
+
+	if val, ok := dcm.cached.Load(filePath.PrettyString()); ok {
+		err := os.Truncate(path.Join(dcm.Path, val.(string)), int64(size))
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+
 //func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {
 //	// TODO Log the error if any ?
 //	Talker().sendRequest(WriteFileRequest, hostname, writeInfo)
 //	return nil
 //}
 //
-//func (h *hoarder) CacheTrunc(remotePath *RemotePath, truncInfo *AttrInfo) error {
-//	if fname, ok := h.cached.Get(remotePath.String()); ok {
-//		err := os.Truncate(path.Join(h.Path, fname.(string)), int64(truncInfo.Size))
-//		return err
-//	}
-//
-//	return os.ErrNotExist
-//}
 //
 
-//
-//func (h *hoarder) CacheDelete(remotePath *RemotePath) error {
-//	if val, ok := h.cached.Get(remotePath.String()); ok {
-//
-//		fname := val.(string)
-//
-//		err := os.Remove(path.Join(h.Path, fname))
-//
-//		if err == nil {
-//			h.cached.Remove(remotePath.String())
-//		}
-//
-//		return err
-//	}
-//
-//	return os.ErrInvalid
-//}
 //
 ////func (h *Hoarder) ReadAllCache(remotePath *RemotePath) ([]byte, error) {
 ////	if fname, ok := h.cached[remotePath.String()]; ok {

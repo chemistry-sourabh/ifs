@@ -604,3 +604,98 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
+
+func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+
+	ifstest.CreateTempFile(fileName)
+	ifstest.WriteDummyData(fileName, 1000)
+
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	tm := &structures.TruncateMessage{
+		Path: path.Join("/tmp", fileName),
+		Size: uint64(100),
+	}
+
+	requestPayload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_TruncateMsg{
+			TruncateMsg: tm,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.TruncateMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structures.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+
+	stat, err := os.Stat(path.Join("/tmp", fileName))
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, stat.Size(), int64(100))
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+
+	ifstest.RemoveTempFile(fileName)
+}

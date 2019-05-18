@@ -205,6 +205,28 @@ func (foe *RemoteFileOpExecutor) close(req *structures.CloseMessage) error {
 	return nil
 }
 
+func (foe *RemoteFileOpExecutor) truncate(req *structures.TruncateMessage) error {
+	zap.L().Debug("Processing Truncate Message",
+		zap.String("path", req.Path),
+		zap.Uint64("size", req.Size),
+	)
+
+	err := os.Truncate(req.Path, int64(req.Size))
+
+	if err != nil {
+
+		zap.L().Error("Truncate Error",
+			zap.String("path", req.Path),
+			zap.Uint64("size", req.Size),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	return nil
+}
+
 func (foe *RemoteFileOpExecutor) Process() {
 
 	for {
@@ -252,7 +274,7 @@ func (foe *RemoteFileOpExecutor) Process() {
 			}()
 
 		case structures.OpenMessageCode, structures.RenameMessageCode, structures.CreateMessageCode,
-			 structures.RemoveMessageCode, structures.CloseMessageCode:
+			 structures.RemoveMessageCode, structures.CloseMessageCode, structures.TruncateMessageCode:
 			go func() {
 				var err error
 				switch payloadType {
@@ -266,6 +288,9 @@ func (foe *RemoteFileOpExecutor) Process() {
 					err = foe.remove(req.GetRemoveMsg())
 				case structures.CloseMessageCode:
 					err = foe.close(req.GetCloseMsg())
+				case structures.TruncateMessageCode:
+					err = foe.truncate(req.GetTruncateMsg())
+
 				}
 
 				var reply *structures.ReplyPayload
