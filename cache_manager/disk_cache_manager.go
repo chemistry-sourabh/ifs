@@ -415,8 +415,40 @@ func (dcm *DiskCacheManager) Truncate(filePath *structures.RemotePath, size uint
 }
 
 func (dcm *DiskCacheManager) Flush(fd uint64) error {
+	zap.L().Debug("Flush",
+		zap.Uint64("fd", fd),
+	)
 
-	return nil
+	if val, ok := dcm.opened.Load(fd); ok {
+
+		fh := val.(*structures.RemoteFileHandle)
+
+		flushMsg := &structures.FlushMessage{
+			Fd: fd,
+		}
+
+		payload := &structures.RequestPayload{
+			Payload: &structures.RequestPayload_FlushMsg{
+				FlushMsg: flushMsg,
+			},
+		}
+
+		_, err := dcm.Sender.SendRequest(structures.FlushMessageCode, fh.FilePath.Address(), payload)
+
+		if err != nil {
+			return err
+		}
+
+		err = fh.Fp.Sync()
+
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return os.ErrInvalid
 }
 
 func (dcm *DiskCacheManager) Read(fd uint64, offset uint64, size uint64) ([]byte, error) {

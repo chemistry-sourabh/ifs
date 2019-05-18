@@ -203,6 +203,39 @@ func (foe *RemoteFileOpExecutor) close(req *structures.CloseMessage) error {
 	return nil
 }
 
+func (foe *RemoteFileOpExecutor) flush(req *structures.FlushMessage) error {
+	zap.L().Debug("Processing Flush Message",
+		zap.Uint64("fd", req.GetFd()),
+	)
+
+	val, ok := foe.fp.Load(req.GetFd())
+
+	if !ok {
+
+		zap.L().Error("Flush Error",
+			zap.Uint64("fd", req.GetFd()),
+			zap.Error(os.ErrInvalid),
+		)
+
+		return os.ErrInvalid
+	}
+
+	f := val.(*os.File)
+	err := f.Sync()
+
+	if err != nil {
+
+		zap.L().Error("Flush Error",
+			zap.Uint64("fd", req.GetFd()),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	return nil
+}
+
 func (foe *RemoteFileOpExecutor) truncate(req *structures.TruncateMessage) error {
 	zap.L().Debug("Processing Truncate Message",
 		zap.String("path", req.GetPath()),
@@ -272,7 +305,8 @@ func (foe *RemoteFileOpExecutor) Process() {
 			}()
 
 		case structures.OpenMessageCode, structures.RenameMessageCode, structures.CreateMessageCode,
-			 structures.RemoveMessageCode, structures.CloseMessageCode, structures.TruncateMessageCode:
+			 structures.RemoveMessageCode, structures.CloseMessageCode, structures.TruncateMessageCode,
+			 structures.FlushMessageCode:
 			go func() {
 				var err error
 				switch payloadType {
@@ -288,7 +322,8 @@ func (foe *RemoteFileOpExecutor) Process() {
 					err = foe.close(req.GetCloseMsg())
 				case structures.TruncateMessageCode:
 					err = foe.truncate(req.GetTruncateMsg())
-
+				case structures.FlushMessageCode:
+					err = foe.flush(req.GetFlushMsg())
 				}
 
 				var reply *structures.ReplyPayload

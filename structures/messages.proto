@@ -11,6 +11,7 @@ message RequestPayload {
         RemoveMessage removeMsg = 5;
         CloseMessage closeMsg = 6;
         TruncateMessage truncateMsg = 7;
+        FlushMessage flushMsg = 8;
     }
 }
 
@@ -73,4 +74,8 @@ message CloseMessage {
 message TruncateMessage {
     string path = 1;
     uint64 size = 2;
+}
+
+message FlushMessage {
+    uint64 fd = 1;
 }

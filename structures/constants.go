@@ -24,6 +24,7 @@ const CreateMessageCode = RequestCodeBase + 4
 const RemoveMessageCode = RequestCodeBase + 5
 const CloseMessageCode = RequestCodeBase + 6
 const TruncateMessageCode = RequestCodeBase + 7
+const FlushMessageCode = RequestCodeBase + 8
 
 const ReplyCodeBase = 100
 const OkMessageCode = ReplyCodeBase + 1

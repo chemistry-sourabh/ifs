@@ -564,3 +564,76 @@ func TestDiskCacheManager_Truncate2(t *testing.T) {
 	dcm.Sender.Disconnect()
 	foe.Receiver.Unbind()
 }
+
+func TestDiskCacheManager_Flush(t *testing.T) {
+	ifstest.SetupLogger()
+	cachePath := "/tmp/test_cache"
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "localhost",
+		Port:     8000,
+		Path:     "/tmp",
+	}
+
+	fd, err := dcm.Create(rp, "test")
+	ifstest.Ok(t, err)
+
+	err = dcm.Flush(fd)
+	ifstest.Ok(t, err)
+
+	val, _ := dcm.opened.Load(fd)
+	fh := val.(*structures.RemoteFileHandle)
+
+	err = fh.Fp.Close()
+	ifstest.Ok(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+}
+
+func TestDiskCacheManager_Flush2(t *testing.T) {
+	ifstest.SetupLogger()
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	cachePath := "/tmp/test_cache"
+
+	foe := file_op_executor.NewRemoteFileOpExecutor()
+	foe.Receiver = communicator.NewAgentZmqReceiver()
+	go foe.Run(agentAddress)
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender.Connect([]string{agentAddress})
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     agentPort,
+		Path:     "/tmp",
+	}
+
+	fd, err := dcm.Create(rp, "test")
+	ifstest.Ok(t, err)
+
+	err = dcm.Flush(fd)
+	ifstest.Ok(t, err)
+
+	val, _ := dcm.opened.Load(fd)
+	fh := val.(*structures.RemoteFileHandle)
+	err = fh.Fp.Close()
+	ifstest.Ok(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	ifstest.RemoveTempFile("test")
+
+	dcm.Sender.Disconnect()
+	foe.Receiver.Unbind()
+}
