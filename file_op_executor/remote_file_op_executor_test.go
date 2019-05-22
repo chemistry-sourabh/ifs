@@ -107,7 +107,7 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.DataMessageCode))
 	ifstest.Compare(t, reply.Payload.GetDataMsg().Data, fileData)
 
 	recvSocket.SetLinger(0)
@@ -805,6 +805,130 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 
 	ifstest.Compare(t, reply.Id, reqId)
 	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+
+	val, _ := foe.fp.Load(uint64(1))
+	val.(*os.File).Close()
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+	ifstest.RemoveTempFile(fileName)
+}
+
+func TestRemoteFileOpExecutor_Read(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+
+	ifstest.CreateTempFile(fileName)
+	fileData := ifstest.WriteDummyData(fileName, 1000)
+
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	om := &structures.OpenMessage{
+		Fd: 1,
+		Path: path.Join("/tmp", fileName),
+		Flags: uint32(os.O_RDONLY),
+	}
+
+	requestPayload := &structures.RequestPayload{
+		Payload: &structures.RequestPayload_OpenMsg{
+			OpenMsg: om,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.OpenMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	_, err = recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	// Send Read Message
+	rm := &structures.ReadMessage{
+		Fd: 1,
+		Offset: 0,
+		Size: 1000,
+	}
+
+	requestPayload = &structures.RequestPayload{
+		Payload: &structures.RequestPayload_ReadMsg{
+			ReadMsg: rm,
+		},
+	}
+
+	reqId = rand.Uint64()
+
+	request = &structures.Request{
+		Id:          reqId,
+		PayloadType: structures.ReadMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err = proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structures.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structures.DataMessageCode))
+	ifstest.Compare(t, reply.Payload.GetDataMsg().Data, fileData)
 
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()

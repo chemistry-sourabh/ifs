@@ -637,3 +637,114 @@ func TestDiskCacheManager_Flush2(t *testing.T) {
 	dcm.Sender.Disconnect()
 	foe.Receiver.Unbind()
 }
+
+func TestDiskCacheManager_Read(t *testing.T) {
+	ifstest.SetupLogger()
+	cachePath := "/tmp/test_cache"
+
+	ifstest.CreateTempFile("test")
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "localhost",
+		Port:     8000,
+		Path:     "/tmp",
+	}
+
+	fp, err := os.Open("/tmp/test")
+	ifstest.Ok(t, err)
+
+	err = fp.Close()
+	ifstest.Ok(t, err)
+
+	dcm.opened.Store(uint64(1), &structures.RemoteFileHandle{
+		FilePath: rp,
+		Fp: fp,
+	})
+
+	data, err := dcm.Read(uint64(1), uint64(0), uint64(1000))
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, len(data), 1000)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	ifstest.RemoveTempFile("test")
+}
+
+func TestDiskCacheManager_Read2(t *testing.T) {
+	ifstest.SetupLogger()
+	cachePath := "/tmp/test_cache"
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "localhost",
+		Port:     8000,
+		Path:     "/tmp/test",
+	}
+
+	fd, err := dcm.Open(rp, uint32(os.O_RDONLY))
+	ifstest.Ok(t, err)
+
+	data, err := dcm.Read(fd, uint64(0), uint64(1000))
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, len(data), 1000)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+}
+
+func TestDiskCacheManager_Read3(t *testing.T) {
+	ifstest.SetupLogger()
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	cachePath := "/tmp/test_cache"
+
+	foe := file_op_executor.NewRemoteFileOpExecutor()
+	foe.Receiver = communicator.NewAgentZmqReceiver()
+	go foe.Run(agentAddress)
+
+	ifstest.CreateTempFile("test")
+	fileData := ifstest.WriteDummyData("test", 1000)
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender.Connect([]string{agentAddress})
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     agentPort,
+		Path:     "/tmp/test",
+	}
+
+	fd, err := dcm.Open(rp, uint32(os.O_RDWR))
+	ifstest.Ok(t, err)
+
+	data, err := dcm.Read(fd, uint64(0), uint64(1000))
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, data, fileData)
+
+	val, _ := dcm.opened.Load(fd)
+	fh := val.(*structures.RemoteFileHandle)
+	err = fh.Fp.Close()
+	ifstest.Ok(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	ifstest.RemoveTempFile("test")
+
+	dcm.Sender.Disconnect()
+	foe.Receiver.Unbind()
+}

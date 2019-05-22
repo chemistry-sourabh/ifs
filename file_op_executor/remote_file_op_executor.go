@@ -258,6 +258,50 @@ func (foe *RemoteFileOpExecutor) truncate(req *structures.TruncateMessage) error
 	return nil
 }
 
+func (foe *RemoteFileOpExecutor) read(req *structures.ReadMessage) (*structures.DataMessage, error) {
+	zap.L().Debug("Processing Read Message",
+		zap.Uint64("fd", req.GetFd()),
+		zap.Uint64("offset", req.GetOffset()),
+		zap.Uint64("size", req.GetSize()),
+	)
+
+	val, ok := foe.fp.Load(req.GetFd())
+
+	if !ok {
+
+		zap.L().Error("Read Error",
+			zap.Uint64("fd", req.GetFd()),
+			zap.Uint64("offset", req.GetOffset()),
+			zap.Uint64("size", req.GetSize()),
+			zap.Error(os.ErrInvalid),
+		)
+
+		return nil, os.ErrInvalid
+	}
+
+	f := val.(*os.File)
+	data := make([]byte, req.GetSize())
+	_, err := f.ReadAt(data, int64(req.GetOffset()))
+
+	if err != nil {
+
+		zap.L().Error("Read Error",
+			zap.Uint64("fd", req.GetFd()),
+			zap.Uint64("offset", req.GetOffset()),
+			zap.Uint64("size", req.GetSize()),
+			zap.Error(err),
+		)
+
+		return nil, err
+	}
+
+	dm := &structures.DataMessage{
+		Data: data,
+	}
+
+	return dm, nil
+}
+
 func (foe *RemoteFileOpExecutor) Process() {
 
 	for {
@@ -273,9 +317,16 @@ func (foe *RemoteFileOpExecutor) Process() {
 		)
 
 		switch payloadType {
-		case structures.FetchMessageCode:
+		case structures.FetchMessageCode, structures.ReadMessageCode:
 			go func() {
-				payload, err := foe.fetch(req.GetFetchMsg())
+				var payload *structures.DataMessage
+				var err error
+				switch payloadType {
+				case structures.FetchMessageCode:
+					payload, err = foe.fetch(req.GetFetchMsg())
+				case structures.ReadMessageCode:
+					payload, err = foe.read(req.GetReadMsg())
+				}
 
 				var reply *structures.ReplyPayload
 				var replyType uint32 = structures.ErrMessageCode
@@ -289,7 +340,7 @@ func (foe *RemoteFileOpExecutor) Process() {
 						},
 					}
 
-					replyType = structures.FileMessageCode
+					replyType = structures.DataMessageCode
 
 				}
 

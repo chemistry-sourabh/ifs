@@ -20,6 +20,7 @@ import (
 	"github.com/chemistry-sourabh/ifs/communicator"
 	"github.com/chemistry-sourabh/ifs/structures"
 	"go.uber.org/zap"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -452,7 +453,46 @@ func (dcm *DiskCacheManager) Flush(fd uint64) error {
 }
 
 func (dcm *DiskCacheManager) Read(fd uint64, offset uint64, size uint64) ([]byte, error) {
-	return nil, nil
+	zap.L().Debug("Read",
+		zap.Uint64("fd", fd),
+		zap.Uint64("offset", offset),
+		zap.Uint64("size", size),
+	)
+
+	if val, ok := dcm.opened.Load(fd); ok {
+		fh := val.(*structures.RemoteFileHandle)
+
+		data := make([]byte, size)
+
+		_, err := fh.Fp.ReadAt(data, int64(offset))
+
+		// Get From Remote
+		if err != nil && err != io.EOF {
+			rm := &structures.ReadMessage{
+				Fd: fd,
+				Offset: offset,
+				Size: size,
+			}
+
+			payload := &structures.RequestPayload{
+				Payload: &structures.RequestPayload_ReadMsg{
+					ReadMsg: rm,
+				},
+			}
+
+			replyPayload, err := dcm.Sender.SendRequest(structures.ReadMessageCode, fh.FilePath.Address(), payload)
+
+			if err != nil {
+				return nil, err
+			}
+
+			return replyPayload.GetDataMsg().GetData(), nil
+		}
+
+		return data, nil
+	}
+
+	return nil, os.ErrClosed
 }
 
 func (dcm *DiskCacheManager) Write(fd uint64, offset uint64, data []byte) (int, error) {

@@ -25,10 +25,11 @@ const RemoveMessageCode = RequestCodeBase + 5
 const CloseMessageCode = RequestCodeBase + 6
 const TruncateMessageCode = RequestCodeBase + 7
 const FlushMessageCode = RequestCodeBase + 8
+const ReadMessageCode = RequestCodeBase + 9
 
 const ReplyCodeBase = 100
 const OkMessageCode = ReplyCodeBase + 1
 const ErrMessageCode = ReplyCodeBase + 2
-const FileMessageCode = ReplyCodeBase + 3
+const DataMessageCode = ReplyCodeBase + 3
 
 const ChannelLength = 1000

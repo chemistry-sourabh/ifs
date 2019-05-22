@@ -117,7 +117,7 @@ func (ftr *FsTestReceiver) recvMessages() {
 		reply := &structures.Request{}
 
 		reply.Id = request.Id
-		reply.PayloadType = structures.FileMessageCode
+		reply.PayloadType = structures.DataMessageCode
 
 		data, err = proto.Marshal(reply)
 

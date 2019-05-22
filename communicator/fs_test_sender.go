@@ -51,6 +51,26 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 		 structures.FlushMessageCode:
 		payload := &structures.ReplyPayload{}
 		return payload, nil
+	case structures.ReadMessageCode:
+		rm := payload.GetReadMsg()
+		b := make([]byte, rm.Size)
+		_, err := rand.Read(b)
+
+		if err != nil {
+			return nil, err
+		}
+
+		msg := &structures.DataMessage{
+			Data: b,
+		}
+
+		payload := &structures.ReplyPayload{
+			Payload: &structures.ReplyPayload_DataMsg{
+				DataMsg: msg,
+			},
+		}
+
+		return payload, nil
 	}
 
 	return nil, nil

@@ -12,6 +12,7 @@ message RequestPayload {
         CloseMessage closeMsg = 6;
         TruncateMessage truncateMsg = 7;
         FlushMessage flushMsg = 8;
+        ReadMessage readMsg = 9;
     }
 }
 
@@ -78,4 +79,10 @@ message TruncateMessage {
 
 message FlushMessage {
     uint64 fd = 1;
+}
+
+message ReadMessage {
+    uint64 fd = 1;
+    uint64 offset = 2;
+    uint64 size = 3;
 }

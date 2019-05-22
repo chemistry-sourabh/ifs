@@ -105,7 +105,7 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		recvFm := recvPayload.GetFetchMsg()
 		ifstest.Compare(t, fm.Path, recvFm.Path)
 
-		err = azr.SendReply(reqId, structures.FileMessageCode, replyPayload)
+		err = azr.SendReply(reqId, structures.DataMessageCode, replyPayload)
 		ifstest.Ok(t, err)
 
 		frames, err := recvSocket.RecvMessageBytes(0)
@@ -119,7 +119,7 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		ifstest.Ok(t, err)
 
 		ifstest.Compare(t, reply.Id, reqId)
-		ifstest.Compare(t, reply.PayloadType, uint32(structures.FileMessageCode))
+		ifstest.Compare(t, reply.PayloadType, uint32(structures.DataMessageCode))
 		ifstest.Compare(t, string(reply.Payload.GetDataMsg().GetData()), "Hello World")
 	}
 
