@@ -71,6 +71,20 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 		}
 
 		return payload, nil
+	case structures.WriteMessageCode:
+		wm := payload.GetWriteMsg()
+
+		msg := &structures.WriteOkMessage{
+			Size: uint64(len(wm.GetData())),
+		}
+
+		payload := &structures.ReplyPayload{
+			Payload: &structures.ReplyPayload_WriteOkMsg{
+				WriteOkMsg: msg,
+			},
+		}
+
+		return payload, nil
 	}
 
 	return nil, nil

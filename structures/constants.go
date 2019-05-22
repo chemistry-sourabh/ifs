@@ -26,10 +26,12 @@ const CloseMessageCode = RequestCodeBase + 6
 const TruncateMessageCode = RequestCodeBase + 7
 const FlushMessageCode = RequestCodeBase + 8
 const ReadMessageCode = RequestCodeBase + 9
+const WriteMessageCode = RequestCodeBase + 10
 
 const ReplyCodeBase = 100
 const OkMessageCode = ReplyCodeBase + 1
 const ErrMessageCode = ReplyCodeBase + 2
 const DataMessageCode = ReplyCodeBase + 3
+const WriteOkMessageCode = ReplyCodeBase + 4
 
 const ChannelLength = 1000

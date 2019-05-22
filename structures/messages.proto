@@ -13,6 +13,7 @@ message RequestPayload {
         TruncateMessage truncateMsg = 7;
         FlushMessage flushMsg = 8;
         ReadMessage readMsg = 9;
+        WriteMessage writeMsg = 10;
     }
 }
 
@@ -20,6 +21,7 @@ message ReplyPayload {
     oneof payload {
         ErrMessage errMsg = 1;
         DataMessage dataMsg = 2;
+        WriteOkMessage writeOkMsg = 3;
     }
 }
 
@@ -85,4 +87,14 @@ message ReadMessage {
     uint64 fd = 1;
     uint64 offset = 2;
     uint64 size = 3;
+}
+
+message WriteMessage {
+    uint64 fd = 1;
+    uint64 offset = 2;
+    bytes data = 3;
+}
+
+message WriteOkMessage {
+    uint64 size = 1;
 }

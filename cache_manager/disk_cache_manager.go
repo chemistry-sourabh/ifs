@@ -492,11 +492,47 @@ func (dcm *DiskCacheManager) Read(fd uint64, offset uint64, size uint64) ([]byte
 		return data, nil
 	}
 
-	return nil, os.ErrClosed
+	return nil, os.ErrInvalid
 }
 
 func (dcm *DiskCacheManager) Write(fd uint64, offset uint64, data []byte) (int, error) {
-	return 0, nil
+	zap.L().Debug("Write",
+		zap.Uint64("fd", fd),
+		zap.Uint64("offset", offset),
+		zap.Int("size", len(data)),
+	)
+
+	if val, ok := dcm.opened.Load(fd); ok {
+		fh := val.(*structures.RemoteFileHandle)
+
+		wm := &structures.WriteMessage{
+			Fd: fd,
+			Offset: offset,
+			Data: data,
+		}
+
+		payload := &structures.RequestPayload{
+			Payload: &structures.RequestPayload_WriteMsg{
+				WriteMsg: wm,
+			},
+		}
+
+		replyPayload, err := dcm.Sender.SendRequest(structures.WriteMessageCode, fh.FilePath.Address(), payload)
+
+		if err != nil {
+			return 0, err
+		}
+
+		_, err = fh.Fp.WriteAt(data, int64(offset))
+
+		if err != nil {
+			return 0, err
+		}
+
+		return int(replyPayload.GetWriteOkMsg().GetSize()), err
+	}
+
+	return 0, os.ErrInvalid
 }
 
 //func (h *hoarder) SendWrite(hostname string, writeInfo *WriteInfo) error {

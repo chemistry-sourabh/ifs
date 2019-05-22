@@ -17,6 +17,7 @@
 package cache_manager
 
 import (
+	"crypto/rand"
 	"github.com/chemistry-sourabh/ifs/communicator"
 	"github.com/chemistry-sourabh/ifs/file_op_executor"
 	"github.com/chemistry-sourabh/ifs/ifstest"
@@ -698,6 +699,11 @@ func TestDiskCacheManager_Read2(t *testing.T) {
 
 	ifstest.Compare(t, len(data), 1000)
 
+	val, _ := dcm.opened.Load(fd)
+	fh := val.(*structures.RemoteFileHandle)
+	err = fh.Fp.Close()
+	ifstest.Ok(t, err)
+
 	err = os.RemoveAll(cachePath)
 	ifstest.Ok(t, err)
 }
@@ -739,6 +745,102 @@ func TestDiskCacheManager_Read3(t *testing.T) {
 	fh := val.(*structures.RemoteFileHandle)
 	err = fh.Fp.Close()
 	ifstest.Ok(t, err)
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+
+	ifstest.RemoveTempFile("test")
+
+	dcm.Sender.Disconnect()
+	foe.Receiver.Unbind()
+}
+
+func TestDiskCacheManager_Write(t *testing.T) {
+	ifstest.SetupLogger()
+	cachePath := "/tmp/test_cache"
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "localhost",
+		Port:     8000,
+		Path:     "/tmp/test",
+	}
+
+	fd, err := dcm.Open(rp, uint32(os.O_WRONLY))
+	ifstest.Ok(t, err)
+
+	data := make([]byte, 1000)
+	_, err = rand.Read(data)
+
+
+	size, err := dcm.Write(fd, uint64(0), data)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, size, 1000)
+
+	val, _ := dcm.opened.Load(fd)
+	fh := val.(*structures.RemoteFileHandle)
+	err = fh.Fp.Close()
+	ifstest.Ok(t, err)
+
+	fileData, err := ioutil.ReadFile("/tmp/test_cache/1")
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, fileData, data)
+
+
+	err = os.RemoveAll(cachePath)
+	ifstest.Ok(t, err)
+}
+
+func TestDiskCacheManager_Write2(t *testing.T) {
+	ifstest.SetupLogger()
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	cachePath := "/tmp/test_cache"
+
+	foe := file_op_executor.NewRemoteFileOpExecutor()
+	foe.Receiver = communicator.NewAgentZmqReceiver()
+	go foe.Run(agentAddress)
+
+	ifstest.CreateTempFile("test")
+
+	dcm := NewDiskCacheManager()
+	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender.Connect([]string{agentAddress})
+	dcm.Run(cachePath, 100)
+
+	rp := &structures.RemotePath{
+		Hostname: "127.0.0.1",
+		Port:     agentPort,
+		Path:     "/tmp/test",
+	}
+
+	fd, err := dcm.Open(rp, uint32(os.O_RDWR))
+	ifstest.Ok(t, err)
+
+	data := make([]byte, 1000)
+	_, err = rand.Read(data)
+	ifstest.Ok(t, err)
+
+	size, err := dcm.Write(fd, uint64(0), data)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, size, 1000)
+
+	val, _ := dcm.opened.Load(fd)
+	fh := val.(*structures.RemoteFileHandle)
+	err = fh.Fp.Close()
+	ifstest.Ok(t, err)
+
+	fileData, err := ioutil.ReadFile("/tmp/test")
+	ifstest.Ok(t, err)
+	
+	ifstest.Compare(t, data, fileData)
 
 	err = os.RemoveAll(cachePath)
 	ifstest.Ok(t, err)
