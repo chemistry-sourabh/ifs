@@ -17,7 +17,7 @@
 package communicator
 
 import (
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"go.uber.org/zap"
@@ -98,7 +98,7 @@ func (ftr *FsTestReceiver) recvMessages() {
 		address := string(frames[0])
 		data := frames[1]
 
-		request := &structures.Request{}
+		request := &structure.Request{}
 
 		err = proto.Unmarshal(data, request)
 
@@ -114,10 +114,10 @@ func (ftr *FsTestReceiver) recvMessages() {
 			zap.Uint32("type", request.PayloadType),
 		)
 
-		reply := &structures.Request{}
+		reply := &structure.Request{}
 
 		reply.Id = request.Id
-		reply.PayloadType = structures.DataMessageCode
+		reply.PayloadType = structure.DataMessageCode
 
 		data, err = proto.Marshal(reply)
 

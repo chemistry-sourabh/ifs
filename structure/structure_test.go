@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package structures_test
+package structure_test
 
 import (
 	"fmt"
 	"github.com/chemistry-sourabh/ifs/ifstest"
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"go.uber.org/zap"
 	"testing"
 )
 
 const remotePath = "localhost:1121@/tmp/"
 
-var remotePathObject = structures.RemotePath{
+var remotePathObject = structure.RemotePath{
 	Hostname: "localhost",
 	Port:     1121,
 	Path:     "/tmp/",
@@ -39,7 +39,7 @@ func TestRemotePath_PrettyString(t *testing.T) {
 }
 
 func TestRemotePath_Load(t *testing.T) {
-	rp := structures.RemotePath{}
+	rp := structure.RemotePath{}
 	rp.Load(remotePath)
 
 	ifstest.Compare(t, rp, remotePathObject)
@@ -61,7 +61,7 @@ func TestFileMessage_CompressDecompress(t *testing.T) {
 
 	ifstest.Ok(t, err)
 
-	dm := structures.DataMessage{
+	dm := structure.DataMessage{
 		Data: b,
 	}
 

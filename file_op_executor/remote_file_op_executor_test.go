@@ -19,7 +19,7 @@ package file_op_executor
 import (
 	"github.com/chemistry-sourabh/ifs/communicator"
 	"github.com/chemistry-sourabh/ifs/ifstest"
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"math/rand"
@@ -49,12 +49,12 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	fm := &structures.FetchMessage{
+	fm := &structure.FetchMessage{
 		Path: path.Join("/tmp", fileName),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_FetchMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_FetchMsg{
 			FetchMsg: fm,
 		},
 	}
@@ -84,9 +84,9 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.FetchMessageCode,
+		PayloadType: structure.FetchMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -102,12 +102,12 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.DataMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.DataMessageCode))
 	ifstest.Compare(t, reply.Payload.GetDataMsg().Data, fileData)
 
 	recvSocket.SetLinger(0)
@@ -137,14 +137,14 @@ func TestRemoteFileOpExecutor_Open(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	om := &structures.OpenMessage{
+	om := &structure.OpenMessage{
 		Fd: 1,
 		Path: path.Join("/tmp", fileName),
 		Flags: uint32(os.O_RDONLY),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_OpenMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_OpenMsg{
 			OpenMsg: om,
 		},
 	}
@@ -174,9 +174,9 @@ func TestRemoteFileOpExecutor_Open(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.OpenMessageCode,
+		PayloadType: structure.OpenMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -192,12 +192,12 @@ func TestRemoteFileOpExecutor_Open(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.OkMessageCode))
 
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
@@ -227,14 +227,14 @@ func TestRemoteFileOpExecutor_Create(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	cm := &structures.CreateMessage{
+	cm := &structure.CreateMessage{
 		Fd: 1,
 		BaseDir:"/tmp",
 		Name: fileName,
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_CreateMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_CreateMsg{
 			CreateMsg: cm,
 		},
 	}
@@ -264,9 +264,9 @@ func TestRemoteFileOpExecutor_Create(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.CreateMessageCode,
+		PayloadType: structure.CreateMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -282,12 +282,12 @@ func TestRemoteFileOpExecutor_Create(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.OkMessageCode))
 
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
@@ -319,13 +319,13 @@ func TestRemoteFileOpExecutor_Rename(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	rm := &structures.RenameMessage{
+	rm := &structure.RenameMessage{
 		CurrentPath: path.Join("/tmp", fileName),
 		NewPath: path.Join("/tmp", newFileName),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_RenameMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_RenameMsg{
 			RenameMsg: rm,
 		},
 	}
@@ -355,9 +355,9 @@ func TestRemoteFileOpExecutor_Rename(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.RenameMessageCode,
+		PayloadType: structure.RenameMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -373,12 +373,12 @@ func TestRemoteFileOpExecutor_Rename(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.OkMessageCode))
 
 	_, err = os.Stat(path.Join("/tmp", fileName))
 	ifstest.Err(t, err)
@@ -413,12 +413,12 @@ func TestRemoteFileOpExecutor_Remove(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	rm := &structures.RemoveMessage{
+	rm := &structure.RemoveMessage{
 		Path: path.Join("/tmp", fileName),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_RemoveMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_RemoveMsg{
 			RemoveMsg: rm,
 		},
 	}
@@ -448,9 +448,9 @@ func TestRemoteFileOpExecutor_Remove(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.RemoveMessageCode,
+		PayloadType: structure.RemoveMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -466,12 +466,12 @@ func TestRemoteFileOpExecutor_Remove(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.OkMessageCode))
 
 	_, err = os.Stat(path.Join("/tmp", fileName))
 	ifstest.Err(t, err)
@@ -503,14 +503,14 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	om := &structures.OpenMessage{
+	om := &structure.OpenMessage{
 		Fd: 1,
 		Path: path.Join("/tmp", fileName),
 		Flags: uint32(os.O_RDONLY),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_OpenMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_OpenMsg{
 			OpenMsg: om,
 		},
 	}
@@ -540,9 +540,9 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.OpenMessageCode,
+		PayloadType: structure.OpenMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -556,21 +556,21 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	// Send Close Request
-	cm := &structures.CloseMessage{
+	cm := &structure.CloseMessage{
 		Fd: 1,
 	}
 
-	requestPayload = &structures.RequestPayload{
-		Payload: &structures.RequestPayload_CloseMsg{
+	requestPayload = &structure.RequestPayload{
+		Payload: &structure.RequestPayload_CloseMsg{
 			CloseMsg: cm,
 		},
 	}
 
 	reqId = rand.Uint64()
 
-	request = &structures.Request{
+	request = &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.CloseMessageCode,
+		PayloadType: structure.CloseMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -586,12 +586,12 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.OkMessageCode))
 
 	_, ok := foe.fp.Load(uint64(1))
 	ifstest.Compare(t, ok, false)
@@ -624,13 +624,13 @@ func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	tm := &structures.TruncateMessage{
+	tm := &structure.TruncateMessage{
 		Path: path.Join("/tmp", fileName),
 		Size: uint64(100),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_TruncateMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_TruncateMsg{
 			TruncateMsg: tm,
 		},
 	}
@@ -660,9 +660,9 @@ func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.TruncateMessageCode,
+		PayloadType: structure.TruncateMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -678,12 +678,12 @@ func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.OkMessageCode))
 
 	stat, err := os.Stat(path.Join("/tmp", fileName))
 	ifstest.Ok(t, err)
@@ -716,14 +716,14 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	cm := &structures.CreateMessage{
+	cm := &structure.CreateMessage{
 		Fd: 1,
 		BaseDir:"/tmp",
 		Name: fileName,
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_CreateMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_CreateMsg{
 			CreateMsg: cm,
 		},
 	}
@@ -753,9 +753,9 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.CreateMessageCode,
+		PayloadType: structure.CreateMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -769,21 +769,21 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	// Send Flush Request
-	fm := &structures.FlushMessage{
+	fm := &structure.FlushMessage{
 		Fd: 1,
 	}
 
-	requestPayload = &structures.RequestPayload{
-		Payload: &structures.RequestPayload_FlushMsg{
+	requestPayload = &structure.RequestPayload{
+		Payload: &structure.RequestPayload_FlushMsg{
 			FlushMsg: fm,
 		},
 	}
 
 	reqId = rand.Uint64()
 
-	request = &structures.Request{
+	request = &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.FlushMessageCode,
+		PayloadType: structure.FlushMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -799,12 +799,12 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.OkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.OkMessageCode))
 
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
@@ -837,14 +837,14 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	om := &structures.OpenMessage{
+	om := &structure.OpenMessage{
 		Fd: 1,
 		Path: path.Join("/tmp", fileName),
 		Flags: uint32(os.O_RDONLY),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_OpenMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_OpenMsg{
 			OpenMsg: om,
 		},
 	}
@@ -874,9 +874,9 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.OpenMessageCode,
+		PayloadType: structure.OpenMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -890,23 +890,23 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	// Send Read Message
-	rm := &structures.ReadMessage{
+	rm := &structure.ReadMessage{
 		Fd: 1,
 		Offset: 0,
 		Size: 1000,
 	}
 
-	requestPayload = &structures.RequestPayload{
-		Payload: &structures.RequestPayload_ReadMsg{
+	requestPayload = &structure.RequestPayload{
+		Payload: &structure.RequestPayload_ReadMsg{
 			ReadMsg: rm,
 		},
 	}
 
 	reqId = rand.Uint64()
 
-	request = &structures.Request{
+	request = &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.ReadMessageCode,
+		PayloadType: structure.ReadMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -922,12 +922,12 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.DataMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.DataMessageCode))
 	ifstest.Compare(t, reply.Payload.GetDataMsg().GetData(), fileData)
 
 	val, _ := foe.fp.Load(uint64(1))
@@ -960,14 +960,14 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	om := &structures.OpenMessage{
+	om := &structure.OpenMessage{
 		Fd: 1,
 		Path: path.Join("/tmp", fileName),
 		Flags: uint32(os.O_WRONLY),
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_OpenMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_OpenMsg{
 			OpenMsg: om,
 		},
 	}
@@ -997,9 +997,9 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 
 	reqId := rand.Uint64()
 
-	request := &structures.Request{
+	request := &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.OpenMessageCode,
+		PayloadType: structure.OpenMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -1018,23 +1018,23 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 	_, err = rand.Read(data)
 	ifstest.Ok(t, err)
 
-	wm := &structures.WriteMessage{
+	wm := &structure.WriteMessage{
 		Fd: 1,
 		Offset: 0,
 		Data: data,
 	}
 
-	requestPayload = &structures.RequestPayload{
-		Payload: &structures.RequestPayload_WriteMsg{
+	requestPayload = &structure.RequestPayload{
+		Payload: &structure.RequestPayload_WriteMsg{
 			WriteMsg: wm,
 		},
 	}
 
 	reqId = rand.Uint64()
 
-	request = &structures.Request{
+	request = &structure.Request{
 		Id:          reqId,
-		PayloadType: structures.WriteMessageCode,
+		PayloadType: structure.WriteMessageCode,
 		Payload:     requestPayload,
 	}
 
@@ -1050,12 +1050,12 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
 
 	data = frames[1]
-	reply := &structures.Reply{}
+	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, reply.Id, reqId)
-	ifstest.Compare(t, reply.PayloadType, uint32(structures.WriteOkMessageCode))
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.WriteOkMessageCode))
 	ifstest.Compare(t, reply.Payload.GetWriteOkMsg().GetSize(), uint64(1000))
 
 	val, _ := foe.fp.Load(uint64(1))
@@ -1067,5 +1067,103 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 	senderSocket.Close()
 	foe.Stop()
 	ctx.Term()
+	ifstest.RemoveTempFile(fileName)
+}
+
+func TestRemoteFileOpExecutor_Attr(t *testing.T) {
+	ifstest.SetupLogger()
+
+	clientAddress := "127.0.0.1:5000"
+	agentPort := ifstest.GetOpenPort()
+	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	fileName := "file1"
+
+	ifstest.CreateTempFile(fileName)
+	ifstest.WriteDummyData(fileName, 1000)
+
+	atr := communicator.NewAgentZmqReceiver()
+	foe := NewRemoteFileOpExecutor()
+	foe.Receiver = atr
+
+	go foe.Run(agentAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	am := &structure.AttrMessage{
+		Path: path.Join("/tmp", fileName),
+	}
+
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_AttrMsg{
+			AttrMsg: am,
+		},
+	}
+
+	ctx, err := zmq.NewContext()
+	ifstest.Ok(t, err)
+
+	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = senderSocket.Connect("tcp://" + agentAddress)
+	ifstest.Ok(t, err)
+
+	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.SetIdentity(clientAddress)
+	ifstest.Ok(t, err)
+
+	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	ifstest.Ok(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	reqId := rand.Uint64()
+
+	request := &structure.Request{
+		Id:          reqId,
+		PayloadType: structure.AttrMessageCode,
+		Payload:     requestPayload,
+	}
+
+	data, err := proto.Marshal(request)
+	ifstest.Ok(t, err)
+
+	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	ifstest.Ok(t, err)
+
+	frames, err := recvSocket.RecvMessageBytes(0)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+
+	data = frames[1]
+	reply := &structure.Reply{}
+	err = proto.Unmarshal(data, reply)
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, reply.Id, reqId)
+	ifstest.Compare(t, reply.PayloadType, uint32(structure.FileInfoMessageCode))
+
+	fi := reply.GetPayload().GetFileInfoMsg()
+
+	stat, err := os.Stat(path.Join("/tmp", fileName))
+	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, fi.GetSize(), uint64(stat.Size()))
+	ifstest.Compare(t, fi.GetMode(), uint32(stat.Mode()))
+	ifstest.Compare(t, fi.GetMtime(), uint64(stat.ModTime().UnixNano()))
+
+	recvSocket.SetLinger(0)
+	recvSocket.Close()
+	senderSocket.SetLinger(0)
+	senderSocket.Close()
+	foe.Stop()
+	ctx.Term()
+
 	ifstest.RemoveTempFile(fileName)
 }

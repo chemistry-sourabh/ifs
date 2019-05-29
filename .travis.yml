@@ -24,7 +24,7 @@ before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
   - ./cc-test-reporter before-build
-  - protoc --go_out=./ ./structures/messages.proto
+  - protoc --go_out=./ ./structure/messages.proto
   - go get -v -t ./...
   - go build -v ./...
 
@@ -32,19 +32,19 @@ script:
   - go test -v -covermode=set -coverpkg=./... -coverprofile cache_manager.tmp.out ./cache_manager &&
     go test -v -covermode=set -coverpkg=./... -coverprofile communicator.tmp.out ./communicator &&
     go test -v -covermode=set -coverpkg=./... -coverprofile file_op_executor.tmp.out ./file_op_executor &&
-    go test -v -covermode=set -coverpkg=./... -coverprofile structures.tmp.out ./structures &&
+    go test -v -covermode=set -coverpkg=./... -coverprofile structure.tmp.out ./structure &&
     go test -v -covermode=set -coverpkg=./... -coverprofile ifs.tmp.out .
 
 after_script:
   - cat cache_manager.tmp.out | grep -v "pb.go" > cache_manager.out
   - cat communicator.tmp.out | grep -v "pb.go" > communicator.out
   - cat file_op_executor.tmp.out | grep -v "pb.go" > file_op_executor.out
-  - cat structures.tmp.out | grep -v "pb.go" > structures.out
+  - cat structure.tmp.out | grep -v "pb.go" > structure.out
   - cat ifs.tmp.out | grep -v "pb.go" > ifs.out
   - ./cc-test-reporter format-coverage -t gocov -o cache_manager.json cache_manager.out
   - ./cc-test-reporter format-coverage -t gocov -o communicator.json communicator.out
   - ./cc-test-reporter format-coverage -t gocov -o file_op_executor.json file_op_executor.out
-  - ./cc-test-reporter format-coverage -t gocov -o structures.json structures.out
+  - ./cc-test-reporter format-coverage -t gocov -o structure.json structure.out
   - ./cc-test-reporter format-coverage -t gocov -o ifs.json ifs.out
-  - ./cc-test-reporter sum-coverage cache_manager.json communicator.json file_op_executor.json structures.json ifs.json
+  - ./cc-test-reporter sum-coverage cache_manager.json communicator.json file_op_executor.json structure.json ifs.json
   - ./cc-test-reporter upload-coverage

@@ -17,7 +17,7 @@ limitations under the License.
 package ifs
 
 import (
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"strconv"
@@ -54,10 +54,10 @@ type RemoteRoot struct {
 	Paths    []string `yaml:"paths"`
 }
 
-func (rr *RemoteRoot) RemotePaths() []*structures.RemotePath {
-	var remotePaths []*structures.RemotePath
+func (rr *RemoteRoot) RemotePaths() []*structure.RemotePath {
+	var remotePaths []*structure.RemotePath
 	for _, path := range rr.Paths {
-		remotePaths = append(remotePaths, &structures.RemotePath{
+		remotePaths = append(remotePaths, &structure.RemotePath{
 			Hostname: rr.Hostname,
 			Port:     rr.Port,
 			Path:     path,

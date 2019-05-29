@@ -18,7 +18,7 @@ package communicator
 
 import (
 	"github.com/chemistry-sourabh/ifs/ifstest"
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -51,12 +51,12 @@ func TestFsZmqSender_Comm(t *testing.T) {
 
 	fzs.Connect(addresses)
 
-	fm := &structures.FetchMessage{
+	fm := &structure.FetchMessage{
 		Path: "/tmp/test",
 	}
 
-	msg := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_FetchMsg{
+	msg := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_FetchMsg{
 			FetchMsg: fm,
 		},
 	}
@@ -66,7 +66,7 @@ func TestFsZmqSender_Comm(t *testing.T) {
 
 	for i := 0; i < 10000; i++ {
 		index := r.Intn(len(addresses))
-		_, err := fzs.SendRequest(structures.FetchMessageCode, addresses[index], msg)
+		_, err := fzs.SendRequest(structure.FetchMessageCode, addresses[index], msg)
 		ifstest.Ok(t, err)
 	}
 

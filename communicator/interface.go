@@ -17,18 +17,18 @@
 package communicator
 
 import (
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 )
 
 type Sender interface {
 	Connect(endpoints []string)
 	Disconnect()
-	SendRequest(op uint32, address string, payload *structures.RequestPayload) (*structures.ReplyPayload, error)
+	SendRequest(op uint32, address string, payload *structure.RequestPayload) (*structure.ReplyPayload, error)
 }
 
 type Receiver interface {
 	Bind(address string) error
 	Unbind()
-	RecvRequest() (uint64, uint32, *structures.RequestPayload, error)
-	SendReply(id uint64, payloadType uint32, payload *structures.ReplyPayload) error
+	RecvRequest() (uint64, uint32, *structure.RequestPayload, error)
+	SendReply(id uint64, payloadType uint32, payload *structure.ReplyPayload) error
 }

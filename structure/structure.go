@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 
-package structures
+package structure
 
 import (
 	"bytes"
 	"compress/zlib"
+	"fmt"
+	"github.com/OneOfOne/xxhash"
 	"go.uber.org/zap"
 	"io"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 // TODO Skip compression if file is too small
@@ -71,4 +77,66 @@ func (dm *DataMessage) Decompress() {
 			zap.Error(err),
 		)
 	}
+}
+
+type MutexMap struct {
+	m     []sync.Mutex
+	count uint64
+}
+
+func NewMutexMap(bucketSize uint64) MutexMap {
+	return MutexMap{
+		m:     make([]sync.Mutex, bucketSize),
+		count: bucketSize,
+	}
+}
+
+func (mm *MutexMap) hash(key string) uint64 {
+	h := xxhash.New64()
+	_, _ = h.WriteString(key)
+	return h.Sum64() % mm.count
+}
+
+func (mm *MutexMap) Lock(key string) {
+	i := mm.hash(key)
+	mm.m[i].Lock()
+}
+
+func (mm *MutexMap) Unlock(key string) {
+	i := mm.hash(key)
+	mm.m[i].Unlock()
+}
+
+type RemotePath struct {
+	Hostname string
+	Port     uint16
+	Path     string
+}
+
+func (rp *RemotePath) String() string {
+	return fmt.Sprintf("%s:%d@%s", rp.Hostname, rp.Port, rp.Path)
+}
+
+func (rp *RemotePath) Load(str string) {
+	parts := strings.Split(str, ":")
+	rp.Hostname = parts[0]
+	parts = strings.Split(parts[1], "@")
+	p64, _ := strconv.ParseUint(parts[0], 10, 32)
+	rp.Port = uint16(p64)
+	rp.Path = parts[1]
+}
+
+func (rp *RemotePath) Address() string {
+	return fmt.Sprintf("%s:%d", rp.Hostname, rp.Port)
+}
+
+type RemoteFileHandle struct {
+	FilePath *RemotePath
+	Fp       *os.File
+}
+
+type FileInfo struct {
+	Size  uint64
+	Mode  uint32
+	Mtime uint64
 }

@@ -18,7 +18,7 @@ package file_op_executor
 
 import (
 	"github.com/chemistry-sourabh/ifs/communicator"
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
@@ -38,10 +38,10 @@ func NewRemoteFileOpExecutor() *RemoteFileOpExecutor {
 	}
 }
 
-func (foe *RemoteFileOpExecutor) createErrMsg(err error) *structures.ReplyPayload {
-	return &structures.ReplyPayload{
-		Payload: &structures.ReplyPayload_ErrMsg{
-			ErrMsg: &structures.ErrMessage{
+func (foe *RemoteFileOpExecutor) createErrMsg(err error) *structure.ReplyPayload {
+	return &structure.ReplyPayload{
+		Payload: &structure.ReplyPayload_ErrMsg{
+			ErrMsg: &structure.ErrMessage{
 				Error: err.Error(),
 			},
 		},
@@ -49,13 +49,13 @@ func (foe *RemoteFileOpExecutor) createErrMsg(err error) *structures.ReplyPayloa
 }
 
 // TODO Check Compression
-func (foe *RemoteFileOpExecutor) fetch(req *structures.FetchMessage) (*structures.DataMessage, error) {
+func (foe *RemoteFileOpExecutor) fetch(req *structure.FetchMessage) (*structure.DataMessage, error) {
 
 	zap.L().Debug("Processing Fetch Message",
 		zap.String("path", req.GetPath()),
 	)
 
-	dataMsg := &structures.DataMessage{}
+	dataMsg := &structure.DataMessage{}
 	data, err := ioutil.ReadFile(req.GetPath())
 
 	if err == nil {
@@ -83,7 +83,7 @@ func (foe *RemoteFileOpExecutor) fetch(req *structures.FetchMessage) (*structure
 	return nil, err
 }
 
-func (foe *RemoteFileOpExecutor) open(req *structures.OpenMessage) error {
+func (foe *RemoteFileOpExecutor) open(req *structure.OpenMessage) error {
 
 	zap.L().Debug("Processing Open Message",
 		zap.String("path", req.GetPath()),
@@ -110,7 +110,7 @@ func (foe *RemoteFileOpExecutor) open(req *structures.OpenMessage) error {
 	return nil
 }
 
-func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
+func (foe *RemoteFileOpExecutor) rename(req *structure.RenameMessage) error {
 	zap.L().Debug("Processing Rename Message",
 		zap.String("path", req.GetCurrentPath()),
 		zap.String("dest_path", req.GetNewPath()),
@@ -129,7 +129,7 @@ func (foe *RemoteFileOpExecutor) rename(req *structures.RenameMessage) error {
 	return err
 }
 
-func (foe *RemoteFileOpExecutor) create(req *structures.CreateMessage) error {
+func (foe *RemoteFileOpExecutor) create(req *structure.CreateMessage) error {
 	filePath := path.Join(req.GetBaseDir(), req.GetName())
 
 	zap.L().Debug("Processing Create Message",
@@ -151,7 +151,7 @@ func (foe *RemoteFileOpExecutor) create(req *structures.CreateMessage) error {
 	return nil
 }
 
-func (foe *RemoteFileOpExecutor) remove(req *structures.RemoveMessage) error {
+func (foe *RemoteFileOpExecutor) remove(req *structure.RemoveMessage) error {
 	zap.L().Debug("Processing Remove Message",
 		zap.String("path", req.GetPath()),
 	)
@@ -168,7 +168,7 @@ func (foe *RemoteFileOpExecutor) remove(req *structures.RemoveMessage) error {
 	return err
 }
 
-func (foe *RemoteFileOpExecutor) close(req *structures.CloseMessage) error {
+func (foe *RemoteFileOpExecutor) close(req *structure.CloseMessage) error {
 	zap.L().Debug("Processing Close Message",
 		zap.Uint64("fd", req.GetFd()),
 	)
@@ -203,7 +203,7 @@ func (foe *RemoteFileOpExecutor) close(req *structures.CloseMessage) error {
 	return nil
 }
 
-func (foe *RemoteFileOpExecutor) flush(req *structures.FlushMessage) error {
+func (foe *RemoteFileOpExecutor) flush(req *structure.FlushMessage) error {
 	zap.L().Debug("Processing Flush Message",
 		zap.Uint64("fd", req.GetFd()),
 	)
@@ -236,7 +236,7 @@ func (foe *RemoteFileOpExecutor) flush(req *structures.FlushMessage) error {
 	return nil
 }
 
-func (foe *RemoteFileOpExecutor) truncate(req *structures.TruncateMessage) error {
+func (foe *RemoteFileOpExecutor) truncate(req *structure.TruncateMessage) error {
 	zap.L().Debug("Processing Truncate Message",
 		zap.String("path", req.GetPath()),
 		zap.Uint64("size", req.GetSize()),
@@ -258,7 +258,7 @@ func (foe *RemoteFileOpExecutor) truncate(req *structures.TruncateMessage) error
 	return nil
 }
 
-func (foe *RemoteFileOpExecutor) read(req *structures.ReadMessage) (*structures.DataMessage, error) {
+func (foe *RemoteFileOpExecutor) read(req *structure.ReadMessage) (*structure.DataMessage, error) {
 	zap.L().Debug("Processing Read Message",
 		zap.Uint64("fd", req.GetFd()),
 		zap.Uint64("offset", req.GetOffset()),
@@ -295,14 +295,14 @@ func (foe *RemoteFileOpExecutor) read(req *structures.ReadMessage) (*structures.
 		return nil, err
 	}
 
-	dm := &structures.DataMessage{
+	dm := &structure.DataMessage{
 		Data: data,
 	}
 
 	return dm, nil
 }
 
-func (foe *RemoteFileOpExecutor) write(req *structures.WriteMessage) (*structures.WriteOkMessage, error) {
+func (foe *RemoteFileOpExecutor) write(req *structure.WriteMessage) (*structure.WriteOkMessage, error) {
 	zap.L().Debug("Processing Write Message",
 		zap.Uint64("fd", req.GetFd()),
 		zap.Uint64("offset", req.GetOffset()),
@@ -338,11 +338,37 @@ func (foe *RemoteFileOpExecutor) write(req *structures.WriteMessage) (*structure
 		return nil, err
 	}
 
-	wm := &structures.WriteOkMessage{
+	wm := &structure.WriteOkMessage{
 		Size: uint64(size),
 	}
 
 	return wm, nil
+}
+
+func (foe *RemoteFileOpExecutor) attr(req *structure.AttrMessage) (*structure.FileInfoMessage, error) {
+	zap.L().Debug("Processing Attr Message",
+		zap.String("Path", req.GetPath()),
+	)
+
+	fi, err := os.Stat(req.Path)
+
+	if err != nil {
+
+		zap.L().Error("Attr Error",
+			zap.String("Path", req.GetPath()),
+			zap.Error(err),
+		)
+
+		return nil, err
+	}
+
+	fim := &structure.FileInfoMessage{
+		Size: uint64(fi.Size()),
+		Mode: uint32(fi.Mode()),
+		Mtime: uint64(fi.ModTime().UnixNano()),
+	}
+
+	return fim, nil
 }
 
 func (foe *RemoteFileOpExecutor) Process() {
@@ -360,30 +386,30 @@ func (foe *RemoteFileOpExecutor) Process() {
 		)
 
 		switch payloadType {
-		case structures.FetchMessageCode, structures.ReadMessageCode:
+		case structure.FetchMessageCode, structure.ReadMessageCode:
 			go func() {
-				var payload *structures.DataMessage
+				var payload *structure.DataMessage
 				var err error
 				switch payloadType {
-				case structures.FetchMessageCode:
+				case structure.FetchMessageCode:
 					payload, err = foe.fetch(req.GetFetchMsg())
-				case structures.ReadMessageCode:
+				case structure.ReadMessageCode:
 					payload, err = foe.read(req.GetReadMsg())
 				}
 
-				var reply *structures.ReplyPayload
-				var replyType uint32 = structures.ErrMessageCode
+				var reply *structure.ReplyPayload
+				var replyType uint32 = structure.ErrMessageCode
 				if err != nil {
 					reply = foe.createErrMsg(err)
 				} else {
 
-					reply = &structures.ReplyPayload{
-						Payload: &structures.ReplyPayload_DataMsg{
+					reply = &structure.ReplyPayload{
+						Payload: &structure.ReplyPayload_DataMsg{
 							DataMsg: payload,
 						},
 					}
 
-					replyType = structures.DataMessageCode
+					replyType = structure.DataMessageCode
 
 				}
 
@@ -398,36 +424,36 @@ func (foe *RemoteFileOpExecutor) Process() {
 				}
 			}()
 
-		case structures.OpenMessageCode, structures.RenameMessageCode, structures.CreateMessageCode,
-			 structures.RemoveMessageCode, structures.CloseMessageCode, structures.TruncateMessageCode,
-			 structures.FlushMessageCode:
+		case structure.OpenMessageCode, structure.RenameMessageCode, structure.CreateMessageCode,
+			structure.RemoveMessageCode, structure.CloseMessageCode, structure.TruncateMessageCode,
+			structure.FlushMessageCode:
 			go func() {
 				var err error
 				switch payloadType {
-				case structures.OpenMessageCode:
+				case structure.OpenMessageCode:
 					err = foe.open(req.GetOpenMsg())
-				case structures.RenameMessageCode:
+				case structure.RenameMessageCode:
 					err = foe.rename(req.GetRenameMsg())
-				case structures.CreateMessageCode:
+				case structure.CreateMessageCode:
 					err = foe.create(req.GetCreateMsg())
-				case structures.RemoveMessageCode:
+				case structure.RemoveMessageCode:
 					err = foe.remove(req.GetRemoveMsg())
-				case structures.CloseMessageCode:
+				case structure.CloseMessageCode:
 					err = foe.close(req.GetCloseMsg())
-				case structures.TruncateMessageCode:
+				case structure.TruncateMessageCode:
 					err = foe.truncate(req.GetTruncateMsg())
-				case structures.FlushMessageCode:
+				case structure.FlushMessageCode:
 					err = foe.flush(req.GetFlushMsg())
 				}
 
-				var reply *structures.ReplyPayload
-				var replyType uint32 = structures.ErrMessageCode
+				var reply *structure.ReplyPayload
+				var replyType uint32 = structure.ErrMessageCode
 				if err != nil {
 					reply = foe.createErrMsg(err)
 				} else {
 
-					reply = &structures.ReplyPayload{}
-					replyType = structures.OkMessageCode
+					reply = &structure.ReplyPayload{}
+					replyType = structure.OkMessageCode
 
 				}
 
@@ -441,34 +467,66 @@ func (foe *RemoteFileOpExecutor) Process() {
 					)
 				}
 			}()
-		case structures.WriteMessageCode:
-			payload, err := foe.write(req.GetWriteMsg())
+		case structure.WriteMessageCode:
+			go func() {
+				payload, err := foe.write(req.GetWriteMsg())
 
-			var reply *structures.ReplyPayload
-			var replyType uint32 = structures.ErrMessageCode
-			if err != nil {
-				reply = foe.createErrMsg(err)
-			} else {
+				var reply *structure.ReplyPayload
+				var replyType uint32 = structure.ErrMessageCode
+				if err != nil {
+					reply = foe.createErrMsg(err)
+				} else {
 
-				reply = &structures.ReplyPayload{
-					Payload: &structures.ReplyPayload_WriteOkMsg{
-						WriteOkMsg: payload,
-					},
+					reply = &structure.ReplyPayload{
+						Payload: &structure.ReplyPayload_WriteOkMsg{
+							WriteOkMsg: payload,
+						},
+					}
+
+					replyType = structure.WriteOkMessageCode
+
 				}
 
-				replyType = structures.WriteOkMessageCode
+				err = foe.Receiver.SendReply(id, replyType, reply)
 
-			}
+				if err != nil {
+					zap.L().Warn("Failed to Send Reply",
+						zap.Uint64("id", id),
+						zap.Uint32("payloadType", payloadType),
+						zap.Error(err),
+					)
+				}
+			}()
+		case structure.AttrMessageCode:
+			go func() {
+				payload, err := foe.attr(req.GetAttrMsg())
 
-			err = foe.Receiver.SendReply(id, replyType, reply)
+				var reply *structure.ReplyPayload
+				var replyType uint32 = structure.ErrMessageCode
+				if err != nil {
+					reply = foe.createErrMsg(err)
+				} else {
 
-			if err != nil {
-				zap.L().Warn("Failed to Send Reply",
-					zap.Uint64("id", id),
-					zap.Uint32("payloadType", payloadType),
-					zap.Error(err),
-				)
-			}
+					reply = &structure.ReplyPayload{
+						Payload: &structure.ReplyPayload_FileInfoMsg{
+							FileInfoMsg: payload,
+						},
+					}
+
+					replyType = structure.FileInfoMessageCode
+
+				}
+
+				err = foe.Receiver.SendReply(id, replyType, reply)
+
+				if err != nil {
+					zap.L().Warn("Failed to Send Reply",
+						zap.Uint64("id", id),
+						zap.Uint32("payloadType", payloadType),
+						zap.Error(err),
+					)
+				}
+			}()
 		}
 	}
 

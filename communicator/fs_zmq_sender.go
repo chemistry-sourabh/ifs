@@ -17,7 +17,7 @@
 package communicator
 
 import (
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
@@ -27,8 +27,8 @@ import (
 )
 
 type ReturnableMessage struct {
-	Msg     *structures.Request
-	RetChan chan *structures.Reply
+	Msg     *structure.Request
+	RetChan chan *structure.Reply
 }
 
 type FsZmqSender struct {
@@ -58,8 +58,8 @@ func NewFsZmqSender(address string) *FsZmqSender {
 		msgId:         0,
 		ctx:           ctx,
 		clientAddress: address,
-		send:          make(chan [][]byte, structures.ChannelLength),
-		sent:          make(chan *ReturnableMessage, structures.ChannelLength),
+		send:          make(chan [][]byte, structure.ChannelLength),
+		sent:          make(chan *ReturnableMessage, structure.ChannelLength),
 	}
 }
 
@@ -162,7 +162,7 @@ func (fzs *FsZmqSender) recvMessages() {
 		address := string(frames[0])
 		data := frames[1]
 
-		reply := &structures.Reply{}
+		reply := &structure.Reply{}
 
 		err = proto.Unmarshal(data, reply)
 
@@ -249,11 +249,11 @@ func (fzs *FsZmqSender) Disconnect() {
 	}
 }
 
-func (fzs *FsZmqSender) SendRequest(payloadType uint32, address string, payload *structures.RequestPayload) (*structures.ReplyPayload, error) {
+func (fzs *FsZmqSender) SendRequest(payloadType uint32, address string, payload *structure.RequestPayload) (*structure.ReplyPayload, error) {
 
 	msgId := atomic.AddUint64(&fzs.msgId, 1)
 
-	req := &structures.Request{
+	req := &structure.Request{
 		Id:          msgId,
 		PayloadType: payloadType,
 		Payload:     payload,
@@ -261,7 +261,7 @@ func (fzs *FsZmqSender) SendRequest(payloadType uint32, address string, payload 
 
 	retMsg := ReturnableMessage{
 		Msg:     req,
-		RetChan: make(chan *structures.Reply),
+		RetChan: make(chan *structure.Reply),
 	}
 
 	data, err := proto.Marshal(retMsg.Msg)
@@ -276,7 +276,7 @@ func (fzs *FsZmqSender) SendRequest(payloadType uint32, address string, payload 
 	//TODO Timeout
 	reply := <-retMsg.RetChan
 
-	if reply.PayloadType == structures.ErrMessageCode {
+	if reply.PayloadType == structure.ErrMessageCode {
 		return nil, errors.New(reply.GetPayload().GetErrMsg().Error)
 	}
 

@@ -17,7 +17,7 @@
 package communicator
 
 import (
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
@@ -32,7 +32,7 @@ type AgentZmqReceiver struct {
 	senderAddress string
 	recvAddress   string
 	send          chan [][]byte
-	recv          chan *structures.Request
+	recv          chan *structure.Request
 }
 
 func NewAgentZmqReceiver() *AgentZmqReceiver {
@@ -48,8 +48,8 @@ func NewAgentZmqReceiver() *AgentZmqReceiver {
 	return &AgentZmqReceiver{
 		ctx:       ctx,
 		idAddress: sync.Map{},
-		send:      make(chan [][]byte, structures.ChannelLength),
-		recv:      make(chan *structures.Request, structures.ChannelLength),
+		send:      make(chan [][]byte, structure.ChannelLength),
+		recv:      make(chan *structure.Request, structure.ChannelLength),
 	}
 }
 
@@ -140,7 +140,7 @@ func (azr *AgentZmqReceiver) recvMessages() {
 		address := string(frames[0])
 		data := frames[1]
 
-		request := &structures.Request{}
+		request := &structure.Request{}
 
 		err = proto.Unmarshal(data, request)
 
@@ -172,7 +172,7 @@ func (azr *AgentZmqReceiver) recvMessages() {
 
 }
 
-func (azr *AgentZmqReceiver) RecvRequest() (uint64, uint32, *structures.RequestPayload, error) {
+func (azr *AgentZmqReceiver) RecvRequest() (uint64, uint32, *structure.RequestPayload, error) {
 
 	request, ok := <-azr.recv
 
@@ -183,8 +183,8 @@ func (azr *AgentZmqReceiver) RecvRequest() (uint64, uint32, *structures.RequestP
 	}
 }
 
-func (azr *AgentZmqReceiver) SendReply(id uint64, payloadType uint32, payload *structures.ReplyPayload) error {
-	reply := &structures.Reply{
+func (azr *AgentZmqReceiver) SendReply(id uint64, payloadType uint32, payload *structure.ReplyPayload) error {
+	reply := &structure.Reply{
 		Id:          id,
 		PayloadType: payloadType,
 		Payload:     payload,

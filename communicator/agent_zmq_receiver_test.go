@@ -18,7 +18,7 @@ package communicator
 
 import (
 	"github.com/chemistry-sourabh/ifs/ifstest"
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	"strconv"
@@ -37,22 +37,22 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 	err := azr.Bind(agentAddress)
 	ifstest.Ok(t, err)
 
-	fm := &structures.FetchMessage{
+	fm := &structure.FetchMessage{
 		Path: "/tmp/test",
 	}
 
-	requestPayload := &structures.RequestPayload{
-		Payload: &structures.RequestPayload_FetchMsg{
+	requestPayload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_FetchMsg{
 			FetchMsg: fm,
 		},
 	}
 
-	dataMsg := &structures.DataMessage{
+	dataMsg := &structure.DataMessage{
 		Data: []byte("Hello World"),
 	}
 
-	replyPayload := &structures.ReplyPayload{
-		Payload: &structures.ReplyPayload_DataMsg{
+	replyPayload := &structure.ReplyPayload{
+		Payload: &structure.ReplyPayload_DataMsg{
 			DataMsg: dataMsg,
 		},
 	}
@@ -81,9 +81,9 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	for i := 0; i < 10000; i++ {
-		request := &structures.Request{
+		request := &structure.Request{
 			Id:          uint64(i),
-			PayloadType: structures.FetchMessageCode,
+			PayloadType: structure.FetchMessageCode,
 			Payload:     requestPayload,
 		}
 
@@ -100,12 +100,12 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		ifstest.Ok(t, err)
 
 		ifstest.Compare(t, reqId, request.Id)
-		ifstest.Compare(t, payloadType, uint32(structures.FetchMessageCode))
+		ifstest.Compare(t, payloadType, uint32(structure.FetchMessageCode))
 
 		recvFm := recvPayload.GetFetchMsg()
 		ifstest.Compare(t, fm.Path, recvFm.Path)
 
-		err = azr.SendReply(reqId, structures.DataMessageCode, replyPayload)
+		err = azr.SendReply(reqId, structure.DataMessageCode, replyPayload)
 		ifstest.Ok(t, err)
 
 		frames, err := recvSocket.RecvMessageBytes(0)
@@ -114,12 +114,12 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		ifstest.Compare(t, string(frames[0]), GetOtherAddress(agentAddress))
 
 		data = frames[1]
-		reply := &structures.Reply{}
+		reply := &structure.Reply{}
 		err = proto.Unmarshal(data, reply)
 		ifstest.Ok(t, err)
 
 		ifstest.Compare(t, reply.Id, reqId)
-		ifstest.Compare(t, reply.PayloadType, uint32(structures.DataMessageCode))
+		ifstest.Compare(t, reply.PayloadType, uint32(structure.DataMessageCode))
 		ifstest.Compare(t, string(reply.Payload.GetDataMsg().GetData()), "Hello World")
 	}
 

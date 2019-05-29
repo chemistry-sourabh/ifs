@@ -19,7 +19,7 @@ package ifs_test
 import (
 	"github.com/chemistry-sourabh/ifs"
 	"github.com/chemistry-sourabh/ifs/ifstest"
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
@@ -100,7 +100,7 @@ func TestRemoteRoot_RemotePaths(t *testing.T) {
 
 	remotePaths := rr.RemotePaths()
 
-	result := []*structures.RemotePath{
+	result := []*structure.RemotePath{
 		{
 			Hostname: "localhost",
 			Port:     11211,

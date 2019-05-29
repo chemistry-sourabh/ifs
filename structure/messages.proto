@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package structures;
+package structure;
 
 message RequestPayload {
     oneof payload {
@@ -14,6 +14,7 @@ message RequestPayload {
         FlushMessage flushMsg = 8;
         ReadMessage readMsg = 9;
         WriteMessage writeMsg = 10;
+        AttrMessage attrMsg = 11;
     }
 }
 
@@ -22,6 +23,7 @@ message ReplyPayload {
         ErrMessage errMsg = 1;
         DataMessage dataMsg = 2;
         WriteOkMessage writeOkMsg = 3;
+        FileInfoMessage fileInfoMsg = 4;
     }
 }
 
@@ -97,4 +99,14 @@ message WriteMessage {
 
 message WriteOkMessage {
     uint64 size = 1;
+}
+
+message AttrMessage {
+    string path = 1;
+}
+
+message FileInfoMessage {
+    uint64 size = 1;
+    uint32 mode = 2;
+    uint64 mtime = 3;
 }

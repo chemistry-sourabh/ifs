@@ -17,15 +17,15 @@
 package cache_manager
 
 import (
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 )
 
 type CacheManager interface {
-	Open(path *structures.RemotePath, flags uint32) (uint64, error)
-	Rename(path *structures.RemotePath, dst string) error
-	Truncate(path *structures.RemotePath, size uint64) error
-	Create(dirPath *structures.RemotePath, name string) (uint64, error)
-	Remove(path *structures.RemotePath) error
+	Open(path *structure.RemotePath, flags uint32) (uint64, error)
+	Rename(path *structure.RemotePath, dst string) error
+	Truncate(path *structure.RemotePath, size uint64) error
+	Create(dirPath *structure.RemotePath, name string) (uint64, error)
+	Remove(path *structure.RemotePath) error
 
 	// fd functions
 	Read(fd uint64, offset uint64, size uint64) ([]byte, error)

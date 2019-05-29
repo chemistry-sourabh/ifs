@@ -18,16 +18,16 @@ package communicator
 
 import (
 	"crypto/rand"
-	"github.com/chemistry-sourabh/ifs/structures"
+	"github.com/chemistry-sourabh/ifs/structure"
 )
 
 type FsTestSender struct {
 }
 
-func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload *structures.RequestPayload) (*structures.ReplyPayload, error) {
+func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload *structure.RequestPayload) (*structure.ReplyPayload, error) {
 	switch payloadType {
 
-	case structures.FetchMessageCode:
+	case structure.FetchMessageCode:
 		b := make([]byte, 100)
 		_, err := rand.Read(b)
 
@@ -35,23 +35,23 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 			return nil, err
 		}
 
-		msg := &structures.DataMessage{
+		msg := &structure.DataMessage{
 			Data: b,
 		}
 
-		payload := &structures.ReplyPayload{
-			Payload: &structures.ReplyPayload_DataMsg{
+		payload := &structure.ReplyPayload{
+			Payload: &structure.ReplyPayload_DataMsg{
 				DataMsg: msg,
 			},
 		}
 
 		return payload, nil
-	case structures.OpenMessageCode, structures.RenameMessageCode, structures.CreateMessageCode,
-		 structures.RemoveMessageCode, structures.CloseMessageCode, structures.TruncateMessageCode,
-		 structures.FlushMessageCode:
-		payload := &structures.ReplyPayload{}
+	case structure.OpenMessageCode, structure.RenameMessageCode, structure.CreateMessageCode,
+		 structure.RemoveMessageCode, structure.CloseMessageCode, structure.TruncateMessageCode,
+		 structure.FlushMessageCode:
+		payload := &structure.ReplyPayload{}
 		return payload, nil
-	case structures.ReadMessageCode:
+	case structure.ReadMessageCode:
 		rm := payload.GetReadMsg()
 		b := make([]byte, rm.Size)
 		_, err := rand.Read(b)
@@ -60,27 +60,41 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 			return nil, err
 		}
 
-		msg := &structures.DataMessage{
+		msg := &structure.DataMessage{
 			Data: b,
 		}
 
-		payload := &structures.ReplyPayload{
-			Payload: &structures.ReplyPayload_DataMsg{
+		payload := &structure.ReplyPayload{
+			Payload: &structure.ReplyPayload_DataMsg{
 				DataMsg: msg,
 			},
 		}
 
 		return payload, nil
-	case structures.WriteMessageCode:
+	case structure.WriteMessageCode:
 		wm := payload.GetWriteMsg()
 
-		msg := &structures.WriteOkMessage{
+		msg := &structure.WriteOkMessage{
 			Size: uint64(len(wm.GetData())),
 		}
 
-		payload := &structures.ReplyPayload{
-			Payload: &structures.ReplyPayload_WriteOkMsg{
+		payload := &structure.ReplyPayload{
+			Payload: &structure.ReplyPayload_WriteOkMsg{
 				WriteOkMsg: msg,
+			},
+		}
+
+		return payload, nil
+	case structure.AttrMessageCode:
+		msg := &structure.FileInfoMessage{
+			Size: 1000,
+			Mode: 2000,
+			Mtime: 3000,
+		}
+
+		payload := &structure.ReplyPayload{
+			Payload: &structure.ReplyPayload_FileInfoMsg{
+				FileInfoMsg: msg,
 			},
 		}
 
