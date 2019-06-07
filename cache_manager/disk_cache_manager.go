@@ -242,7 +242,7 @@ func (dcm *DiskCacheManager) Open(filePath *structure.RemotePath, flags uint32) 
 
 	}
 
-	dcm.opened.Store(fd, &structure.RemoteFileHandle{
+	dcm.opened.Store(fd, &structure.CacheFileHandle{
 		FilePath: filePath,
 		Fp:       f,
 	})
@@ -293,7 +293,7 @@ func (dcm *DiskCacheManager) Create(dirPath *structure.RemotePath, name string) 
 	}
 
 	dcm.cached.Store(filePath.String(), fname)
-	dcm.opened.Store(fd, &structure.RemoteFileHandle{
+	dcm.opened.Store(fd, &structure.CacheFileHandle{
 		FilePath: filePath,
 		Fp:       f,
 	})
@@ -348,7 +348,7 @@ func (dcm *DiskCacheManager) Close(fd uint64) error {
 
 	if val, ok := dcm.opened.Load(fd); ok {
 
-		fh := val.(*structure.RemoteFileHandle)
+		fh := val.(*structure.CacheFileHandle)
 
 		closeMsg := &structure.CloseMessage{
 			Fd: fd,
@@ -422,7 +422,7 @@ func (dcm *DiskCacheManager) Flush(fd uint64) error {
 
 	if val, ok := dcm.opened.Load(fd); ok {
 
-		fh := val.(*structure.RemoteFileHandle)
+		fh := val.(*structure.CacheFileHandle)
 
 		flushMsg := &structure.FlushMessage{
 			Fd: fd,
@@ -460,7 +460,7 @@ func (dcm *DiskCacheManager) Read(fd uint64, offset uint64, size uint64) ([]byte
 	)
 
 	if val, ok := dcm.opened.Load(fd); ok {
-		fh := val.(*structure.RemoteFileHandle)
+		fh := val.(*structure.CacheFileHandle)
 
 		data := make([]byte, size)
 
@@ -469,9 +469,9 @@ func (dcm *DiskCacheManager) Read(fd uint64, offset uint64, size uint64) ([]byte
 		// Get From Remote
 		if err != nil && err != io.EOF {
 			rm := &structure.ReadMessage{
-				Fd: fd,
+				Fd:     fd,
 				Offset: offset,
-				Size: size,
+				Size:   size,
 			}
 
 			payload := &structure.RequestPayload{
@@ -503,12 +503,12 @@ func (dcm *DiskCacheManager) Write(fd uint64, offset uint64, data []byte) (int, 
 	)
 
 	if val, ok := dcm.opened.Load(fd); ok {
-		fh := val.(*structure.RemoteFileHandle)
+		fh := val.(*structure.CacheFileHandle)
 
 		wm := &structure.WriteMessage{
-			Fd: fd,
+			Fd:     fd,
 			Offset: offset,
-			Data: data,
+			Data:   data,
 		}
 
 		payload := &structure.RequestPayload{
@@ -557,10 +557,50 @@ func (dcm *DiskCacheManager) Attr(filePath *structure.RemotePath) (*structure.Fi
 	}
 
 	fi := &structure.FileInfo{
-		Size: replyPayload.GetFileInfoMsg().GetSize(),
-		Mode: replyPayload.GetFileInfoMsg().GetMode(),
+		Name: replyPayload.GetFileInfoMsg().GetName(),
+		Size:  replyPayload.GetFileInfoMsg().GetSize(),
+		Mode:  replyPayload.GetFileInfoMsg().GetMode(),
 		Mtime: replyPayload.GetFileInfoMsg().GetMtime(),
+		IsDir: replyPayload.GetFileInfoMsg().GetIsDir(),
 	}
 
 	return fi, nil
+}
+
+func (dcm *DiskCacheManager) ReadDir(dirPath *structure.RemotePath) ([]*structure.FileInfo, error) {
+	zap.L().Debug("ReadDir",
+		zap.String("remote-path", dirPath.String()),
+	)
+
+	rdm := &structure.ReadDirMessage{
+		Path: dirPath.Path,
+	}
+
+	payload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_ReadDirMsg{
+			ReadDirMsg: rdm,
+		},
+	}
+
+	replyPayload, err := dcm.Sender.SendRequest(structure.ReadDirMessageCode, dirPath.Address(), payload)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var fileInfos []*structure.FileInfo
+
+	for _, fim := range replyPayload.GetFileInfosMsg().GetFileInfos() {
+		fi := &structure.FileInfo{
+			Name: fim.GetName(),
+			Size:  fim.GetSize(),
+			Mode:  fim.GetMode(),
+			Mtime: fim.GetMtime(),
+			IsDir: fim.GetIsDir(),
+		}
+
+		fileInfos = append(fileInfos, fi)
+	}
+
+	return fileInfos, nil
 }

@@ -130,13 +130,15 @@ func (rp *RemotePath) Address() string {
 	return fmt.Sprintf("%s:%d", rp.Hostname, rp.Port)
 }
 
-type RemoteFileHandle struct {
+type CacheFileHandle struct {
 	FilePath *RemotePath
 	Fp       *os.File
 }
 
 type FileInfo struct {
+	Name  string
 	Size  uint64
 	Mode  uint32
 	Mtime uint64
+	IsDir bool
 }

@@ -21,17 +21,19 @@ import (
 )
 
 type CacheManager interface {
+	Attr(filePath *structure.RemotePath) (*structure.FileInfo, error)
 	Open(path *structure.RemotePath, flags uint32) (uint64, error)
 	Rename(path *structure.RemotePath, dst string) error
 	Truncate(path *structure.RemotePath, size uint64) error
 	Create(dirPath *structure.RemotePath, name string) (uint64, error)
 	Remove(path *structure.RemotePath) error
+	ReadDir(path *structure.RemotePath) ([]*structure.FileInfo, error)
 
 	// fd functions
 	Read(fd uint64, offset uint64, size uint64) ([]byte, error)
 	Write(fd uint64, offset uint64, data []byte) (int, error)
-	Close(fd uint64)
-	Flush(fd uint64)
+	Close(fd uint64) error
+	Flush(fd uint64) error
 
 	Run(path string, size uint64)
 }

@@ -28,6 +28,7 @@ const FlushMessageCode = RequestCodeBase + 8
 const ReadMessageCode = RequestCodeBase + 9
 const WriteMessageCode = RequestCodeBase + 10
 const AttrMessageCode = RequestCodeBase + 11
+const ReadDirMessageCode = RequestCodeBase + 12
 
 const ReplyCodeBase = 100
 const OkMessageCode = ReplyCodeBase + 1
@@ -35,5 +36,6 @@ const ErrMessageCode = ReplyCodeBase + 2
 const DataMessageCode = ReplyCodeBase + 3
 const WriteOkMessageCode = ReplyCodeBase + 4
 const FileInfoMessageCode = ReplyCodeBase + 5
+const FileInfosMessageCode = ReplyCodeBase + 6
 
 const ChannelLength = 1000

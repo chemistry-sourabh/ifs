@@ -1,14 +1,14 @@
 mount_point: /tmp/fs_root
 cache_location: /tmp/fs_cache
 remote_roots:
-  - hostname: localhost
+  - hostname: 127.0.0.1
     port: 8000
     paths:
       - /tmp/fs_remote_root
-  - hostname: localhost2
-    port: 8001
-    paths:
-      - /tmp/fs_remote_root2
+#  - hostname: localhost2
+#    port: 8001
+#    paths:
+#      - /tmp/fs_remote_root2
 log:
   logging: true
   console: true

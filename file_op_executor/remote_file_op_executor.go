@@ -363,12 +363,46 @@ func (foe *RemoteFileOpExecutor) attr(req *structure.AttrMessage) (*structure.Fi
 	}
 
 	fim := &structure.FileInfoMessage{
+		Name: fi.Name(),
 		Size: uint64(fi.Size()),
 		Mode: uint32(fi.Mode()),
 		Mtime: uint64(fi.ModTime().UnixNano()),
+		IsDir: fi.IsDir(),
 	}
 
 	return fim, nil
+}
+
+func (foe *RemoteFileOpExecutor) readDir(req *structure.ReadDirMessage) (*structure.FileInfosMessage, error) {
+	zap.L().Debug("Processing ReadDir Message",
+		zap.String("Path", req.GetPath()),
+	)
+
+	fileInfos, err := ioutil.ReadDir(req.GetPath())
+
+	if err != nil {
+		return nil, err
+	}
+
+	var fileInfoMessages []*structure.FileInfoMessage
+
+	for _, fi := range fileInfos {
+		fim := &structure.FileInfoMessage {
+			Name: fi.Name(),
+			Size: uint64(fi.Size()),
+			Mode: uint32(fi.Mode()),
+			Mtime: uint64(fi.ModTime().UnixNano()),
+			IsDir: fi.IsDir(),
+		}
+
+		fileInfoMessages = append(fileInfoMessages, fim)
+	}
+
+	fileInfosMessage := &structure.FileInfosMessage{
+		FileInfos: fileInfoMessages,
+	}
+
+	return fileInfosMessage, nil
 }
 
 func (foe *RemoteFileOpExecutor) Process() {
@@ -514,6 +548,36 @@ func (foe *RemoteFileOpExecutor) Process() {
 					}
 
 					replyType = structure.FileInfoMessageCode
+
+				}
+
+				err = foe.Receiver.SendReply(id, replyType, reply)
+
+				if err != nil {
+					zap.L().Warn("Failed to Send Reply",
+						zap.Uint64("id", id),
+						zap.Uint32("payloadType", payloadType),
+						zap.Error(err),
+					)
+				}
+			}()
+		case structure.ReadDirMessageCode:
+			go func() {
+				payload, err := foe.readDir(req.GetReadDirMsg())
+
+				var reply *structure.ReplyPayload
+				var replyType uint32 = structure.ErrMessageCode
+				if err != nil {
+					reply = foe.createErrMsg(err)
+				} else {
+
+					reply = &structure.ReplyPayload{
+						Payload: &structure.ReplyPayload_FileInfosMsg{
+							FileInfosMsg: payload,
+						},
+					}
+
+					replyType = structure.FileInfosMessageCode
 
 				}
 

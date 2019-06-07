@@ -47,8 +47,8 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 
 		return payload, nil
 	case structure.OpenMessageCode, structure.RenameMessageCode, structure.CreateMessageCode,
-		 structure.RemoveMessageCode, structure.CloseMessageCode, structure.TruncateMessageCode,
-		 structure.FlushMessageCode:
+		structure.RemoveMessageCode, structure.CloseMessageCode, structure.TruncateMessageCode,
+		structure.FlushMessageCode:
 		payload := &structure.ReplyPayload{}
 		return payload, nil
 	case structure.ReadMessageCode:
@@ -87,14 +87,41 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 		return payload, nil
 	case structure.AttrMessageCode:
 		msg := &structure.FileInfoMessage{
-			Size: 1000,
-			Mode: 2000,
+			Size:  1000,
+			Mode:  2000,
 			Mtime: 3000,
 		}
 
 		payload := &structure.ReplyPayload{
 			Payload: &structure.ReplyPayload_FileInfoMsg{
 				FileInfoMsg: msg,
+			},
+		}
+
+		return payload, nil
+
+	case structure.ReadDirMessageCode:
+		msg1 := &structure.FileInfoMessage{
+			Size:  1000,
+			Mode:  2000,
+			Mtime: 3000,
+			IsDir: false,
+		}
+
+		msg2 := &structure.FileInfoMessage{
+			Size:  4000,
+			Mode:  5000,
+			Mtime: 6000,
+			IsDir: false,
+		}
+
+		msg := &structure.FileInfosMessage{
+			FileInfos: []*structure.FileInfoMessage{msg1, msg2},
+		}
+
+		payload := &structure.ReplyPayload{
+			Payload: &structure.ReplyPayload_FileInfosMsg{
+				FileInfosMsg: msg,
 			},
 		}
 

@@ -1,0 +1,7 @@
+address: 127.0.0.1
+port: 8000
+log:
+    logging: true
+    debug: true
+    console: true
+    path: /tmp/agent.log

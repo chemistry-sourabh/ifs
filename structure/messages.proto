@@ -15,6 +15,7 @@ message RequestPayload {
         ReadMessage readMsg = 9;
         WriteMessage writeMsg = 10;
         AttrMessage attrMsg = 11;
+        ReadDirMessage readDirMsg = 12;
     }
 }
 
@@ -24,6 +25,7 @@ message ReplyPayload {
         DataMessage dataMsg = 2;
         WriteOkMessage writeOkMsg = 3;
         FileInfoMessage fileInfoMsg = 4;
+        FileInfosMessage fileInfosMsg = 5;
     }
 }
 
@@ -106,7 +108,17 @@ message AttrMessage {
 }
 
 message FileInfoMessage {
-    uint64 size = 1;
-    uint32 mode = 2;
-    uint64 mtime = 3;
+    string name = 1;
+    uint64 size = 2;
+    uint32 mode = 3;
+    uint64 mtime = 4;
+    bool isDir = 5;
+}
+
+message ReadDirMessage {
+    string path = 1;
+}
+
+message FileInfosMessage {
+    repeated FileInfoMessage fileInfos = 1;
 }
