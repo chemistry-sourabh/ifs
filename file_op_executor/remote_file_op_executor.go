@@ -401,12 +401,13 @@ func (foe *RemoteFileOpExecutor) attr(req *structure.AttrMessage) (*structure.Fi
 		return nil, err
 	}
 
+	// TODO Get Atime in a platform independent way
 	fim := &structure.FileInfoMessage{
 		Name: fi.Name(),
 		Size: uint64(fi.Size()),
 		Mode: uint32(fi.Mode()),
 		Mtime: uint64(fi.ModTime().UnixNano()),
-		Atime: uint64(fi.Sys().(*syscall.Stat_t).Atimespec.Nsec),
+		Atime: uint64(fi.ModTime().UnixNano()),
 		IsDir: fi.IsDir(),
 	}
 

@@ -368,18 +368,17 @@ func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, res
 	return nil
 }
 
-//// TODO Remove Fsync
-//func (rn *RemoteNode) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
-//
-//	zap.L().Debug("Fsync FS Request",
-//		zap.String("op", "fsync"),
-//		zap.String("address", rn.RemotePath.Address()),
-//		zap.String("path", rn.RemotePath.Path),
-//	)
-//
-//	return nil
-//}
-//
+func (rn *RemoteNode) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+
+	zap.L().Debug("Fsync FS Request",
+		zap.String("op", "fsync"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+	)
+
+	return nil
+}
+
 func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
 
 	zap.L().Debug("Create FS Request",

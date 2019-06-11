@@ -1,5 +1,5 @@
 mount_point: /tmp/fs_root
-cache_location: /tmp/fs_cache
+cache_path: /tmp/fs_cache
 remote_roots:
   - hostname: 127.0.0.1
     port: 8000
