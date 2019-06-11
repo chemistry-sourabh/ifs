@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Use Packet
@@ -183,10 +184,9 @@ func (dcm *DiskCacheManager) Rename(remotePath *structure.RemotePath, dst string
 		dcm.cached.Store(dstRemotePath.String(), fname)
 		dcm.cached.Delete(remotePath.String())
 
-		return nil
 	}
 
-	return os.ErrInvalid
+	return nil
 }
 
 func (dcm *DiskCacheManager) Open(filePath *structure.RemotePath, flags uint32) (uint64, error) {
@@ -301,14 +301,42 @@ func (dcm *DiskCacheManager) Create(dirPath *structure.RemotePath, name string) 
 	return fd, nil
 }
 
-func (dcm *DiskCacheManager) Remove(filePath *structure.RemotePath) error {
+func (dcm *DiskCacheManager) Mkdir(dirPath *structure.RemotePath, name string) error {
+	zap.L().Debug("Mkdir",
+		zap.String("base-dir", dirPath.String()),
+		zap.String("name", name),
+	)
+
+	mkdirMsg := &structure.MkdirMessage{
+		BaseDir: dirPath.Path,
+		Name:    name,
+	}
+
+	payload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_MkdirMsg{
+			MkdirMsg: mkdirMsg,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structure.MkdirMessageCode, dirPath.Address(), payload)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dcm *DiskCacheManager) Remove(filePath *structure.RemotePath, isDir bool) error {
 
 	zap.L().Debug("Remove",
 		zap.String("remote-path", filePath.String()),
+		zap.Bool("is-dir", isDir),
 	)
 
 	removeMsg := &structure.RemoveMessage{
-		Path: filePath.Path,
+		Path:  filePath.Path,
+		IsDir: isDir,
 	}
 
 	payload := &structure.RequestPayload{
@@ -324,7 +352,7 @@ func (dcm *DiskCacheManager) Remove(filePath *structure.RemotePath) error {
 	}
 
 	// TODO Think About keeping stuff in sync
-	if val, ok := dcm.cached.Load(filePath.String()); ok {
+	if val, ok := dcm.cached.Load(filePath.String()); ok && !isDir {
 
 		fname := val.(string)
 
@@ -495,7 +523,7 @@ func (dcm *DiskCacheManager) Read(fd uint64, offset uint64, size uint64) ([]byte
 	return nil, os.ErrInvalid
 }
 
-func (dcm *DiskCacheManager) Write(fd uint64, offset uint64, data []byte) (int, error) {
+func (dcm *DiskCacheManager) Write(fd uint64, offset uint64, data []byte) (int, uint64, error) {
 	zap.L().Debug("Write",
 		zap.Uint64("fd", fd),
 		zap.Uint64("offset", offset),
@@ -520,19 +548,19 @@ func (dcm *DiskCacheManager) Write(fd uint64, offset uint64, data []byte) (int, 
 		replyPayload, err := dcm.Sender.SendRequest(structure.WriteMessageCode, fh.FilePath.Address(), payload)
 
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 
 		_, err = fh.Fp.WriteAt(data, int64(offset))
 
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 
-		return int(replyPayload.GetWriteOkMsg().GetSize()), err
+		return int(replyPayload.GetWriteOkMsg().GetSize()), replyPayload.GetWriteOkMsg().GetFileSize(), err
 	}
 
-	return 0, os.ErrInvalid
+	return 0, 0, os.ErrInvalid
 }
 
 func (dcm *DiskCacheManager) Attr(filePath *structure.RemotePath) (*structure.FileInfo, error) {
@@ -557,10 +585,11 @@ func (dcm *DiskCacheManager) Attr(filePath *structure.RemotePath) (*structure.Fi
 	}
 
 	fi := &structure.FileInfo{
-		Name: replyPayload.GetFileInfoMsg().GetName(),
+		Name:  replyPayload.GetFileInfoMsg().GetName(),
 		Size:  replyPayload.GetFileInfoMsg().GetSize(),
 		Mode:  replyPayload.GetFileInfoMsg().GetMode(),
 		Mtime: replyPayload.GetFileInfoMsg().GetMtime(),
+		Atime: replyPayload.GetFileInfoMsg().GetAtime(),
 		IsDir: replyPayload.GetFileInfoMsg().GetIsDir(),
 	}
 
@@ -592,10 +621,11 @@ func (dcm *DiskCacheManager) ReadDir(dirPath *structure.RemotePath) ([]*structur
 
 	for _, fim := range replyPayload.GetFileInfosMsg().GetFileInfos() {
 		fi := &structure.FileInfo{
-			Name: fim.GetName(),
+			Name:  fim.GetName(),
 			Size:  fim.GetSize(),
 			Mode:  fim.GetMode(),
 			Mtime: fim.GetMtime(),
+			Atime: fim.GetAtime(),
 			IsDir: fim.GetIsDir(),
 		}
 
@@ -603,4 +633,58 @@ func (dcm *DiskCacheManager) ReadDir(dirPath *structure.RemotePath) ([]*structur
 	}
 
 	return fileInfos, nil
+}
+
+func (dcm *DiskCacheManager) SetMode(filePath *structure.RemotePath, mode uint32) error {
+	zap.L().Debug("SetMode",
+		zap.String("remote-filePath", filePath.String()),
+		zap.String("mode", os.FileMode(mode).String()),
+	)
+
+	setModeMessage := &structure.SetModeMessage{
+		Path: filePath.Path,
+		Mode: mode,
+	}
+
+	payload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_SetModeMsg{
+			SetModeMsg: setModeMessage,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structure.SetModeMessageCode, filePath.Address(), payload)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dcm *DiskCacheManager) SetMtime(filePath *structure.RemotePath, mtime uint64, atime uint64) error {
+	zap.L().Debug("SetMtime",
+		zap.String("remote-filePath", filePath.String()),
+		zap.String("mtime", time.Unix(0, int64(mtime)).String()),
+		zap.String("atime", time.Unix(0, int64(atime)).String()),
+	)
+
+	setMtimeMessage := &structure.SetMtimeMessage{
+		Path:  filePath.Path,
+		Mtime: mtime,
+		Atime: atime,
+	}
+
+	payload := &structure.RequestPayload{
+		Payload: &structure.RequestPayload_SetMtimeMsg{
+			SetMtimeMsg: setMtimeMessage,
+		},
+	}
+
+	_, err := dcm.Sender.SendRequest(structure.SetMtimeMessageCode, filePath.Address(), payload)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

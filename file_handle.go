@@ -80,7 +80,7 @@ func (fh *FileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *f
 		zap.Int("size", len(req.Data)),
 	)
 
-	n, err := fh.RemoteNode.CacheManager.Write(fh.Fd, uint64(req.Offset), req.Data)
+	n, size, err := fh.RemoteNode.CacheManager.Write(fh.Fd, uint64(req.Offset), req.Data)
 
 	if err != nil {
 
@@ -97,6 +97,7 @@ func (fh *FileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *f
 	}
 
 	resp.Size = n
+	fh.RemoteNode.Size = size
 	return nil
 }
 

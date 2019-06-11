@@ -24,6 +24,8 @@ import (
 	"os"
 	"path"
 	"sync"
+	"syscall"
+	"time"
 )
 
 type RemoteFileOpExecutor struct {
@@ -151,9 +153,30 @@ func (foe *RemoteFileOpExecutor) create(req *structure.CreateMessage) error {
 	return nil
 }
 
+func (foe *RemoteFileOpExecutor) mkdir(req *structure.MkdirMessage) error {
+	filePath := path.Join(req.GetBaseDir(), req.GetName())
+
+	zap.L().Debug("Processing Mkdir Message",
+		zap.String("path", filePath),
+	)
+
+	err := os.Mkdir(filePath, os.FileMode(0755))
+	if err != nil {
+
+		zap.L().Error("Mkdir Error",
+			zap.String("path", filePath),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	return nil
+}
+
 func (foe *RemoteFileOpExecutor) remove(req *structure.RemoveMessage) error {
 	zap.L().Debug("Processing Remove Message",
 		zap.String("path", req.GetPath()),
+		zap.Bool("is-dir", req.GetIsDir()),
 	)
 
 	err := os.Remove(req.GetPath())
@@ -328,7 +351,7 @@ func (foe *RemoteFileOpExecutor) write(req *structure.WriteMessage) (*structure.
 
 	if err != nil {
 
-		zap.L().Error("Read Error",
+		zap.L().Error("Write Error",
 			zap.Uint64("fd", req.GetFd()),
 			zap.Uint64("offset", req.GetOffset()),
 			zap.Uint64("size", uint64(len(req.GetData()))),
@@ -338,8 +361,24 @@ func (foe *RemoteFileOpExecutor) write(req *structure.WriteMessage) (*structure.
 		return nil, err
 	}
 
+	fi, err := f.Stat()
+
+	if err != nil {
+
+		zap.L().Error("Write Error",
+			zap.Uint64("fd", req.GetFd()),
+			zap.Uint64("offset", req.GetOffset()),
+			zap.Uint64("size", uint64(len(req.GetData()))),
+			zap.Error(err),
+		)
+
+		return nil, err
+	}
+
+
 	wm := &structure.WriteOkMessage{
 		Size: uint64(size),
+		FileSize: uint64(fi.Size()),
 	}
 
 	return wm, nil
@@ -367,6 +406,7 @@ func (foe *RemoteFileOpExecutor) attr(req *structure.AttrMessage) (*structure.Fi
 		Size: uint64(fi.Size()),
 		Mode: uint32(fi.Mode()),
 		Mtime: uint64(fi.ModTime().UnixNano()),
+		Atime: uint64(fi.Sys().(*syscall.Stat_t).Atimespec.Nsec),
 		IsDir: fi.IsDir(),
 	}
 
@@ -392,6 +432,7 @@ func (foe *RemoteFileOpExecutor) readDir(req *structure.ReadDirMessage) (*struct
 			Size: uint64(fi.Size()),
 			Mode: uint32(fi.Mode()),
 			Mtime: uint64(fi.ModTime().UnixNano()),
+			Atime: uint64(fi.Sys().(*syscall.Stat_t).Atimespec.Nsec),
 			IsDir: fi.IsDir(),
 		}
 
@@ -403,6 +444,52 @@ func (foe *RemoteFileOpExecutor) readDir(req *structure.ReadDirMessage) (*struct
 	}
 
 	return fileInfosMessage, nil
+}
+
+func (foe *RemoteFileOpExecutor) setMode(req *structure.SetModeMessage) error {
+	zap.L().Debug("Processing SetMode Message",
+		zap.String("path", req.GetPath()),
+		zap.String("mode", os.FileMode(req.GetMode()).String()),
+	)
+
+	err := os.Chmod(req.GetPath(), os.FileMode(req.GetMode()))
+
+	if err != nil {
+
+		zap.L().Error("SetMode Error",
+			zap.String("path", req.GetPath()),
+			zap.String("mode", os.FileMode(req.GetMode()).String()),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	return nil
+}
+
+func (foe *RemoteFileOpExecutor) setMtime(req *structure.SetMtimeMessage) error {
+	zap.L().Debug("Processing SetMtime Message",
+		zap.String("path", req.GetPath()),
+		zap.String("mtime", time.Unix(0, int64(req.GetMtime())).String()),
+		zap.String("atime", time.Unix(0, int64(req.GetAtime())).String()),
+	)
+
+	err := os.Chtimes(req.GetPath(), time.Unix(0, int64(req.GetAtime())), time.Unix(0, int64(req.GetMtime())))
+
+	if err != nil {
+
+		zap.L().Error("SetMtime Error",
+			zap.String("path", req.GetPath()),
+			zap.String("mtime", time.Unix(0, int64(req.GetMtime())).String()),
+			zap.String("atime", time.Unix(0, int64(req.GetAtime())).String()),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	return nil
 }
 
 func (foe *RemoteFileOpExecutor) Process() {
@@ -460,7 +547,8 @@ func (foe *RemoteFileOpExecutor) Process() {
 
 		case structure.OpenMessageCode, structure.RenameMessageCode, structure.CreateMessageCode,
 			structure.RemoveMessageCode, structure.CloseMessageCode, structure.TruncateMessageCode,
-			structure.FlushMessageCode:
+			structure.FlushMessageCode, structure.MkdirMessageCode, structure.SetModeMessageCode,
+			structure.SetMtimeMessageCode:
 			go func() {
 				var err error
 				switch payloadType {
@@ -478,6 +566,12 @@ func (foe *RemoteFileOpExecutor) Process() {
 					err = foe.truncate(req.GetTruncateMsg())
 				case structure.FlushMessageCode:
 					err = foe.flush(req.GetFlushMsg())
+				case structure.MkdirMessageCode:
+					err = foe.mkdir(req.GetMkdirMsg())
+				case structure.SetModeMessageCode:
+					err = foe.setMode(req.GetSetModeMsg())
+				case structure.SetMtimeMessageCode:
+					err = foe.setMtime(req.GetSetMtimeMsg())
 				}
 
 				var reply *structure.ReplyPayload

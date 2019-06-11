@@ -30,6 +30,34 @@ import (
 	"time"
 )
 
+func PrintTestError(t *testing.T, message string, got interface{}, want interface{}) {
+	t.Errorf("%s, got: %s, want %s", message, got, want)
+}
+
+func CreateTempDir(name string) {
+	fPath := path.Join("/tmp", name)
+	os.MkdirAll(fPath, 0755)
+}
+
+func CreateTestConfig() {
+
+}
+
+func WriteDummyDataToPath(fullPath string, size int) []byte {
+	data := make([]byte, size)
+	binary.Read(rand.Reader, binary.LittleEndian, &data)
+	ioutil.WriteFile(fullPath, data, 0666)
+	return data
+}
+
+func DefaultPerm() int {
+	if runtime.GOOS == "darwin" {
+		return 0644
+	} else {
+		return 0664
+	}
+}
+
 func Compare(t *testing.T, got interface{}, want interface{}) {
 	if !cmp.Equal(got, want) {
 		_, file, line, _ := runtime.Caller(1)

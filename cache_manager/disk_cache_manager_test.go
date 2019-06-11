@@ -324,6 +324,7 @@ func TestDiskCacheManager_Create2(t *testing.T) {
 	foe.Receiver.Unbind()
 }
 
+// TODO Add Case for Removing Dir
 func TestDiskCacheManager_Remove(t *testing.T) {
 	ifstest.SetupLogger()
 	cachePath := "/tmp/test_cache"
@@ -353,7 +354,7 @@ func TestDiskCacheManager_Remove(t *testing.T) {
 		Path:     "/tmp/test",
 	}
 
-	err = dcm.Remove(filePath)
+	err = dcm.Remove(filePath, false)
 
 	_, err = os.Stat(path.Join(cachePath, "1"))
 	ifstest.Err(t, err)
@@ -399,7 +400,7 @@ func TestDiskCacheManager_Remove2(t *testing.T) {
 		Path:     "/tmp/test",
 	}
 
-	err = dcm.Remove(filePath)
+	err = dcm.Remove(filePath, false)
 
 	_, err = os.Stat("/tmp/test")
 	ifstest.Err(t, err)
@@ -776,10 +777,11 @@ func TestDiskCacheManager_Write(t *testing.T) {
 	_, err = rand.Read(data)
 
 
-	size, err := dcm.Write(fd, uint64(0), data)
+	size, fileSize, err := dcm.Write(fd, uint64(0), data)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, size, 1000)
+	ifstest.Compare(t, fileSize, uint64(1000))
 
 	val, _ := dcm.opened.Load(fd)
 	fh := val.(*structure.CacheFileHandle)
@@ -827,10 +829,11 @@ func TestDiskCacheManager_Write2(t *testing.T) {
 	_, err = rand.Read(data)
 	ifstest.Ok(t, err)
 
-	size, err := dcm.Write(fd, uint64(0), data)
+	size, fileSize, err := dcm.Write(fd, uint64(0), data)
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, size, 1000)
+	ifstest.Compare(t, fileSize, uint64(1000))
 
 	val, _ := dcm.opened.Load(fd)
 	fh := val.(*structure.CacheFileHandle)

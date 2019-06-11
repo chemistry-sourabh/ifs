@@ -76,6 +76,7 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 
 		msg := &structure.WriteOkMessage{
 			Size: uint64(len(wm.GetData())),
+			FileSize: uint64(len(wm.GetData())),
 		}
 
 		payload := &structure.ReplyPayload{

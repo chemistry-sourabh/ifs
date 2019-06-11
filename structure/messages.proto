@@ -8,14 +8,17 @@ message RequestPayload {
         RenameMessage renameMsg = 2;
         OpenMessage openMsg = 3;
         CreateMessage createMsg = 4;
-        RemoveMessage removeMsg = 5;
-        CloseMessage closeMsg = 6;
-        TruncateMessage truncateMsg = 7;
-        FlushMessage flushMsg = 8;
-        ReadMessage readMsg = 9;
-        WriteMessage writeMsg = 10;
-        AttrMessage attrMsg = 11;
-        ReadDirMessage readDirMsg = 12;
+        MkdirMessage mkdirMsg = 5;
+        RemoveMessage removeMsg = 6;
+        CloseMessage closeMsg = 7;
+        TruncateMessage truncateMsg = 8;
+        FlushMessage flushMsg = 9;
+        ReadMessage readMsg = 10;
+        WriteMessage writeMsg = 11;
+        AttrMessage attrMsg = 12;
+        ReadDirMessage readDirMsg = 13;
+        SetModeMessage setModeMsg = 14;
+        SetMtimeMessage setMtimeMsg = 15;
     }
 }
 
@@ -70,8 +73,14 @@ message CreateMessage {
     string name = 3;
 }
 
+message MkdirMessage {
+    string baseDir = 1;
+    string name = 2;
+}
+
 message RemoveMessage {
     string path = 1;
+    bool isDir = 2;
 }
 
 message CloseMessage {
@@ -101,6 +110,7 @@ message WriteMessage {
 
 message WriteOkMessage {
     uint64 size = 1;
+    uint64 fileSize = 2;
 }
 
 message AttrMessage {
@@ -112,7 +122,8 @@ message FileInfoMessage {
     uint64 size = 2;
     uint32 mode = 3;
     uint64 mtime = 4;
-    bool isDir = 5;
+    uint64 atime = 5;
+    bool isDir = 6;
 }
 
 message ReadDirMessage {
@@ -121,4 +132,15 @@ message ReadDirMessage {
 
 message FileInfosMessage {
     repeated FileInfoMessage fileInfos = 1;
+}
+
+message SetModeMessage {
+    string path = 1;
+    uint32 mode = 2;
+}
+
+message SetMtimeMessage {
+    string path = 1;
+    uint64 mtime = 2;
+    uint64 atime = 3;
 }

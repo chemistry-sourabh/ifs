@@ -104,6 +104,7 @@ func MountRemoteRoots(cfg *FsConfig) {
 	comm := communicator.NewFsZmqSender("127.0.0.1:5000")
 	comm.Connect(addresses)
 	cache := cache_manager.NewDiskCacheManager()
+	cache.Path = cfg.CachePath
 	cache.Sender = comm
 	root := NewRoot(cfg.RemoteRoots,cache)
 	//Ifs().Connect(cfg.RemoteRoots)

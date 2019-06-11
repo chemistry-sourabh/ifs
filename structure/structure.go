@@ -140,5 +140,6 @@ type FileInfo struct {
 	Size  uint64
 	Mode  uint32
 	Mtime uint64
+	Atime uint64
 	IsDir bool
 }

@@ -39,6 +39,7 @@ type RemoteNode struct {
 	Size     uint64
 	Mode     os.FileMode
 	Mtime    time.Time
+	Atime    time.Time
 	// TODO Add Atime also
 
 	// Children
@@ -79,11 +80,13 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 			zap.String("mode", os.FileMode(fi.Mode).String()),
 			zap.Uint64("size", fi.Size),
 			zap.Time("mtime", time.Unix(0, int64(fi.Mtime))),
+			zap.Time("atime", time.Unix(0, int64(fi.Atime))),
 		)
 
 		rn.Size = fi.Size
 		rn.Mode = os.FileMode(fi.Mode)
 		rn.Mtime = time.Unix(0, int64(fi.Mtime))
+		rn.Atime = time.Unix(0, int64(fi.Atime))
 		rn.IsCached = true
 
 	}
@@ -100,6 +103,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Size = rn.Size
 	attr.Mode = rn.Mode
 	attr.Mtime = rn.Mtime
+	attr.Atime = rn.Atime
 	attr.Valid = time.Duration(-1)
 
 	zap.L().Debug("Attr Response",
@@ -109,6 +113,7 @@ func (rn *RemoteNode) Attr(ctx context.Context, attr *fuse.Attr) error {
 		zap.String("mode", rn.Mode.String()),
 		zap.Uint64("size", rn.Size),
 		zap.Time("mtime", rn.Mtime),
+		zap.Time("atime", rn.Atime),
 	)
 
 	return nil
@@ -125,7 +130,7 @@ func (rn *RemoteNode) generateChildRemoteNode(name string, isDir bool) *RemoteNo
 			Port:     rn.RemotePath.Port,
 			Path:     path.Join(rn.RemotePath.Path, name),
 		},
-		RemoteNodes: &sync.Map{},
+		RemoteNodes:  &sync.Map{},
 		CacheManager: rn.CacheManager,
 	}
 }
@@ -169,6 +174,7 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() error {
 			zap.Uint64("size", fileInfo.Size),
 			zap.String("mode", os.FileMode(fileInfo.Mode).String()),
 			zap.Time("mtime", time.Unix(0, int64(fileInfo.Mtime))),
+			zap.Time("atime", time.Unix(0, int64(fileInfo.Atime))),
 		)
 
 		// TODO Remove Remote Nodes if Missing
@@ -183,7 +189,9 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() error {
 		}
 
 		mtime := time.Unix(0, int64(fileInfo.Mtime))
+		atime := time.Unix(0, int64(fileInfo.Atime))
 
+		// TODO Fix this
 		if ok && mtime != fileNode.Mtime {
 			//Hoarder().CacheFetch(rn.RemotePath)
 		}
@@ -192,6 +200,7 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() error {
 		fileNode.Mode = os.FileMode(fileInfo.Mode)
 		fileNode.IsCached = true
 		fileNode.Mtime = mtime
+		fileNode.Atime = atime
 		fileNodes.Store(fileInfo.Name, fileNode)
 		//rn.RemoteNodes[fileInfo.Name] = fileNode
 	}
@@ -274,73 +283,91 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 
 }
 
-//
-//func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
-//	// TODO Add other attributes
-//
-//	zap.L().Debug("SetAttr FS Request",
-//		zap.String("op", "setattr"),
-//		zap.String("address", rn.RemotePath.Address()),
-//		zap.String("path", rn.RemotePath.Path),
-//		zap.String("valid", req.Valid.String()),
-//		zap.Uint64("size", req.Size),
-//		zap.String("mode", req.Mode.String()),
-//		zap.Time("atime", req.Atime),
-//		zap.Time("mtime", req.Mtime),
-//	)
-//
-//	attrInfo := &AttrInfo{
-//		Path:  rn.RemotePath.Path,
-//		Valid: req.Valid,
-//		Size:  req.Size,
-//		Mode:  req.Mode,
-//		ATime: req.Atime.UnixNano(),
-//		MTime: req.Mtime.UnixNano(),
-//	}
-//
-//	var err error
-//	if req.Valid.Size() {
-//		err = FileHandler().Truncate(rn.RemotePath, attrInfo)
-//
-//		if err == nil {
-//			rn.Size = req.Size
-//		}
-//
-//	} else {
-//		//resp := Talker().sendRequest(SetAttrRequest, rn.RemotePath.Hostname, attrInfo)
-//		//if respErr, ok := resp.Data.(Error); ok {
-//		//	err = respErr.Err
-//		//}
-//
-//		if err == nil {
-//
-//			if req.Valid.Mode() {
-//				rn.Mode = req.Mode
-//			} else if req.Valid.Mtime() {
-//				rn.Mtime = req.Mtime
-//			}
-//
-//		}
-//	}
-//
-//	if err != nil {
-//
-//		zap.L().Warn("SetAttr Error Response",
-//			zap.String("op", "setattr"),
-//			zap.String("address", rn.RemotePath.Address()),
-//			zap.String("path", rn.RemotePath.Path),
-//			zap.String("valid", req.Valid.String()),
-//			zap.Uint64("size", req.Size),
-//			zap.String("mode", req.Mode.String()),
-//			zap.Time("atime", req.Atime),
-//			zap.Time("mtime", req.Mtime),
-//			zap.Error(err),
-//		)
-//	}
-//
-//	return err
-//}
-//
+func (rn *RemoteNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	// TODO Add other attributes
+
+	zap.L().Debug("SetAttr FS Request",
+		zap.String("op", "setattr"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("valid", req.Valid.String()),
+		zap.Uint64("size", req.Size),
+		zap.String("mode", req.Mode.String()),
+		zap.Time("atime", req.Atime),
+		zap.Time("mtime", req.Mtime),
+	)
+
+	if req.Valid.Size() {
+		err := rn.CacheManager.Truncate(rn.RemotePath, req.Size)
+
+		if err != nil {
+
+			zap.L().Warn("SetAttr Error Response",
+				zap.String("op", "setattr"),
+				zap.String("address", rn.RemotePath.Address()),
+				zap.String("path", rn.RemotePath.Path),
+				zap.String("valid", req.Valid.String()),
+				zap.Uint64("size", req.Size),
+				zap.String("mode", req.Mode.String()),
+				zap.Time("atime", req.Atime),
+				zap.Time("mtime", req.Mtime),
+				zap.Error(err),
+			)
+
+			return err
+		}
+
+		rn.Size = req.Size
+
+	} else if req.Valid.Mode() {
+
+		err := rn.CacheManager.SetMode(rn.RemotePath, uint32(req.Mode))
+
+		if err != nil {
+
+			zap.L().Warn("SetAttr Error Response",
+				zap.String("op", "setattr"),
+				zap.String("address", rn.RemotePath.Address()),
+				zap.String("path", rn.RemotePath.Path),
+				zap.String("valid", req.Valid.String()),
+				zap.Uint64("size", req.Size),
+				zap.String("mode", req.Mode.String()),
+				zap.Time("atime", req.Atime),
+				zap.Time("mtime", req.Mtime),
+				zap.Error(err),
+			)
+
+			return err
+		}
+
+		rn.Mode = req.Mode
+	} else if req.Valid.Mtime() || req.Valid.Atime() {
+
+		err := rn.CacheManager.SetMtime(rn.RemotePath, uint64(req.Mtime.UnixNano()), uint64(req.Atime.UnixNano()))
+
+		if err != nil {
+
+			zap.L().Warn("SetAttr Error Response",
+				zap.String("op", "setattr"),
+				zap.String("address", rn.RemotePath.Address()),
+				zap.String("path", rn.RemotePath.Path),
+				zap.String("valid", req.Valid.String()),
+				zap.Uint64("size", req.Size),
+				zap.String("mode", req.Mode.String()),
+				zap.Time("atime", req.Atime),
+				zap.Time("mtime", req.Mtime),
+				zap.Error(err),
+			)
+
+			return err
+		}
+
+		rn.Mtime = req.Mtime
+	}
+
+	return nil
+}
+
 //// TODO Remove Fsync
 //func (rn *RemoteNode) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 //
@@ -353,149 +380,154 @@ func (rn *RemoteNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 //	return nil
 //}
 //
-//func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
-//
-//	zap.L().Debug("Create FS Request",
-//		zap.String("op", "create"),
-//		zap.String("address", rn.RemotePath.Address()),
-//		zap.String("path", rn.RemotePath.Path),
-//		zap.String("name", req.Name),
-//	)
-//
-//	// Create File Remotely
-//	// Create File in Cache if Space is available
-//	// File should be in open state
-//	// Return Errors
-//	fd, err := FileHandler().Create(rn.RemotePath, req.Name)
-//	if err == nil {
-//		newRn := rn.generateChildRemoteNode(req.Name, false)
-//		rn.RemoteNodes.Set(req.Name, newRn)
-//
-//		fh := &FileHandle{
-//			Fd: fd,
-//			RemoteNode:     newRn,
-//		}
-//
-//		return newRn, fh, nil
-//	} else {
-//
-//		zap.L().Warn("Create Error Response",
-//			zap.String("op", "create"),
-//			zap.String("address", rn.RemotePath.Address()),
-//			zap.String("path", rn.RemotePath.Path),
-//			zap.String("name", req.Name),
-//			zap.Error(err),
-//		)
-//
-//	}
-//
-//	return nil, nil, err
-//}
-//
-//func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
-//
-//	zap.L().Debug("Mkdir FS Request",
-//		zap.String("op", "mkdir"),
-//		zap.String("address", rn.RemotePath.Address()),
-//		zap.String("path", rn.RemotePath.Path),
-//		zap.String("name", req.Name),
-//	)
-//
-//	err := FileHandler().Mkdir(rn.RemotePath, req.Name)
-//
-//	if err == nil {
-//		newRn := rn.generateChildRemoteNode(req.Name, true)
-//		rn.RemoteNodes.Set(req.Name, newRn)
-//		return newRn, nil
-//	} else {
-//
-//		zap.L().Warn("Mkdir FS Response",
-//			zap.String("op", "mkdir"),
-//			zap.String("address", rn.RemotePath.Address()),
-//			zap.String("path", rn.RemotePath.Path),
-//			zap.String("name", req.Name),
-//			zap.Error(err),
-//		)
-//
-//	}
-//
-//	return nil, err
-//}
-//
-//func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
-//
-//	zap.L().Debug("Remove FS Request",
-//		zap.String("op", "remove"),
-//		zap.String("address", rn.RemotePath.Address()),
-//		zap.String("path", rn.RemotePath.Path),
-//		zap.String("name", req.Name),
-//	)
-//
-//	err := FileHandler().Remove(rn.RemotePath, req.Name, rn.IsDir)
-//	if err == nil {
-//		rn.RemoteNodes.Remove(req.Name)
-//	} else {
-//
-//		zap.L().Warn("Remove Error Response",
-//			zap.String("op", "remove"),
-//			zap.String("address", rn.RemotePath.Address()),
-//			zap.String("path", rn.RemotePath.Path),
-//			zap.String("name", req.Name),
-//			zap.Error(err),
-//		)
-//
-//	}
-//	return err
-//}
-//
-//func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
-//
-//	zap.L().Debug("Rename FS Request",
-//		zap.String("op", "rename"),
-//		zap.String("address", rn.RemotePath.Address()),
-//		zap.String("path", rn.RemotePath.Path),
-//		zap.String("old_name", req.OldName),
-//		zap.String("new_name", req.NewName),
-//		zap.String("new_dir", newDir.(*RemoteNode).RemotePath.Path),
-//	)
-//
-//	rnDestDir := newDir.(*RemoteNode)
-//	val, ok := rn.RemoteNodes.Get(req.OldName)
-//
-//	var curRn *RemoteNode
-//	if ok {
-//		curRn = val.(*RemoteNode)
-//	} else {
-//		// TODO Error
-//	}
-//
-//	destPath := path.Join(rnDestDir.RemotePath.Path, req.NewName)
-//
-//	err := FileHandler().Rename(curRn.RemotePath, destPath)
-//	// Check If destination exists (actual move should do it)
-//	// Do Move at Remote
-//	// Update Cache Map
-//	// Update Open Map
-//	// Change RemoteNode Path
-//	// Add RemoteNode in newDir's list (if doesnt exist)
-//
-//	if err == nil {
-//		curRn.RemotePath.Path = destPath
-//		rn.RemoteNodes.Remove(req.OldName)
-//		rnDestDir.RemoteNodes.Set(req.NewName, curRn)
-//	} else {
-//
-//		zap.L().Warn("Rename Error Response",
-//			zap.String("op", "rename"),
-//			zap.String("address", rn.RemotePath.Address()),
-//			zap.String("path", rn.RemotePath.Path),
-//			zap.String("old_name", req.OldName),
-//			zap.String("new_name", req.NewName),
-//			zap.String("new_dir", newDir.(*RemoteNode).RemotePath.Path),
-//			zap.Error(err),
-//		)
-//
-//	}
-//
-//	return err
-//}
+func (rn *RemoteNode) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+
+	zap.L().Debug("Create FS Request",
+		zap.String("op", "create"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", req.Name),
+	)
+
+	// Create File Remotely
+	// Create File in Cache if Space is available
+	// File should be in open state
+	// Return Errors
+	fd, err := rn.CacheManager.Create(rn.RemotePath, req.Name)
+
+	if err != nil {
+		zap.L().Warn("Create Error Response",
+			zap.String("op", "create"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("name", req.Name),
+			zap.Error(err),
+		)
+
+		return nil, nil, err
+	}
+
+	fileNode := rn.generateChildRemoteNode(req.Name, false)
+	rn.RemoteNodes.Store(req.Name, fileNode)
+
+	fh := &FileHandle{
+		Fd:         fd,
+		RemoteNode: fileNode,
+	}
+
+	return fileNode, fh, nil
+}
+
+func (rn *RemoteNode) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
+
+	zap.L().Debug("Mkdir FS Request",
+		zap.String("op", "mkdir"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", req.Name),
+	)
+
+	err := rn.CacheManager.Mkdir(rn.RemotePath, req.Name)
+
+	if err != nil {
+		zap.L().Warn("Mkdir Error Response",
+			zap.String("op", "mkdir"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("name", req.Name),
+			zap.Error(err),
+		)
+
+		return nil, err
+	}
+
+	fileNode := rn.generateChildRemoteNode(req.Name, true)
+	rn.RemoteNodes.Store(req.Name, fileNode)
+	return fileNode, nil
+}
+
+func (rn *RemoteNode) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
+
+	zap.L().Debug("Remove FS Request",
+		zap.String("op", "remove"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("name", req.Name),
+	)
+
+	rp := &structure.RemotePath{
+		Hostname: rn.RemotePath.Hostname,
+		Port:     rn.RemotePath.Port,
+		Path:     path.Join(rn.RemotePath.Path, req.Name),
+	}
+
+	err := rn.CacheManager.Remove(rp, req.Dir)
+
+	if err != nil {
+		zap.L().Warn("Remove Error Response",
+			zap.String("op", "remove"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("name", req.Name),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	rn.RemoteNodes.Delete(req.Name)
+	return nil
+}
+
+func (rn *RemoteNode) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
+
+	zap.L().Debug("Rename FS Request",
+		zap.String("op", "rename"),
+		zap.String("address", rn.RemotePath.Address()),
+		zap.String("path", rn.RemotePath.Path),
+		zap.String("old_name", req.OldName),
+		zap.String("new_dir", newDir.(*RemoteNode).RemotePath.Path),
+		zap.String("new_name", req.NewName),
+	)
+
+	rnDestDir := newDir.(*RemoteNode)
+	val, ok := rn.RemoteNodes.Load(req.OldName)
+
+	var curRn *RemoteNode
+	if ok {
+		curRn = val.(*RemoteNode)
+	} else {
+		return os.ErrNotExist
+	}
+
+	destPath := path.Join(rnDestDir.RemotePath.Path, req.NewName)
+
+	err := rn.CacheManager.Rename(curRn.RemotePath, destPath)
+
+	if err != nil {
+		zap.L().Warn("Rename Error Response",
+			zap.String("op", "rename"),
+			zap.String("address", rn.RemotePath.Address()),
+			zap.String("path", rn.RemotePath.Path),
+			zap.String("old_name", req.OldName),
+			zap.String("new_dir", newDir.(*RemoteNode).RemotePath.Path),
+			zap.String("new_name", req.NewName),
+			zap.Error(err),
+		)
+
+		return err
+	}
+
+	// Check If destination exists (actual move should do it)
+	// Do Move at Remote
+	// Update Cache Map
+	// Update Open Map
+	// Change RemoteNode Path
+	// Add RemoteNode in newDir's list (if doesnt exist)
+
+	curRn.RemotePath.Path = destPath
+	rn.RemoteNodes.Delete(req.OldName)
+	rnDestDir.RemoteNodes.Store(req.NewName, curRn)
+
+	return nil
+}
