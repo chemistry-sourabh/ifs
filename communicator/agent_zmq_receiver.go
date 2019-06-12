@@ -54,7 +54,11 @@ func NewAgentZmqReceiver() *AgentZmqReceiver {
 	}
 }
 
-func (azr *AgentZmqReceiver) createSocket(identity string, address string) *zmq.Socket {
+func (azr *AgentZmqReceiver) createSocket(address string) *zmq.Socket {
+	parts := strings.Split(address, ":")
+	identity := address
+	address = "*:" + parts[1]
+
 	socket, err := azr.ctx.NewSocket(zmq.ROUTER)
 
 	if err != nil {
@@ -101,12 +105,7 @@ func (azr *AgentZmqReceiver) createSocket(identity string, address string) *zmq.
 }
 
 func (azr *AgentZmqReceiver) sendMessages() {
-
-	parts := strings.Split(azr.senderAddress, ":")
-	identity := azr.senderAddress
-	address := "*:" + parts[1]
-
-	senderSocket := azr.createSocket(identity, address)
+	senderSocket := azr.createSocket(azr.senderAddress)
 
 	for data := range azr.send {
 		_, err := senderSocket.SendMessage(data)
@@ -128,12 +127,7 @@ func (azr *AgentZmqReceiver) sendMessages() {
 }
 
 func (azr *AgentZmqReceiver) recvMessages() {
-
-	parts := strings.Split(azr.recvAddress, ":")
-	identity := azr.recvAddress
-	address := "*:" + parts[1]
-
-	recvSocket := azr.createSocket(identity, address)
+	recvSocket := azr.createSocket(azr.recvAddress)
 
 	for {
 		frames, err := recvSocket.RecvMessageBytes(0)

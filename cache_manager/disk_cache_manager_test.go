@@ -103,7 +103,7 @@ func TestDiskCacheManager_Open2(t *testing.T) {
 
 func TestDiskCacheManager_Open3(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -116,7 +116,7 @@ func TestDiskCacheManager_Open3(t *testing.T) {
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -195,7 +195,7 @@ func TestDiskCacheManager_Rename(t *testing.T) {
 
 func TestDiskCacheManager_Rename2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -208,7 +208,7 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -283,7 +283,7 @@ func TestDiskCacheManager_Create(t *testing.T) {
 
 func TestDiskCacheManager_Create2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -293,7 +293,7 @@ func TestDiskCacheManager_Create2(t *testing.T) {
 	go foe.Run(agentAddress)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -365,7 +365,7 @@ func TestDiskCacheManager_Remove(t *testing.T) {
 
 func TestDiskCacheManager_Remove2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -375,7 +375,7 @@ func TestDiskCacheManager_Remove2(t *testing.T) {
 	go foe.Run(agentAddress)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -442,7 +442,7 @@ func TestDiskCacheManager_Close(t *testing.T) {
 
 func TestDiskCacheManager_Close2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -454,7 +454,7 @@ func TestDiskCacheManager_Close2(t *testing.T) {
 	ifstest.CreateTempFile("test")
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -528,7 +528,7 @@ func TestDiskCacheManager_Truncate(t *testing.T) {
 
 func TestDiskCacheManager_Truncate2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -541,7 +541,7 @@ func TestDiskCacheManager_Truncate2(t *testing.T) {
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -600,7 +600,7 @@ func TestDiskCacheManager_Flush(t *testing.T) {
 
 func TestDiskCacheManager_Flush2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -610,7 +610,7 @@ func TestDiskCacheManager_Flush2(t *testing.T) {
 	go foe.Run(agentAddress)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -711,7 +711,7 @@ func TestDiskCacheManager_Read2(t *testing.T) {
 
 func TestDiskCacheManager_Read3(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -724,7 +724,7 @@ func TestDiskCacheManager_Read3(t *testing.T) {
 	fileData := ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -798,7 +798,7 @@ func TestDiskCacheManager_Write(t *testing.T) {
 
 func TestDiskCacheManager_Write2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -810,7 +810,7 @@ func TestDiskCacheManager_Write2(t *testing.T) {
 	ifstest.CreateTempFile("test")
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -879,7 +879,7 @@ func TestDiskCacheManager_Attr(t *testing.T) {
 
 func TestDiskCacheManager_Attr2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -892,7 +892,7 @@ func TestDiskCacheManager_Attr2(t *testing.T) {
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -955,7 +955,7 @@ func TestDiskCacheManager_ReadDir(t *testing.T) {
 
 func TestDiskCacheManager_ReadDir2(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
+	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
@@ -971,7 +971,7 @@ func TestDiskCacheManager_ReadDir2(t *testing.T) {
 	ifstest.WriteDummyData("test2/file2", 2000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(clientAddress)
+	dcm.Sender = communicator.NewFsZmqSender(hostname)
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 

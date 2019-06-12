@@ -22,6 +22,8 @@ import (
 	"os"
 )
 
+import _ "go.uber.org/automaxprocs"
+
 func main() {
 
 	cfgPath := "./agent.yaml"

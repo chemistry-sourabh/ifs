@@ -17,11 +17,14 @@
 package communicator
 
 import (
+	"errors"
+	"github.com/phayes/freeport"
 	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -43,13 +46,22 @@ type FsZmqSender struct {
 	sent chan *ReturnableMessage
 }
 
-func NewFsZmqSender(address string) *FsZmqSender {
+func NewFsZmqSender(hostname string) *FsZmqSender {
 
 	ctx, err := zmq.NewContext()
 
 	if err != nil {
 		zap.L().Fatal("Failed to Create Context",
-			zap.String("address", address),
+			zap.String("hostname", hostname),
+			zap.Error(err),
+		)
+	}
+
+	port, err := freeport.GetFreePort()
+
+	if err != nil {
+		zap.L().Fatal("Failed to Get Free Port",
+			zap.String("hostname", hostname),
 			zap.Error(err),
 		)
 	}
@@ -57,26 +69,32 @@ func NewFsZmqSender(address string) *FsZmqSender {
 	return &FsZmqSender{
 		msgId:         0,
 		ctx:           ctx,
-		clientAddress: address,
+		clientAddress: hostname+":"+strconv.Itoa(port),
 		send:          make(chan [][]byte, structure.ChannelLength),
 		sent:          make(chan *ReturnableMessage, structure.ChannelLength),
 	}
 }
 
 func (fzs *FsZmqSender) createSocket(address string, endpoints []string) *zmq.Socket {
+	parts := strings.Split(address, ":")
+	identity := address
+	address = "*:" + parts[1]
+
 	socket, err := fzs.ctx.NewSocket(zmq.ROUTER)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Create Socket",
+			zap.String("identity", identity),
 			zap.String("address", address),
 			zap.Error(err),
 		)
 	}
 
-	err = socket.SetIdentity(address)
+	err = socket.SetIdentity(identity)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Set Identity",
+			zap.String("identity", identity),
 			zap.String("address", address),
 			zap.Error(err),
 		)
@@ -86,6 +104,7 @@ func (fzs *FsZmqSender) createSocket(address string, endpoints []string) *zmq.So
 
 	if err != nil {
 		zap.L().Fatal("Failed to Set Linger",
+			zap.String("identity", identity),
 			zap.String("address", address),
 			zap.Error(err),
 		)

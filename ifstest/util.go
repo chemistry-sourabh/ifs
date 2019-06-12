@@ -115,6 +115,7 @@ func SetupLogger() {
 }
 
 // TODO Check if port and port+1 are open
+// Use free port code
 func GetOpenPort() uint16 {
 	r := random.New(random.NewSource(time.Now().UnixNano()))
 	port := r.Intn(60000) + 5000

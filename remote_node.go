@@ -192,6 +192,7 @@ func (rn *RemoteNode) updateChildrenRemoteNodes() error {
 		atime := time.Unix(0, int64(fileInfo.Atime))
 
 		// TODO Fix this
+		// Need to force fetch the file
 		if ok && mtime != fileNode.Mtime {
 			//Hoarder().CacheFetch(rn.RemotePath)
 		}

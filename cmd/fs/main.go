@@ -23,12 +23,14 @@ import (
 	"os"
 )
 
+import _ "go.uber.org/automaxprocs"
+
 //TODO Remove Logs for automaxprocs
 func main() {
 
 	app := cli.NewApp()
 	app.EnableBashCompletion = true
-	app.Version = "0.1.0"
+	app.Version = "0.2.0"
 	app.Name = "ifs"
 	app.HelpName = "ifs"
 	app.Usage = "A Fast Network File System that can Mount Paths from Multiple Hosts"

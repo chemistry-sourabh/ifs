@@ -23,8 +23,10 @@ import (
 	"github.com/chemistry-sourabh/ifs/communicator"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os"
 )
 
+// TODO No Global
 var (
 	fuseServerInstance *fs.Server
 )
@@ -101,7 +103,9 @@ func MountRemoteRoots(cfg *FsConfig) {
 		addresses = append(addresses, remoteRoot.Address())
 	}
 
-	comm := communicator.NewFsZmqSender("127.0.0.1:5000")
+	hostname, err := os.Hostname()
+
+	comm := communicator.NewFsZmqSender(hostname)
 	comm.Connect(addresses)
 	cache := cache_manager.NewDiskCacheManager()
 	cache.Path = cfg.CachePath
