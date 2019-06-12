@@ -105,7 +105,7 @@ func TestDiskCacheManager_Open3(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -121,7 +121,7 @@ func TestDiskCacheManager_Open3(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -197,7 +197,7 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -213,7 +213,7 @@ func TestDiskCacheManager_Rename2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -285,7 +285,7 @@ func TestDiskCacheManager_Create2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -298,7 +298,7 @@ func TestDiskCacheManager_Create2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	dirPath := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp",
 	}
@@ -367,7 +367,7 @@ func TestDiskCacheManager_Remove2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -380,7 +380,7 @@ func TestDiskCacheManager_Remove2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	dirPath := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp",
 	}
@@ -395,7 +395,7 @@ func TestDiskCacheManager_Remove2(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	filePath := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -444,7 +444,7 @@ func TestDiskCacheManager_Close2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -459,7 +459,7 @@ func TestDiskCacheManager_Close2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -530,7 +530,7 @@ func TestDiskCacheManager_Truncate2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -546,7 +546,7 @@ func TestDiskCacheManager_Truncate2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -602,7 +602,7 @@ func TestDiskCacheManager_Flush2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -615,7 +615,7 @@ func TestDiskCacheManager_Flush2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp",
 	}
@@ -713,7 +713,7 @@ func TestDiskCacheManager_Read3(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -729,7 +729,7 @@ func TestDiskCacheManager_Read3(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -802,7 +802,7 @@ func TestDiskCacheManager_Write2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -817,7 +817,7 @@ func TestDiskCacheManager_Write2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -883,7 +883,7 @@ func TestDiskCacheManager_Attr2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -899,7 +899,7 @@ func TestDiskCacheManager_Attr2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test",
 	}
@@ -959,7 +959,7 @@ func TestDiskCacheManager_ReadDir2(t *testing.T) {
 	ifstest.SetupLogger()
 	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
-	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
+	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
@@ -978,7 +978,7 @@ func TestDiskCacheManager_ReadDir2(t *testing.T) {
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
-		Hostname: "127.0.0.1",
+		Hostname: "localhost",
 		Port:     agentPort,
 		Path:     "/tmp/test2",
 	}

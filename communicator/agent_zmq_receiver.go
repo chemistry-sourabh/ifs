@@ -22,6 +22,7 @@ import (
 	zmq "github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"strings"
 	"sync"
 	"time"
 )
@@ -53,20 +54,22 @@ func NewAgentZmqReceiver() *AgentZmqReceiver {
 	}
 }
 
-func (azr *AgentZmqReceiver) createSocket(address string) *zmq.Socket {
+func (azr *AgentZmqReceiver) createSocket(identity string, address string) *zmq.Socket {
 	socket, err := azr.ctx.NewSocket(zmq.ROUTER)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Create Socket",
+			zap.String("identity", identity),
 			zap.String("address", address),
 			zap.Error(err),
 		)
 	}
 
-	err = socket.SetIdentity(address)
+	err = socket.SetIdentity(identity)
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Set Identity",
+			zap.String("identity", identity),
 			zap.String("address", address),
 			zap.Error(err),
 		)
@@ -76,6 +79,7 @@ func (azr *AgentZmqReceiver) createSocket(address string) *zmq.Socket {
 
 	if err != nil {
 		zap.L().Fatal("Failed to Set Linger",
+			zap.String("identity", identity),
 			zap.String("address", address),
 			zap.Error(err),
 		)
@@ -85,6 +89,7 @@ func (azr *AgentZmqReceiver) createSocket(address string) *zmq.Socket {
 
 	if err != nil {
 		zap.L().Fatal("Agent Couldn't Bind to Socket",
+			zap.String("identity", identity),
 			zap.String("address", address),
 			zap.Error(err),
 		)
@@ -97,7 +102,11 @@ func (azr *AgentZmqReceiver) createSocket(address string) *zmq.Socket {
 
 func (azr *AgentZmqReceiver) sendMessages() {
 
-	senderSocket := azr.createSocket(azr.senderAddress)
+	parts := strings.Split(azr.senderAddress, ":")
+	identity := azr.senderAddress
+	address := "*:"+parts[1]
+
+	senderSocket := azr.createSocket(identity, address)
 
 	for data := range azr.send {
 		_, err := senderSocket.SendMessage(data)
@@ -120,7 +129,11 @@ func (azr *AgentZmqReceiver) sendMessages() {
 
 func (azr *AgentZmqReceiver) recvMessages() {
 
-	recvSocket := azr.createSocket(azr.recvAddress)
+	parts := strings.Split(azr.recvAddress, ":")
+	identity := azr.recvAddress
+	address := "*:"+parts[1]
+
+	recvSocket := azr.createSocket(identity, address)
 
 	for {
 		frames, err := recvSocket.RecvMessageBytes(0)
