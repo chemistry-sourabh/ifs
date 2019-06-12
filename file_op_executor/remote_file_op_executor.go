@@ -24,7 +24,6 @@ import (
 	"os"
 	"path"
 	"sync"
-	"syscall"
 	"time"
 )
 
