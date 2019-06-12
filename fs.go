@@ -95,7 +95,7 @@ func MountRemoteRoots(cfg *FsConfig) {
 
 	fuseServerInstance = fs.New(c, nil)
 
-	var addresses [] string
+	var addresses []string
 
 	for _, remoteRoot := range cfg.RemoteRoots {
 		addresses = append(addresses, remoteRoot.Address())
@@ -106,7 +106,7 @@ func MountRemoteRoots(cfg *FsConfig) {
 	cache := cache_manager.NewDiskCacheManager()
 	cache.Path = cfg.CachePath
 	cache.Sender = comm
-	root := NewRoot(cfg.RemoteRoots,cache)
+	root := NewRoot(cfg.RemoteRoots, cache)
 	//Ifs().Connect(cfg.RemoteRoots)
 	//Talker().Connect(cfg.RemoteRoots, cfg.ConnCount)
 	//Hoarder().Connect(cfg.CacheLocation, 100)

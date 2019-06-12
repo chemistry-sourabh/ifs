@@ -174,7 +174,6 @@ func (ftr *FsTestReceiver) Bind(address string) {
 		zap.String("address", address),
 	)
 
-
 	ftr.ctx = ctx
 	ftr.recvAddress = address
 	ftr.senderAddress = GetOtherAddress(address)

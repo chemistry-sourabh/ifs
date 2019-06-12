@@ -63,7 +63,6 @@ func TestFsZmqSender_Comm(t *testing.T) {
 
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 
-
 	for i := 0; i < 10000; i++ {
 		index := r.Intn(len(addresses))
 		_, err := fzs.SendRequest(structure.FetchMessageCode, addresses[index], msg)

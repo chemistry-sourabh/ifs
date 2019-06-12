@@ -138,7 +138,6 @@ func (fh *FileHandle) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	for _, fileInfo := range fileInfos {
 
-
 		zap.L().Debug("ReadDir File Response",
 			zap.String("op", "readdir"),
 			zap.String("address", rn.RemotePath.Address()),

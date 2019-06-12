@@ -104,7 +104,7 @@ func (azr *AgentZmqReceiver) sendMessages() {
 
 	parts := strings.Split(azr.senderAddress, ":")
 	identity := azr.senderAddress
-	address := "*:"+parts[1]
+	address := "*:" + parts[1]
 
 	senderSocket := azr.createSocket(identity, address)
 
@@ -131,7 +131,7 @@ func (azr *AgentZmqReceiver) recvMessages() {
 
 	parts := strings.Split(azr.recvAddress, ":")
 	identity := azr.recvAddress
-	address := "*:"+parts[1]
+	address := "*:" + parts[1]
 
 	recvSocket := azr.createSocket(identity, address)
 

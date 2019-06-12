@@ -664,7 +664,7 @@ func TestDiskCacheManager_Read(t *testing.T) {
 
 	dcm.opened.Store(uint64(1), &structure.CacheFileHandle{
 		FilePath: rp,
-		Fp: fp,
+		Fp:       fp,
 	})
 
 	data, err := dcm.Read(uint64(1), uint64(0), uint64(1000))
@@ -776,7 +776,6 @@ func TestDiskCacheManager_Write(t *testing.T) {
 	data := make([]byte, 1000)
 	_, err = rand.Read(data)
 
-
 	size, fileSize, err := dcm.Write(fd, uint64(0), data)
 	ifstest.Ok(t, err)
 
@@ -792,7 +791,6 @@ func TestDiskCacheManager_Write(t *testing.T) {
 	ifstest.Ok(t, err)
 
 	ifstest.Compare(t, fileData, data)
-
 
 	err = os.RemoveAll(cachePath)
 	ifstest.Ok(t, err)
@@ -842,7 +840,7 @@ func TestDiskCacheManager_Write2(t *testing.T) {
 
 	fileData, err := ioutil.ReadFile("/tmp/test")
 	ifstest.Ok(t, err)
-	
+
 	ifstest.Compare(t, data, fileData)
 
 	err = os.RemoveAll(cachePath)

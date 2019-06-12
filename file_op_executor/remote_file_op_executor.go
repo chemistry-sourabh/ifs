@@ -374,9 +374,8 @@ func (foe *RemoteFileOpExecutor) write(req *structure.WriteMessage) (*structure.
 		return nil, err
 	}
 
-
 	wm := &structure.WriteOkMessage{
-		Size: uint64(size),
+		Size:     uint64(size),
 		FileSize: uint64(fi.Size()),
 	}
 
@@ -402,9 +401,9 @@ func (foe *RemoteFileOpExecutor) attr(req *structure.AttrMessage) (*structure.Fi
 
 	// TODO Get Atime in a platform independent way
 	fim := &structure.FileInfoMessage{
-		Name: fi.Name(),
-		Size: uint64(fi.Size()),
-		Mode: uint32(fi.Mode()),
+		Name:  fi.Name(),
+		Size:  uint64(fi.Size()),
+		Mode:  uint32(fi.Mode()),
 		Mtime: uint64(fi.ModTime().UnixNano()),
 		Atime: uint64(fi.ModTime().UnixNano()),
 		IsDir: fi.IsDir(),
@@ -427,10 +426,10 @@ func (foe *RemoteFileOpExecutor) readDir(req *structure.ReadDirMessage) (*struct
 	var fileInfoMessages []*structure.FileInfoMessage
 
 	for _, fi := range fileInfos {
-		fim := &structure.FileInfoMessage {
-			Name: fi.Name(),
-			Size: uint64(fi.Size()),
-			Mode: uint32(fi.Mode()),
+		fim := &structure.FileInfoMessage{
+			Name:  fi.Name(),
+			Size:  uint64(fi.Size()),
+			Mode:  uint32(fi.Mode()),
 			Mtime: uint64(fi.ModTime().UnixNano()),
 			Atime: uint64(fi.ModTime().UnixNano()),
 			IsDir: fi.IsDir(),

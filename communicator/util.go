@@ -26,5 +26,5 @@ func GetOtherAddress(address string) string {
 	hostname := parts[0]
 	port, _ := strconv.Atoi(parts[1])
 
-	return hostname+":"+strconv.Itoa(port+1)
+	return hostname + ":" + strconv.Itoa(port+1)
 }

@@ -52,8 +52,8 @@ func StartFsProcess(cfg *ifs.FsConfig) {
 
 func CreateConfig() *ifs.FsConfig {
 	return &ifs.FsConfig{
-		MountPoint:    TestRoot,
-		CachePath: TestCache,
+		MountPoint: TestRoot,
+		CachePath:  TestCache,
 		RemoteRoots: []*ifs.RemoteRoot{
 			&ifs.RemoteRoot{
 				Hostname: "localhost",

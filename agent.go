@@ -35,6 +35,6 @@ func StartAgent(address string, port uint16) {
 	foe := file_op_executor.RemoteFileOpExecutor{}
 	foe.Receiver = recv
 
-	foe.Run(address+":"+strconv.Itoa(int(port)))
+	foe.Run(address + ":" + strconv.Itoa(int(port)))
 
 }

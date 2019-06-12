@@ -94,7 +94,6 @@ func (root *root) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		return true
 	})
 
-
 	zap.L().Debug("ReadDir Response",
 		zap.Bool("root", true),
 		zap.String("op", "readdir"),
@@ -155,9 +154,9 @@ func generateVirtualNodes(paths []string, remotePaths []*structure.RemotePath, c
 		} else {
 			nodes := &sync.Map{}
 			virtualNodes.Store(k, &RemoteNode{
-				IsDir:       true,
-				RemotePath:  aggRemotePaths[k][0],
-				RemoteNodes: nodes,
+				IsDir:        true,
+				RemotePath:   aggRemotePaths[k][0],
+				RemoteNodes:  nodes,
 				CacheManager: cacheManager,
 			})
 		}
