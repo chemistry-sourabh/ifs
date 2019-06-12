@@ -433,7 +433,7 @@ func (foe *RemoteFileOpExecutor) readDir(req *structure.ReadDirMessage) (*struct
 			Size: uint64(fi.Size()),
 			Mode: uint32(fi.Mode()),
 			Mtime: uint64(fi.ModTime().UnixNano()),
-			Atime: uint64(fi.Sys().(*syscall.Stat_t).Atimespec.Nsec),
+			Atime: uint64(fi.ModTime().UnixNano()),
 			IsDir: fi.IsDir(),
 		}
 
