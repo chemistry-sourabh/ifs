@@ -20,6 +20,7 @@ import (
 	"github.com/chemistry-sourabh/ifs/communicator"
 	"github.com/chemistry-sourabh/ifs/structure"
 	"go.uber.org/zap"
+	"gopkg.in/djherbis/times.v1"
 	"io/ioutil"
 	"os"
 	"path"
@@ -387,6 +388,18 @@ func (foe *RemoteFileOpExecutor) attr(req *structure.AttrMessage) (*structure.Fi
 		zap.String("Path", req.GetPath()),
 	)
 
+	t, err := times.Stat(req.Path)
+
+	if err != nil {
+
+		zap.L().Error("Attr Error",
+			zap.String("Path", req.GetPath()),
+			zap.Error(err),
+		)
+
+		return nil, err
+	}
+
 	fi, err := os.Stat(req.Path)
 
 	if err != nil {
@@ -399,13 +412,12 @@ func (foe *RemoteFileOpExecutor) attr(req *structure.AttrMessage) (*structure.Fi
 		return nil, err
 	}
 
-	// TODO Get Atime in a platform independent way
 	fim := &structure.FileInfoMessage{
 		Name:  fi.Name(),
 		Size:  uint64(fi.Size()),
 		Mode:  uint32(fi.Mode()),
-		Mtime: uint64(fi.ModTime().UnixNano()),
-		Atime: uint64(fi.ModTime().UnixNano()),
+		Mtime: uint64(t.ModTime().UnixNano()),
+		Atime: uint64(t.AccessTime().UnixNano()),
 		IsDir: fi.IsDir(),
 	}
 
@@ -426,12 +438,19 @@ func (foe *RemoteFileOpExecutor) readDir(req *structure.ReadDirMessage) (*struct
 	var fileInfoMessages []*structure.FileInfoMessage
 
 	for _, fi := range fileInfos {
+
+		t, err := times.Stat(path.Join(req.Path, fi.Name()))
+
+		if err != nil {
+			return nil, err
+		}
+
 		fim := &structure.FileInfoMessage{
 			Name:  fi.Name(),
 			Size:  uint64(fi.Size()),
 			Mode:  uint32(fi.Mode()),
-			Mtime: uint64(fi.ModTime().UnixNano()),
-			Atime: uint64(fi.ModTime().UnixNano()),
+			Mtime: uint64(t.ModTime().UnixNano()),
+			Atime: uint64(t.AccessTime().UnixNano()),
 			IsDir: fi.IsDir(),
 		}
 
