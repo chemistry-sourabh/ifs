@@ -105,6 +105,12 @@ func MountRemoteRoots(cfg *FsConfig) {
 
 	hostname, err := os.Hostname()
 
+	if err != nil {
+		zap.L().Fatal("Failed to Get Hostname",
+			zap.Error(err),
+		)
+	}
+
 	comm := communicator.NewFsZmqSender(hostname)
 	comm.Connect(addresses)
 	cache := cache_manager.NewDiskCacheManager()
@@ -116,7 +122,7 @@ func MountRemoteRoots(cfg *FsConfig) {
 	//Hoarder().Connect(cfg.CacheLocation, 100)
 	//FileHandler().StartUp()
 
-	FuseServer().Serve(root)
+	err = FuseServer().Serve(root)
 
 	<-c.Ready
 	if err := c.MountError; err != nil {
@@ -125,5 +131,5 @@ func MountRemoteRoots(cfg *FsConfig) {
 		)
 	}
 
-	zap.L().Core().Sync()
+	err = zap.L().Core().Sync()
 }

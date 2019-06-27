@@ -20,10 +20,23 @@ import (
 	"github.com/chemistry-sourabh/ifs/communicator"
 	"github.com/chemistry-sourabh/ifs/file_op_executor"
 	"go.uber.org/zap"
+	"os"
 	"strconv"
 )
 
 func StartAgent(address string, port uint16) {
+
+	if address == "*" {
+
+		hostname, err := os.Hostname()
+
+		if err != nil {
+			zap.L().Fatal("Failed to Get Hostname",
+				zap.Error(err),
+			)
+		}
+		address = hostname
+	}
 
 	zap.L().Info("Starting Agent",
 		zap.String("address", address),
