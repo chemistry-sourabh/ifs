@@ -26,7 +26,7 @@ import (
 
 func StartAgent(address string, port uint16) {
 
-	if address == "*" {
+	if address == "" {
 
 		hostname, err := os.Hostname()
 

@@ -1,4 +1,4 @@
-address: localhost
+address:
 port: 8000
 log:
     logging: true
