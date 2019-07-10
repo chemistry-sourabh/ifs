@@ -510,6 +510,26 @@ func (foe *RemoteFileOpExecutor) setMtime(req *structure.SetMtimeMessage) error 
 	return nil
 }
 
+func (foe *RemoteFileOpExecutor) createDataReply(payload *structure.DataMessage, err error) (*structure.ReplyPayload, uint32) {
+	if err != nil {
+		return foe.createErrMsg(err), structure.ErrMessageCode
+	} else {
+		return &structure.ReplyPayload{
+			Payload: &structure.ReplyPayload_DataMsg{
+				DataMsg: payload,
+			},
+		}, structure.DataMessageCode
+	}
+}
+
+func (foe *RemoteFileOpExecutor) createEmptyReply(err error) (*structure.ReplyPayload, uint32) {
+	if err != nil {
+		return foe.createErrMsg(err), structure.ErrMessageCode
+	} else {
+		return &structure.ReplyPayload{}, structure.OkMessageCode
+	}
+}
+
 func (foe *RemoteFileOpExecutor) Process() {
 
 	for {
@@ -524,133 +544,81 @@ func (foe *RemoteFileOpExecutor) Process() {
 			zap.Uint32("type", payloadType),
 		)
 
+		var reply *structure.ReplyPayload
+		var replyType uint32
+
 		switch payloadType {
-		case structure.FetchMessageCode, structure.ReadMessageCode:
-			go func() {
-				var payload *structure.DataMessage
-				var err error
-				switch payloadType {
-				case structure.FetchMessageCode:
-					payload, err = foe.fetch(req.GetFetchMsg())
-				case structure.ReadMessageCode:
-					payload, err = foe.read(req.GetReadMsg())
-				}
+		case structure.FetchMessageCode:
+			payload, err := foe.fetch(req.GetFetchMsg())
+			reply, replyType = foe.createDataReply(payload, err)
 
-				var reply *structure.ReplyPayload
-				var replyType uint32 = structure.ErrMessageCode
-				if err != nil {
-					reply = foe.createErrMsg(err)
-				} else {
+		case structure.ReadMessageCode:
+			payload, err := foe.read(req.GetReadMsg())
+			reply, replyType = foe.createDataReply(payload, err)
 
-					reply = &structure.ReplyPayload{
-						Payload: &structure.ReplyPayload_DataMsg{
-							DataMsg: payload,
-						},
-					}
+		case structure.OpenMessageCode:
+			err := foe.open(req.GetOpenMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-					replyType = structure.DataMessageCode
+		case structure.RenameMessageCode:
+			err := foe.rename(req.GetRenameMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-				}
+		case structure.CreateMessageCode:
+			err = foe.create(req.GetCreateMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-				err = foe.Receiver.SendReply(id, replyType, reply)
+		case structure.RemoveMessageCode:
+			err = foe.remove(req.GetRemoveMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-				if err != nil {
-					zap.L().Warn("Failed to Send Reply",
-						zap.Uint64("id", id),
-						zap.Uint32("payloadType", payloadType),
-						zap.Error(err),
-					)
-				}
-			}()
+		case structure.CloseMessageCode:
+			err = foe.close(req.GetCloseMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-		case structure.OpenMessageCode, structure.RenameMessageCode, structure.CreateMessageCode,
-			structure.RemoveMessageCode, structure.CloseMessageCode, structure.TruncateMessageCode,
-			structure.FlushMessageCode, structure.MkdirMessageCode, structure.SetModeMessageCode,
-			structure.SetMtimeMessageCode:
-			go func() {
-				var err error
-				switch payloadType {
-				case structure.OpenMessageCode:
-					err = foe.open(req.GetOpenMsg())
-				case structure.RenameMessageCode:
-					err = foe.rename(req.GetRenameMsg())
-				case structure.CreateMessageCode:
-					err = foe.create(req.GetCreateMsg())
-				case structure.RemoveMessageCode:
-					err = foe.remove(req.GetRemoveMsg())
-				case structure.CloseMessageCode:
-					err = foe.close(req.GetCloseMsg())
-				case structure.TruncateMessageCode:
-					err = foe.truncate(req.GetTruncateMsg())
-				case structure.FlushMessageCode:
-					err = foe.flush(req.GetFlushMsg())
-				case structure.MkdirMessageCode:
-					err = foe.mkdir(req.GetMkdirMsg())
-				case structure.SetModeMessageCode:
-					err = foe.setMode(req.GetSetModeMsg())
-				case structure.SetMtimeMessageCode:
-					err = foe.setMtime(req.GetSetMtimeMsg())
-				}
+		case structure.TruncateMessageCode:
+			err = foe.truncate(req.GetTruncateMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-				var reply *structure.ReplyPayload
-				var replyType uint32 = structure.ErrMessageCode
-				if err != nil {
-					reply = foe.createErrMsg(err)
-				} else {
+		case structure.FlushMessageCode:
+			err = foe.flush(req.GetFlushMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-					reply = &structure.ReplyPayload{}
-					replyType = structure.OkMessageCode
+		case structure.MkdirMessageCode:
+			err = foe.mkdir(req.GetMkdirMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-				}
+		case structure.SetModeMessageCode:
+			err = foe.setMode(req.GetSetModeMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-				err = foe.Receiver.SendReply(id, replyType, reply)
+		case structure.SetMtimeMessageCode:
+			err = foe.setMtime(req.GetSetMtimeMsg())
+			reply, replyType = foe.createEmptyReply(err)
 
-				if err != nil {
-					zap.L().Warn("Failed to Send Reply",
-						zap.Uint64("id", id),
-						zap.Uint32("payloadType", payloadType),
-						zap.Error(err),
-					)
-				}
-			}()
 		case structure.WriteMessageCode:
-			go func() {
-				payload, err := foe.write(req.GetWriteMsg())
+			payload, err := foe.write(req.GetWriteMsg())
 
-				var reply *structure.ReplyPayload
-				var replyType uint32 = structure.ErrMessageCode
-				if err != nil {
-					reply = foe.createErrMsg(err)
-				} else {
+			if err != nil {
+				reply = foe.createErrMsg(err)
+				replyType = structure.ErrMessageCode
+			} else {
 
-					reply = &structure.ReplyPayload{
-						Payload: &structure.ReplyPayload_WriteOkMsg{
-							WriteOkMsg: payload,
-						},
-					}
-
-					replyType = structure.WriteOkMessageCode
-
+				reply = &structure.ReplyPayload{
+					Payload: &structure.ReplyPayload_WriteOkMsg{
+						WriteOkMsg: payload,
+					},
 				}
 
-				err = foe.Receiver.SendReply(id, replyType, reply)
+				replyType = structure.WriteOkMessageCode
+			}
 
-				if err != nil {
-					zap.L().Warn("Failed to Send Reply",
-						zap.Uint64("id", id),
-						zap.Uint32("payloadType", payloadType),
-						zap.Error(err),
-					)
-				}
-			}()
 		case structure.AttrMessageCode:
-			go func() {
 				payload, err := foe.attr(req.GetAttrMsg())
 
-				var reply *structure.ReplyPayload
-				var replyType uint32 = structure.ErrMessageCode
 				if err != nil {
 					reply = foe.createErrMsg(err)
+					replyType = structure.ErrMessageCode
 				} else {
 
 					reply = &structure.ReplyPayload{
@@ -660,27 +628,13 @@ func (foe *RemoteFileOpExecutor) Process() {
 					}
 
 					replyType = structure.FileInfoMessageCode
-
 				}
-
-				err = foe.Receiver.SendReply(id, replyType, reply)
-
-				if err != nil {
-					zap.L().Warn("Failed to Send Reply",
-						zap.Uint64("id", id),
-						zap.Uint32("payloadType", payloadType),
-						zap.Error(err),
-					)
-				}
-			}()
 		case structure.ReadDirMessageCode:
-			go func() {
 				payload, err := foe.readDir(req.GetReadDirMsg())
 
-				var reply *structure.ReplyPayload
-				var replyType uint32 = structure.ErrMessageCode
 				if err != nil {
 					reply = foe.createErrMsg(err)
+					replyType = structure.ErrMessageCode
 				} else {
 
 					reply = &structure.ReplyPayload{
@@ -692,18 +646,18 @@ func (foe *RemoteFileOpExecutor) Process() {
 					replyType = structure.FileInfosMessageCode
 
 				}
-
-				err = foe.Receiver.SendReply(id, replyType, reply)
-
-				if err != nil {
-					zap.L().Warn("Failed to Send Reply",
-						zap.Uint64("id", id),
-						zap.Uint32("payloadType", payloadType),
-						zap.Error(err),
-					)
-				}
-			}()
 		}
+
+		err = foe.Receiver.SendReply(id, replyType, reply)
+
+		if err != nil {
+			zap.L().Warn("Failed to Send Reply",
+				zap.Uint64("id", id),
+				zap.Uint32("payloadType", payloadType),
+				zap.Error(err),
+			)
+		}
+
 	}
 
 }
