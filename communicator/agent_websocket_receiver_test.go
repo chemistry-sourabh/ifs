@@ -55,6 +55,8 @@ func TestAgentWebSocketReceiver_Comm(t *testing.T) {
 		},
 	}
 
+	time.Sleep(100 * time.Millisecond)
+
 	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
 	websocket.DefaultDialer.EnableCompression = true
 
