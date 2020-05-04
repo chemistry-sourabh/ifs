@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Sourabh Bollapragada
+ * Copyright 2020 Sourabh Bollapragada
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,10 @@ import (
 	"time"
 )
 
-func TestFsZmqSender_Comm(t *testing.T) {
+func TestFsWebSocketSender_Comm(t *testing.T) {
 	t.SkipNow()
-	//time.Sleep(ifstest.TEST_WAIT)
 
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
 	agent1Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
 	agent2Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
 	agent3Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
@@ -41,7 +39,7 @@ func TestFsZmqSender_Comm(t *testing.T) {
 		agent3Address,
 	}
 
-	fzs := NewFsZmqSender(clientAddress)
+	fws := NewFsWebSocketSender()
 	ftr1 := &FsZmqTestReceiver{}
 	ftr2 := &FsZmqTestReceiver{}
 	ftr3 := &FsZmqTestReceiver{}
@@ -50,7 +48,7 @@ func TestFsZmqSender_Comm(t *testing.T) {
 	ftr2.Bind(agent2Address)
 	ftr3.Bind(agent3Address)
 
-	fzs.Connect(addresses)
+	fws.Connect(addresses)
 
 	fm := &structure.FetchMessage{
 		Path: "/tmp/test",
@@ -66,11 +64,11 @@ func TestFsZmqSender_Comm(t *testing.T) {
 
 	for i := 0; i < 10000; i++ {
 		index := r.Intn(len(addresses))
-		_, err := fzs.SendRequest(structure.FetchMessageCode, addresses[index], msg)
+		_, err := fws.SendRequest(structure.FetchMessageCode, addresses[index], msg)
 		ifstest.Ok(t, err)
 	}
 
-	fzs.Disconnect()
+	fws.Disconnect()
 	ftr1.Unbind()
 	ftr2.Unbind()
 	ftr3.Unbind()

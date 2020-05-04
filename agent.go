@@ -43,7 +43,7 @@ func StartAgent(address string, port uint16) {
 		zap.Uint16("port", port),
 	)
 
-	recv := communicator.NewAgentZmqReceiver()
+	recv := communicator.NewAgentWebsocketReceiver()
 
 	foe := file_op_executor.RemoteFileOpExecutor{}
 	foe.Receiver = recv

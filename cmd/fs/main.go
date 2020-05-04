@@ -19,7 +19,7 @@ package main
 import (
 	"fmt"
 	"github.com/chemistry-sourabh/ifs"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli"
 	"os"
 )
 

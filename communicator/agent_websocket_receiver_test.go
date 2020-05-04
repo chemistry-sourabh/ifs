@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Sourabh Bollapragada
+ * Copyright 2020 Sourabh Bollapragada
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,22 +20,19 @@ import (
 	"github.com/chemistry-sourabh/ifs/ifstest"
 	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
-	zmq "github.com/pebbe/zmq4"
+	"github.com/gorilla/websocket"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
 )
 
-func TestAgentZmqReceiver_Comm(t *testing.T) {
-	t.SkipNow()
-	//time.Sleep(ifstest.TEST_WAIT)
-
+func TestAgentWebSocketReceiver_Comm(t *testing.T) {
 	ifstest.SetupLogger()
-	clientAddress := "127.0.0.1:5000"
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
 
-	azr := NewAgentZmqReceiver()
-	err := azr.Bind(agentAddress)
+	awr := NewAgentWebsocketReceiver()
+	err := awr.Bind(agentAddress)
 	ifstest.Ok(t, err)
 
 	fm := &structure.FetchMessage{
@@ -58,25 +55,10 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -91,13 +73,10 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		data, err := proto.Marshal(request)
 		ifstest.Ok(t, err)
 
-		_, err = senderSocket.SendBytes([]byte(agentAddress), zmq.SNDMORE)
+		err = conn.WriteMessage(websocket.BinaryMessage, data)
 		ifstest.Ok(t, err)
 
-		_, err = senderSocket.SendBytes(data, 0)
-		ifstest.Ok(t, err)
-
-		reqId, payloadType, recvPayload, err := azr.RecvRequest()
+		reqId, payloadType, recvPayload, err := awr.RecvRequest()
 		ifstest.Ok(t, err)
 
 		ifstest.Compare(t, reqId, request.Id)
@@ -106,15 +85,13 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		recvFm := recvPayload.GetFetchMsg()
 		ifstest.Compare(t, fm.Path, recvFm.Path)
 
-		err = azr.SendReply(reqId, structure.DataMessageCode, replyPayload)
+		err = awr.SendReply(reqId, structure.DataMessageCode, replyPayload)
 		ifstest.Ok(t, err)
 
-		frames, err := recvSocket.RecvMessageBytes(0)
+		messageType, data, err := conn.ReadMessage()
 		ifstest.Ok(t, err)
+		ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-		ifstest.Compare(t, string(frames[0]), GetOtherAddress(agentAddress))
-
-		data = frames[1]
 		reply := &structure.Reply{}
 		err = proto.Unmarshal(data, reply)
 		ifstest.Ok(t, err)
@@ -124,10 +101,6 @@ func TestAgentZmqReceiver_Comm(t *testing.T) {
 		ifstest.Compare(t, string(reply.Payload.GetDataMsg().GetData()), "Hello World")
 	}
 
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	azr.Unbind()
-	ctx.Term()
+	conn.Close()
+	awr.Unbind()
 }

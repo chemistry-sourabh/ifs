@@ -23,7 +23,6 @@ import (
 	"github.com/chemistry-sourabh/ifs/communicator"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
 )
 
 // TODO No Global
@@ -87,13 +86,14 @@ func MountRemoteRoots(cfg *FsConfig) {
 	}
 
 	c, err := fuse.Mount(cfg.MountPoint, options...)
-	defer c.Close()
 
 	if err != nil {
 		zap.L().Fatal("Mount Failed",
 			zap.Error(err),
 		)
 	}
+
+	defer c.Close()
 
 	fuseServerInstance = fs.New(c, nil)
 
@@ -103,24 +103,12 @@ func MountRemoteRoots(cfg *FsConfig) {
 		addresses = append(addresses, remoteRoot.Address())
 	}
 
-	hostname, err := os.Hostname()
-
-	if err != nil {
-		zap.L().Fatal("Failed to Get Hostname",
-			zap.Error(err),
-		)
-	}
-
-	comm := communicator.NewFsZmqSender(hostname)
+	comm := communicator.NewFsWebSocketSender()
 	comm.Connect(addresses)
 	cache := cache_manager.NewDiskCacheManager()
 	cache.Path = cfg.CachePath
 	cache.Sender = comm
 	root := NewRoot(cfg.RemoteRoots, cache)
-	//Ifs().Connect(cfg.RemoteRoots)
-	//Talker().Connect(cfg.RemoteRoots, cfg.ConnCount)
-	//Hoarder().Connect(cfg.CacheLocation, 100)
-	//FileHandler().StartUp()
 
 	err = FuseServer().Serve(root)
 

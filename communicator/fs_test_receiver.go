@@ -24,13 +24,13 @@ import (
 	"time"
 )
 
-type FsTestReceiver struct {
+type FsZmqTestReceiver struct {
 	ctx           *zmq.Context
 	senderAddress string
 	recvAddress   string
 }
 
-func (ftr *FsTestReceiver) createSocket(address string) *zmq.Socket {
+func (ftr *FsZmqTestReceiver) createSocket(address string) *zmq.Socket {
 	socket, err := ftr.ctx.NewSocket(zmq.ROUTER)
 
 	if err != nil {
@@ -72,7 +72,7 @@ func (ftr *FsTestReceiver) createSocket(address string) *zmq.Socket {
 	return socket
 }
 
-func (ftr *FsTestReceiver) recvMessages() {
+func (ftr *FsZmqTestReceiver) recvMessages() {
 	zap.L().Info("Creating Sockets")
 
 	recvSocket := ftr.createSocket(ftr.recvAddress)
@@ -159,7 +159,7 @@ func (ftr *FsTestReceiver) recvMessages() {
 	}
 }
 
-func (ftr *FsTestReceiver) Bind(address string) {
+func (ftr *FsZmqTestReceiver) Bind(address string) {
 
 	ctx, err := zmq.NewContext()
 
@@ -181,7 +181,7 @@ func (ftr *FsTestReceiver) Bind(address string) {
 	go ftr.recvMessages()
 }
 
-func (ftr *FsTestReceiver) Unbind() {
+func (ftr *FsZmqTestReceiver) Unbind() {
 
 	err := ftr.ctx.Term()
 
