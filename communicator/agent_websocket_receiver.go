@@ -118,7 +118,7 @@ func (awr *AgentWebSocketReceiver) Bind(address string) error {
 	mux.HandleFunc("/", awr.handleRequests)
 
 	server := &http.Server{
-		Addr: address,
+		Addr:    address,
 		Handler: mux,
 	}
 	awr.server = server
@@ -129,7 +129,10 @@ func (awr *AgentWebSocketReceiver) Bind(address string) error {
 }
 
 func (awr *AgentWebSocketReceiver) Unbind() {
-	err := awr.conn.Close()
+	var err error
+	if awr.conn != nil {
+		err = awr.conn.Close()
+	}
 
 	if err != nil {
 		zap.L().Fatal("Failed to Close Connection",
