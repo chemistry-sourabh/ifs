@@ -33,7 +33,7 @@ type AgentWebSocketReceiver struct {
 	send   chan []byte
 }
 
-func NewAgentWebsocketReceiver() *AgentWebSocketReceiver {
+func NewAgentWebSocketReceiver() *AgentWebSocketReceiver {
 	return &AgentWebSocketReceiver{
 		send: make(chan []byte, structure.ChannelLength),
 		recv: make(chan *structure.Request, structure.ChannelLength),
@@ -41,6 +41,7 @@ func NewAgentWebsocketReceiver() *AgentWebSocketReceiver {
 }
 
 func (awr *AgentWebSocketReceiver) recvMessages() {
+
 	for {
 		zap.L().Debug("Listening for Message",
 			zap.String("address", awr.conn.RemoteAddr().String()),
@@ -49,9 +50,9 @@ func (awr *AgentWebSocketReceiver) recvMessages() {
 		messageType, data, err := awr.conn.ReadMessage()
 
 		if err != nil {
-			//zap.L().Warn("Read Message Failed",
-			//	zap.Error(err),
-			//)
+			zap.L().Warn("Read Message Failed",
+				zap.Error(err),
+			)
 			break
 		}
 
@@ -76,6 +77,7 @@ func (awr *AgentWebSocketReceiver) recvMessages() {
 	}
 
 	awr.conn = nil
+	close(awr.recv)
 }
 
 func (awr *AgentWebSocketReceiver) sendMessages() {
@@ -111,10 +113,14 @@ func (awr *AgentWebSocketReceiver) startServer() {
 }
 
 func (awr *AgentWebSocketReceiver) Bind(address string) error {
-	server := &http.Server{Addr: address}
 
-	http.HandleFunc("/", awr.handleRequests)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", awr.handleRequests)
 
+	server := &http.Server{
+		Addr: address,
+		Handler: mux,
+	}
 	awr.server = server
 
 	go awr.startServer()
@@ -146,6 +152,7 @@ func (awr *AgentWebSocketReceiver) RecvRequest() (uint64, uint32, *structure.Req
 	if ok {
 		return request.Id, request.PayloadType, request.Payload, nil
 	} else {
+		awr.recv = make(chan *structure.Request, structure.ChannelLength)
 		return 0, 0, nil, errors.New("Channel Closed")
 	}
 }

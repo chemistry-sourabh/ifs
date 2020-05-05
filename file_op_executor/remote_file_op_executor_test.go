@@ -21,9 +21,10 @@ import (
 	"github.com/chemistry-sourabh/ifs/ifstest"
 	"github.com/chemistry-sourabh/ifs/structure"
 	"github.com/golang/protobuf/proto"
-	zmq "github.com/pebbe/zmq4"
+	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"math/rand"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -32,10 +33,8 @@ import (
 )
 
 func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
@@ -43,7 +42,7 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 	ifstest.CreateTempFile(fileName)
 	fileData := ifstest.WriteDummyData(fileName, 1000)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -61,25 +60,10 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -95,15 +79,14 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -112,27 +95,21 @@ func TestRemoteFileOpExecutor_Fetch(t *testing.T) {
 	ifstest.Compare(t, reply.PayloadType, uint32(structure.DataMessageCode))
 	ifstest.Compare(t, reply.Payload.GetDataMsg().Data, fileData)
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Open(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 
 	ifstest.CreateTempFile(fileName)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -152,25 +129,10 @@ func TestRemoteFileOpExecutor_Open(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -186,15 +148,14 @@ func TestRemoteFileOpExecutor_Open(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -205,25 +166,19 @@ func TestRemoteFileOpExecutor_Open(t *testing.T) {
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Create(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -243,25 +198,10 @@ func TestRemoteFileOpExecutor_Create(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -277,15 +217,14 @@ func TestRemoteFileOpExecutor_Create(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -296,27 +235,21 @@ func TestRemoteFileOpExecutor_Create(t *testing.T) {
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Rename(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 	newFileName := "file2"
 
 	ifstest.CreateTempFile(fileName)
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -335,25 +268,10 @@ func TestRemoteFileOpExecutor_Rename(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -369,15 +287,14 @@ func TestRemoteFileOpExecutor_Rename(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -391,27 +308,21 @@ func TestRemoteFileOpExecutor_Rename(t *testing.T) {
 	_, err = os.Stat(path.Join("/tmp", newFileName))
 	ifstest.Ok(t, err)
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(newFileName)
 }
 
 func TestRemoteFileOpExecutor_Remove(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 
 	ifstest.CreateTempFile(fileName)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -429,25 +340,10 @@ func TestRemoteFileOpExecutor_Remove(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -463,15 +359,14 @@ func TestRemoteFileOpExecutor_Remove(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -482,27 +377,21 @@ func TestRemoteFileOpExecutor_Remove(t *testing.T) {
 	_, err = os.Stat(path.Join("/tmp", fileName))
 	ifstest.Err(t, err)
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 
 }
 
 func TestRemoteFileOpExecutor_Close(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 
 	ifstest.CreateTempFile(fileName)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -522,25 +411,10 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -556,11 +430,13 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	_, err = recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
 	// Send Close Request
 	cm := &structure.CloseMessage{
@@ -584,15 +460,14 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 	data, err = proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err = conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -603,20 +478,14 @@ func TestRemoteFileOpExecutor_Close(t *testing.T) {
 	_, ok := foe.fp.Load(uint64(1))
 	ifstest.Compare(t, ok, false)
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
@@ -624,7 +493,7 @@ func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
 	ifstest.CreateTempFile(fileName)
 	ifstest.WriteDummyData(fileName, 1000)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -643,25 +512,10 @@ func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -677,15 +531,14 @@ func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -698,26 +551,20 @@ func TestRemoteFileOpExecutor_Truncate(t *testing.T) {
 
 	ifstest.Compare(t, stat.Size(), int64(100))
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Flush(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -737,25 +584,10 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -771,11 +603,13 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	_, err = recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
 	// Send Flush Request
 	fm := &structure.FlushMessage{
@@ -799,15 +633,14 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 	data, err = proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err = conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -818,20 +651,14 @@ func TestRemoteFileOpExecutor_Flush(t *testing.T) {
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Read(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
@@ -839,7 +666,7 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 	ifstest.CreateTempFile(fileName)
 	fileData := ifstest.WriteDummyData(fileName, 1000)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -859,25 +686,10 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -893,11 +705,13 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	_, err = recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
 	// Send Read Message
 	rm := &structure.ReadMessage{
@@ -923,15 +737,14 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 	data, err = proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err = conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -943,27 +756,21 @@ func TestRemoteFileOpExecutor_Read(t *testing.T) {
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Write(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
 
 	ifstest.CreateTempFile(fileName)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -983,25 +790,10 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -1017,11 +809,13 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	_, err = recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
+
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
 	// Send Write Message
 
@@ -1052,15 +846,14 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 	data, err = proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err = conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -1072,20 +865,14 @@ func TestRemoteFileOpExecutor_Write(t *testing.T) {
 	val, _ := foe.fp.Load(uint64(1))
 	val.(*os.File).Close()
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_Attr(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 	fileName := "file1"
@@ -1093,7 +880,7 @@ func TestRemoteFileOpExecutor_Attr(t *testing.T) {
 	ifstest.CreateTempFile(fileName)
 	ifstest.WriteDummyData(fileName, 1000)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -1111,25 +898,10 @@ func TestRemoteFileOpExecutor_Attr(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -1145,15 +917,14 @@ func TestRemoteFileOpExecutor_Attr(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -1170,21 +941,15 @@ func TestRemoteFileOpExecutor_Attr(t *testing.T) {
 	ifstest.Compare(t, fi.GetMode(), uint32(stat.Mode()))
 	ifstest.Compare(t, fi.GetMtime(), uint64(stat.ModTime().UnixNano()))
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 
 	ifstest.RemoveTempFile(fileName)
 }
 
 func TestRemoteFileOpExecutor_ReadDir(t *testing.T) {
-	t.SkipNow()
 	ifstest.SetupLogger()
 
-	clientAddress := "127.0.0.1:5000"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(agentPort))
 
@@ -1194,7 +959,7 @@ func TestRemoteFileOpExecutor_ReadDir(t *testing.T) {
 	ifstest.WriteDummyData("test/file1", 1000)
 	ifstest.WriteDummyData("test/file2", 2000)
 
-	atr := communicator.NewAgentZmqReceiver()
+	atr := communicator.NewAgentWebSocketReceiver()
 	foe := NewRemoteFileOpExecutor()
 	foe.Receiver = atr
 
@@ -1212,25 +977,10 @@ func TestRemoteFileOpExecutor_ReadDir(t *testing.T) {
 		},
 	}
 
-	ctx, err := zmq.NewContext()
-	ifstest.Ok(t, err)
+	u := url.URL{Scheme: "ws", Host: agentAddress, Path: "/"}
+	websocket.DefaultDialer.EnableCompression = true
 
-	senderSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = senderSocket.Connect("tcp://" + agentAddress)
-	ifstest.Ok(t, err)
-
-	recvSocket, err := ctx.NewSocket(zmq.ROUTER)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.SetIdentity(clientAddress)
-	ifstest.Ok(t, err)
-
-	err = recvSocket.Connect("tcp://" + communicator.GetOtherAddress(agentAddress))
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	ifstest.Ok(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -1246,15 +996,14 @@ func TestRemoteFileOpExecutor_ReadDir(t *testing.T) {
 	data, err := proto.Marshal(request)
 	ifstest.Ok(t, err)
 
-	_, err = senderSocket.SendMessage([][]byte{[]byte(agentAddress), data})
+	err = conn.WriteMessage(websocket.BinaryMessage, data)
 	ifstest.Ok(t, err)
 
-	frames, err := recvSocket.RecvMessageBytes(0)
+	messageType, data, err := conn.ReadMessage()
 	ifstest.Ok(t, err)
 
-	ifstest.Compare(t, string(frames[0]), communicator.GetOtherAddress(agentAddress))
+	ifstest.Compare(t, messageType, websocket.BinaryMessage)
 
-	data = frames[1]
 	reply := &structure.Reply{}
 	err = proto.Unmarshal(data, reply)
 	ifstest.Ok(t, err)
@@ -1274,12 +1023,8 @@ func TestRemoteFileOpExecutor_ReadDir(t *testing.T) {
 		ifstest.Compare(t, fi[i].IsDir, false)
 	}
 
-	recvSocket.SetLinger(0)
-	recvSocket.Close()
-	senderSocket.SetLinger(0)
-	senderSocket.Close()
+	conn.Close()
 	foe.Stop()
-	ctx.Term()
 
 	ifstest.RemoveTempFile("test/file1")
 	ifstest.RemoveTempFile("test/file2")

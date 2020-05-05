@@ -26,8 +26,6 @@ import (
 )
 
 func TestFsWebSocketSender_Comm(t *testing.T) {
-	t.SkipNow()
-
 	ifstest.SetupLogger()
 	agent1Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
 	agent2Address := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
@@ -40,9 +38,9 @@ func TestFsWebSocketSender_Comm(t *testing.T) {
 	}
 
 	fws := NewFsWebSocketSender()
-	ftr1 := &FsZmqTestReceiver{}
-	ftr2 := &FsZmqTestReceiver{}
-	ftr3 := &FsZmqTestReceiver{}
+	ftr1 := &FsTestWebSocketReceiver{}
+	ftr2 := &FsTestWebSocketReceiver{}
+	ftr3 := &FsTestWebSocketReceiver{}
 
 	ftr1.Bind(agent1Address)
 	ftr2.Bind(agent2Address)

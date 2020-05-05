@@ -31,7 +31,7 @@ func TestAgentWebSocketReceiver_Comm(t *testing.T) {
 	ifstest.SetupLogger()
 	agentAddress := "127.0.0.1:" + strconv.Itoa(int(ifstest.GetOpenPort()))
 
-	awr := NewAgentWebsocketReceiver()
+	awr := NewAgentWebSocketReceiver()
 	err := awr.Bind(agentAddress)
 	ifstest.Ok(t, err)
 

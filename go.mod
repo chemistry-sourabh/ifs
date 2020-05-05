@@ -3,14 +3,12 @@ module github.com/chemistry-sourabh/ifs
 go 1.13
 
 require (
-	bazil.org/fuse v0.0.0-20200430160008-602fc2ff4a00
+	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/OneOfOne/xxhash v1.2.7
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/golang/protobuf v1.4.0
 	github.com/google/go-cmp v0.4.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/pebbe/zmq4 v1.2.0
-	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
 	github.com/urfave/cli v1.22.4
 	go.uber.org/automaxprocs v1.3.0

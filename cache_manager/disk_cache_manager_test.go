@@ -34,7 +34,7 @@ func TestDiskCacheManager_Open(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -67,7 +67,7 @@ func TestDiskCacheManager_Open2(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -103,20 +103,19 @@ func TestDiskCacheManager_Open2(t *testing.T) {
 
 func TestDiskCacheManager_Open3(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	ifstest.CreateTempFile("test")
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -154,7 +153,7 @@ func TestDiskCacheManager_Rename(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -195,20 +194,19 @@ func TestDiskCacheManager_Rename(t *testing.T) {
 
 func TestDiskCacheManager_Rename2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	ifstest.CreateTempFile("test")
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -258,7 +256,7 @@ func TestDiskCacheManager_Create(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	dirPath := &structure.RemotePath{
@@ -283,17 +281,16 @@ func TestDiskCacheManager_Create(t *testing.T) {
 
 func TestDiskCacheManager_Create2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -330,7 +327,7 @@ func TestDiskCacheManager_Remove(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	dirPath := &structure.RemotePath{
@@ -365,17 +362,16 @@ func TestDiskCacheManager_Remove(t *testing.T) {
 
 func TestDiskCacheManager_Remove2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -417,7 +413,7 @@ func TestDiskCacheManager_Close(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -442,19 +438,18 @@ func TestDiskCacheManager_Close(t *testing.T) {
 
 func TestDiskCacheManager_Close2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	ifstest.CreateTempFile("test")
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -487,7 +482,7 @@ func TestDiskCacheManager_Truncate(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -528,20 +523,19 @@ func TestDiskCacheManager_Truncate(t *testing.T) {
 
 func TestDiskCacheManager_Truncate2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	ifstest.CreateTempFile("test")
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -572,7 +566,7 @@ func TestDiskCacheManager_Flush(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -600,17 +594,16 @@ func TestDiskCacheManager_Flush(t *testing.T) {
 
 func TestDiskCacheManager_Flush2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -647,7 +640,7 @@ func TestDiskCacheManager_Read(t *testing.T) {
 	ifstest.CreateTempFile("test")
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -683,7 +676,7 @@ func TestDiskCacheManager_Read2(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -711,20 +704,19 @@ func TestDiskCacheManager_Read2(t *testing.T) {
 
 func TestDiskCacheManager_Read3(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	ifstest.CreateTempFile("test")
 	fileData := ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -761,7 +753,7 @@ func TestDiskCacheManager_Write(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -798,19 +790,18 @@ func TestDiskCacheManager_Write(t *testing.T) {
 
 func TestDiskCacheManager_Write2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	ifstest.CreateTempFile("test")
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -857,7 +848,7 @@ func TestDiskCacheManager_Attr(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -879,20 +870,19 @@ func TestDiskCacheManager_Attr(t *testing.T) {
 
 func TestDiskCacheManager_Attr2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	ifstest.CreateTempFile("test")
 	ifstest.WriteDummyData("test", 1000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 
@@ -927,7 +917,7 @@ func TestDiskCacheManager_ReadDir(t *testing.T) {
 	cachePath := "/tmp/test_cache"
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = &communicator.FsTestSender{}
+	dcm.Sender = &communicator.FsTestWebSocketSender{}
 	dcm.Run(cachePath, 100)
 
 	rp := &structure.RemotePath{
@@ -955,13 +945,12 @@ func TestDiskCacheManager_ReadDir(t *testing.T) {
 
 func TestDiskCacheManager_ReadDir2(t *testing.T) {
 	ifstest.SetupLogger()
-	hostname := "localhost"
 	agentPort := ifstest.GetOpenPort()
 	agentAddress := "localhost:" + strconv.Itoa(int(agentPort))
 	cachePath := "/tmp/test_cache"
 
 	foe := file_op_executor.NewRemoteFileOpExecutor()
-	foe.Receiver = communicator.NewAgentZmqReceiver()
+	foe.Receiver = communicator.NewAgentWebSocketReceiver()
 	go foe.Run(agentAddress)
 
 	os.MkdirAll("/tmp/test2", 0755)
@@ -971,7 +960,7 @@ func TestDiskCacheManager_ReadDir2(t *testing.T) {
 	ifstest.WriteDummyData("test2/file2", 2000)
 
 	dcm := NewDiskCacheManager()
-	dcm.Sender = communicator.NewFsZmqSender(hostname)
+	dcm.Sender = communicator.NewFsWebSocketSender()
 	dcm.Sender.Connect([]string{agentAddress})
 	dcm.Run(cachePath, 100)
 

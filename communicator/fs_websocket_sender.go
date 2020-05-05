@@ -23,8 +23,14 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"net/url"
+	"strings"
 	"sync/atomic"
 )
+
+type ReturnableMessage struct {
+	Msg     *structure.Request
+	RetChan chan *structure.Reply
+}
 
 type FsWebSocketSender struct {
 	msgId uint64
@@ -69,10 +75,14 @@ func (fws *FsWebSocketSender) recvMessages(address string) {
 		messageType, data, err := conn.ReadMessage()
 
 		if err != nil {
+
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				break
+			}
+
 			zap.L().Fatal("Read Message Failed",
 				zap.Error(err),
 			)
-			break
 		}
 
 		if messageType == websocket.BinaryMessage {

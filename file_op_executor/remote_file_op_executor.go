@@ -536,6 +536,17 @@ func (foe *RemoteFileOpExecutor) Process() {
 		id, payloadType, req, err := foe.Receiver.RecvRequest()
 
 		if err != nil {
+
+			if err.Error() == "Channel Closed" {
+				zap.L().Info("Closing all files")
+				foe.fp.Range(func(key, value interface{}) bool {
+					value.(*os.File).Close()
+					foe.fp.Delete(key)
+					return true
+				})
+				continue
+			}
+
 			break
 		}
 

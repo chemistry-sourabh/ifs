@@ -21,10 +21,10 @@ import (
 	"github.com/chemistry-sourabh/ifs/structure"
 )
 
-type FsTestSender struct {
+type FsTestWebSocketSender struct {
 }
 
-func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload *structure.RequestPayload) (*structure.ReplyPayload, error) {
+func (tnm *FsTestWebSocketSender) SendRequest(payloadType uint32, address string, payload *structure.RequestPayload) (*structure.ReplyPayload, error) {
 	switch payloadType {
 
 	case structure.FetchMessageCode:
@@ -132,10 +132,10 @@ func (tnm *FsTestSender) SendRequest(payloadType uint32, address string, payload
 	return nil, nil
 }
 
-func (tnm *FsTestSender) Connect(endpoints []string) {
+func (tnm *FsTestWebSocketSender) Connect(endpoints []string) {
 	// Connected!!
 }
 
-func (tnm *FsTestSender) Disconnect() {
+func (tnm *FsTestWebSocketSender) Disconnect() {
 	// Disconnected!!
 }
